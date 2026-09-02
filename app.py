@@ -23,7 +23,7 @@ def main():
     server = ThreadingHTTPServer(address, DashboardHandler)
     url = f"http://{HOST}:{PORT}/"
 
-    print("Ic Denetim Baskanligi paneli calisiyor.", flush=True)
+    print("Ic Denetim Baskanligi paneli calisiyor..", flush=True)
     print(f"Tarayicida ac: {url}", flush=True)
     print("Durdurmak icin PyCharm terminalinde Ctrl+C kullan.", flush=True)
 
