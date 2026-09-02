@@ -1,6 +1,6 @@
 # Ic Denetim Paneli
 
-Bu klasor PyCharm ile acilabilecek basit bir web arayuzu projesidir.
+Bu klasor PyCharm ile acilabilecek basit bir web arayuzu projesidir..
 
 ## PyCharm'da calistirma
 
