@@ -1,0 +1,1008 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>İç Denetim Başkanlığı Faaliyet Paneli</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="seal" aria-hidden="true">✓</div>
+          <div>
+            <strong>İç Denetim</strong>
+            <strong>Başkanlığı</strong>
+          </div>
+        </div>
+
+        <nav class="nav" aria-label="Ana menü">
+          <a class="active" id="dashboardNav" href="#"><span class="nav-icon">▣</span>2026 Faaliyet Paneli</a>
+          <div class="nav-group">
+            <button class="nav-toggle" id="auditMenuToggle" type="button" aria-expanded="false">
+              <span class="nav-icon">☑</span>
+              <span>Denetimler</span>
+              <span class="chevron" aria-hidden="true">⌄</span>
+            </button>
+            <div class="subnav" id="auditSubnav" aria-label="Denetim türleri" hidden>
+              <button class="subnav-item active" data-type-filter="Tümü" type="button">Tüm Denetimler</button>
+              <button class="subnav-item" data-type-filter="Sistem" type="button">Sistem</button>
+              <button class="subnav-item" data-type-filter="Uygunluk" type="button">Uygunluk</button>
+              <button class="subnav-item" data-type-filter="Sistem/Uygunluk" type="button">Sistem/Uygunluk</button>
+              <button class="subnav-item" data-type-filter="Mali" type="button">Mali</button>
+              <button class="subnav-item" data-type-filter="Performans" type="button">Performans</button>
+              <button class="subnav-item" data-type-filter="Danışmanlık" type="button">Danışmanlık</button>
+              <button class="subnav-item" data-type-filter="İnceleme" type="button">İnceleme</button>
+              <button class="subnav-item" data-type-filter="Yönetim Faaliyetleri" type="button">Yönetim Faaliyetleri</button>
+            </div>
+          </div>
+          <a id="approvalsNav" href="#olurlar-panel"><span class="nav-icon">▤</span>Olurlar</a>
+          <div class="nav-group">
+            <button class="nav-toggle" id="personnelMenuToggle" type="button" aria-expanded="false">
+              <span class="nav-icon">♙</span>
+              <span>Personel</span>
+              <span class="chevron" aria-hidden="true">⌄</span>
+            </button>
+            <div class="subnav" id="personnelSubnav" aria-label="Personel alt modülleri" hidden>
+              <button class="subnav-item active" data-personnel-module="Denetçiler" type="button">Denetçiler</button>
+              <button class="subnav-item" data-personnel-module="İdari Personel" type="button">İdari Personel</button>
+            </div>
+          </div>
+          <div class="nav-group">
+            <button class="nav-toggle" id="leaveMenuToggle" type="button" aria-expanded="false">
+              <span class="nav-icon">◷</span>
+              <span>İzin Takip</span>
+              <span class="chevron" aria-hidden="true">⌄</span>
+            </button>
+            <div class="subnav" id="leaveSubnav" aria-label="İzin takip alt modülleri" hidden>
+              <button class="subnav-item active" data-leave-module="Tümü" type="button">Tüm İzinler</button>
+              <button class="subnav-item" data-leave-module="Personel" type="button">Personel İzinleri</button>
+              <button class="subnav-item" data-leave-module="Yıllık İzin" type="button">Yıllık İzin</button>
+              <button class="subnav-item" data-leave-module="Mazeret İzni" type="button">Mazeret İzni</button>
+              <button class="subnav-item" data-leave-module="Rapor" type="button">Rapor</button>
+              <button class="subnav-item" data-leave-module="Ücretsiz İzin" type="button">Ücretsiz İzin</button>
+              <button class="subnav-item" data-leave-module="Görev İzni" type="button">Görev İzni</button>
+              <button class="subnav-item" data-leave-module="Bakiye" type="button">İzin Bakiyeleri</button>
+            </div>
+          </div>
+          <a href="#"><span class="nav-icon">◇</span>Eğitimler</a>
+          <a id="monitoringNav" href="#izleme-faaliyetleri-panel"><span class="nav-icon">◎</span>İzleme Faaliyetleri</a>
+          <a id="reportsNav" href="#rapor-arsivi-panel"><span class="nav-icon">▢</span>Rapor Arşivi</a>
+          <a href="#"><span class="nav-icon">≡</span>Belgelerim</a>
+          <a href="#"><span class="nav-icon">□</span>Takvim</a>
+          <a href="#"><span class="nav-icon">!</span>Bildirimler <span class="badge-count">8</span></a>
+          <a href="#"><span class="nav-icon">⚙</span>Ayarlar</a>
+        </nav>
+
+        <div class="period">
+          <span>Aktif yıl</span>
+          <strong>2026 Faaliyet Dönemi</strong>
+        </div>
+      </aside>
+
+      <main class="content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="topbarSubtitle">Yıllık denetim, olur, eğitim ve izleme takip sistemi</p>
+            <h1>2026 Faaliyet Paneli</h1>
+          </div>
+
+          <div class="actions">
+            <label class="field">
+              <strong>Yıl Seçimi</strong>
+              <select id="yearSelect">
+                <option>2026</option>
+                <option>2025</option>
+                <option>2024</option>
+              </select>
+            </label>
+            <label class="field search" data-view="dashboard">
+              <span aria-hidden="true">⌕</span>
+              <input id="searchInput" placeholder="Rapor, olur, denetim ara..." />
+            </label>
+            <button class="btn secondary" id="newAuditBtn" data-view="dashboard" type="button">＋ Yeni Denetim</button>
+            <button class="btn primary" data-view="dashboard" type="button">＋ Belge Yükle</button>
+          </div>
+        </header>
+
+        <div class="layout">
+          <section class="main-stack">
+            <div class="stats audit-groups" data-view="dashboard" aria-label="Denetim grupları">
+              <button class="card stat-filter" data-card-filter="Sistem/Uygunluk" type="button">
+                <div class="stat-top">
+                  <div class="stat-icon bg-blue">☑</div>
+                </div>
+                <p>Sistem/Uygunluk</p>
+                <div class="value"><strong data-count>0</strong><span>kayıt</span></div>
+                <div class="note">Sistem, uygunluk ve karma denetimler</div>
+              </button>
+              <button class="card stat-filter" data-card-filter="Performans" type="button">
+                <div class="stat-top">
+                  <div class="stat-icon bg-green">✓</div>
+                </div>
+                <p>Performans</p>
+                <div class="value"><strong data-count>0</strong><span>kayıt</span></div>
+                <div class="note">Performans denetimi faaliyetleri</div>
+              </button>
+              <button class="card stat-filter" data-card-filter="Danışmanlık" type="button">
+                <div class="stat-top">
+                  <div class="stat-icon bg-amber">⌛</div>
+                </div>
+                <p>Danışmanlık</p>
+                <div class="value"><strong data-count>0</strong><span>kayıt</span></div>
+                <div class="note">Danışmanlık programı kayıtları</div>
+              </button>
+              <button class="card stat-filter" data-card-filter="BT" type="button">
+                <div class="stat-top">
+                  <div class="stat-icon bg-cyan">▤</div>
+                </div>
+                <p>BT</p>
+                <div class="value"><strong data-count>0</strong><span>kayıt</span></div>
+                <div class="note">Bilgi teknolojileri denetimleri</div>
+              </button>
+              <button class="card stat-filter" data-card-filter="İnceleme" type="button">
+                <div class="stat-top">
+                  <div class="stat-icon bg-blue">⌕</div>
+                </div>
+                <p>İnceleme</p>
+                <div class="value"><strong data-count>0</strong><span>kayıt</span></div>
+                <div class="note">İnceleme faaliyetleri</div>
+              </button>
+              <button class="card stat-filter" data-card-filter="Yönetim Faaliyetleri" type="button">
+                <div class="stat-top">
+                  <div class="stat-icon bg-green">◎</div>
+                </div>
+                <p>Yönetim Faaliyetleri</p>
+                <div class="value"><strong data-count>0</strong><span>kayıt</span></div>
+                <div class="note">Raporlama ve program hazırlıkları</div>
+              </button>
+            </div>
+
+            <section class="panel" id="olurlar-panel" data-view="approvals" hidden>
+              <div class="panel-head">
+                <div>
+                  <h2>Olurlar</h2>
+                  <p class="eyebrow" id="approvalSummary">Yıl bazında 1'den başlayan olur arşivi</p>
+                </div>
+                <div class="panel-actions">
+                  <span class="panel-count"><strong id="approvalVisibleCount">0</strong> kayıt</span>
+                  <button class="btn primary" id="newApprovalBtn" type="button">＋ Olur Yükle</button>
+                </div>
+              </div>
+
+              <div class="module-filters" aria-label="Olur filtreleri">
+                <label>
+                  Yıl
+                  <select id="approvalYearFilter">
+                    <option value="Tümü">Tümü</option>
+                    <option value="2026" selected>2026</option>
+                    <option value="2025">2025</option>
+                    <option value="2024">2024</option>
+                  </select>
+                </label>
+                <label>
+                  Olur No
+                  <input id="approvalNoFilter" inputmode="numeric" placeholder="Örn. 12" />
+                </label>
+                <label>
+                  Durum
+                  <select id="approvalStatusFilter">
+                    <option value="Tümü">Tümü</option>
+                    <option>Yüklendi</option>
+                    <option>Beklemede</option>
+                    <option>İptal Edildi</option>
+                  </select>
+                </label>
+                <label class="wide-filter">
+                  Arama
+                  <input id="approvalSearchInput" placeholder="Konu, ilgili denetim veya dosya adı ara..." />
+                </label>
+                <button class="btn secondary" id="clearApprovalFilters" type="button">Temizle</button>
+              </div>
+
+              <div class="table-wrap">
+                <table class="approval-table">
+                  <thead>
+                    <tr>
+                      <th>Olur No</th>
+                      <th>Yıl</th>
+                      <th>Tarih</th>
+                      <th>Konu</th>
+                      <th>İlgili Kayıt</th>
+                      <th>Durum</th>
+                      <th>Dosya</th>
+                      <th>İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody id="approvalRows"></tbody>
+                </table>
+              </div>
+              <div class="empty-state" id="approvalEmptyState" hidden>
+                <strong>Olur kaydı bulunamadı</strong>
+                <span>Filtreleri değiştirerek aramayı genişletebilirsin.</span>
+              </div>
+            </section>
+
+            <section class="panel" id="izin-takip-panel" data-view="leave" hidden>
+              <div class="panel-head">
+                <div>
+                  <h2>İzin Takip</h2>
+                  <p class="eyebrow" id="leaveSummary">Personel izin kayıtları ve kalan gün takibi</p>
+                </div>
+                <div class="panel-actions">
+                  <span class="panel-count"><strong id="leaveVisibleCount">0</strong> kayıt</span>
+                  <button class="btn secondary" id="newLeaveRightBtn" type="button">＋ İzin Hakkı Tanımla</button>
+                  <button class="btn primary" id="newLeaveBtn" type="button">＋ İzin Ekle</button>
+                </div>
+              </div>
+
+              <div class="stats leave-stats" aria-label="İzin özetleri">
+                <article class="card">
+                  <div class="stat-top">
+                    <div class="stat-icon bg-blue">◷</div>
+                  </div>
+                  <p>Toplam İzin</p>
+                  <div class="value"><strong id="leaveTotalDays">0</strong><span>gün</span></div>
+                  <div class="note">Filtrelenen kayıtların toplamı</div>
+                </article>
+                <article class="card">
+                  <div class="stat-top">
+                    <div class="stat-icon bg-green">✓</div>
+                  </div>
+                  <p>Onaylanan</p>
+                  <div class="value"><strong id="leaveApprovedCount">0</strong><span>kayıt</span></div>
+                  <div class="note">Tamamlanan izinler</div>
+                </article>
+                <article class="card">
+                  <div class="stat-top">
+                    <div class="stat-icon bg-amber">⌛</div>
+                  </div>
+                  <p>Bekleyen</p>
+                  <div class="value"><strong id="leavePendingCount">0</strong><span>kayıt</span></div>
+                  <div class="note">Onay sürecindeki izinler</div>
+                </article>
+              </div>
+
+              <section class="sub-panel" id="leaveRightsPanel">
+                <div class="sub-panel-head">
+                  <div>
+                    <h3>Personel İzin Hakları</h3>
+                    <p class="eyebrow">Yıl bazında tanımlanan hak, kullanılan gün ve kalan bakiye</p>
+                  </div>
+                  <span class="panel-count"><strong id="leaveRightCount">0</strong> personel</span>
+                </div>
+                <div class="table-wrap">
+                  <table class="leave-rights-table">
+                    <thead>
+                      <tr>
+                        <th>Personel</th>
+                        <th>Birim</th>
+                        <th>Yıl</th>
+                        <th>Hak</th>
+                        <th>Kullanılan</th>
+                        <th>Kalan</th>
+                        <th>Not</th>
+                        <th>İşlem</th>
+                      </tr>
+                    </thead>
+                    <tbody id="leaveRightRows"></tbody>
+                  </table>
+                </div>
+              </section>
+
+              <div class="module-filters leave-filters" aria-label="İzin filtreleri">
+                <label>
+                  Yıl
+                  <select id="leaveYearFilter">
+                    <option value="Tümü">Tümü</option>
+                    <option value="2026" selected>2026</option>
+                    <option value="2025">2025</option>
+                    <option value="2024">2024</option>
+                  </select>
+                </label>
+                <label>
+                  İzin Türü
+                  <select id="leaveTypeFilter">
+                    <option value="Tümü">Tümü</option>
+                    <option>Yıllık İzin</option>
+                    <option>Mazeret İzni</option>
+                    <option>Rapor</option>
+                    <option>Ücretsiz İzin</option>
+                    <option>Görev İzni</option>
+                  </select>
+                </label>
+                <label>
+                  Durum
+                  <select id="leaveStatusFilter">
+                    <option value="Tümü">Tümü</option>
+                    <option>Onaylandı</option>
+                    <option>Beklemede</option>
+                    <option>İptal Edildi</option>
+                  </select>
+                </label>
+                <label class="wide-filter">
+                  Arama
+                  <input id="leaveSearchInput" placeholder="Personel, birim veya açıklama ara..." />
+                </label>
+                <button class="btn secondary" id="clearLeaveFilters" type="button">Temizle</button>
+              </div>
+
+              <div class="table-wrap">
+                <table class="leave-table">
+                  <thead>
+                    <tr>
+                      <th>Personel</th>
+                      <th>Birim</th>
+                      <th>İzin Türü</th>
+                      <th>Başlangıç</th>
+                      <th>Bitiş</th>
+                      <th>Gün</th>
+                      <th>Kalan</th>
+                      <th>Durum</th>
+                      <th>Açıklama</th>
+                      <th>İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody id="leaveRows"></tbody>
+                </table>
+              </div>
+              <div class="empty-state" id="leaveEmptyState" hidden>
+                <strong>İzin kaydı bulunamadı</strong>
+                <span>Filtreleri değiştirerek aramayı genişletebilirsin.</span>
+              </div>
+            </section>
+
+            <section class="panel" id="personel-panel" data-view="personnel" hidden>
+              <div class="panel-head">
+                <div>
+                  <h2 id="personnelTitle">Denetçiler</h2>
+                  <p class="eyebrow" id="personnelSummary">İç denetçi kayıtları ve personel bilgileri</p>
+                </div>
+                <span class="panel-count"><strong id="personnelCount">0</strong> personel</span>
+              </div>
+              <div class="table-wrap">
+                <table class="personnel-table">
+                  <thead>
+                    <tr>
+                      <th>Sıra No</th>
+                      <th>Adı Soyadı</th>
+                      <th>Unvanı</th>
+                      <th>Dahili No</th>
+                      <th>İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody id="personnelRows"></tbody>
+                </table>
+              </div>
+              <div class="empty-state compact" id="personnelEmptyState" hidden>
+                <strong>Kayıt bulunamadı</strong>
+                <span>Bu personel başlığı için henüz kayıt eklenmedi.</span>
+              </div>
+            </section>
+
+            <section class="panel personnel-profile-panel" id="personel-profil-panel" data-view="personnelProfile" hidden>
+              <div class="profile-toolbar">
+                <button class="btn secondary" id="backToPersonnelList" type="button">← Personel Listesine Dön</button>
+                <span class="status done" id="profilePersonnelStatus">Aktif</span>
+              </div>
+
+              <div class="personnel-detail-head profile-head">
+                <div class="personnel-identity">
+                  <div class="personnel-avatar" id="selectedPersonnelInitials">--</div>
+                  <div>
+                    <p class="eyebrow" id="selectedPersonnelGroup">Personel profili</p>
+                    <h2 id="selectedPersonnelName">Personel seç</h2>
+                    <div class="personnel-meta-line">
+                      <span id="selectedPersonnelMeta">Unvan ve dahili bilgisi</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="personnel-actions">
+                  <button class="btn secondary small auditor-only" type="button">Eğitim Geçmişi</button>
+                  <button class="btn secondary small auditor-only" type="button">Sertifika Bilgisi</button>
+                  <button class="btn secondary small" type="button">Görev Geçmişi</button>
+                </div>
+              </div>
+
+              <div class="personnel-kpis auditor-only" id="auditorProfileKpis">
+                <div class="mini-stat">
+                  <span>Aktif Denetim</span>
+                  <strong id="selectedPersonnelAuditCount">0</strong>
+                </div>
+                <div class="mini-stat">
+                  <span>Aktif İzleme</span>
+                  <strong id="selectedPersonnelMonitoringCount">0</strong>
+                </div>
+                <div class="mini-stat">
+                  <span>Aldığı Eğitim</span>
+                  <strong id="selectedPersonnelTrainingTakenCount">0</strong>
+                </div>
+                <div class="mini-stat">
+                  <span>Verdiği Eğitim</span>
+                  <strong id="selectedPersonnelTrainingGivenCount">0</strong>
+                </div>
+              </div>
+
+              <div class="profile-grid">
+                <form class="profile-card profile-form" id="personnelProfileForm">
+                  <div class="profile-section-head">
+                    <h3>Personel Bilgileri</h3>
+                    <button class="btn primary small" type="submit">Kaydet</button>
+                  </div>
+                  <div class="profile-form-grid">
+                    <label>
+                      Adı Soyadı
+                      <input name="name" required />
+                    </label>
+                    <label id="personnelTitleField">
+                      <span id="personnelTitleLabel">Unvanı</span>
+                      <input name="title" required />
+                    </label>
+                    <label>
+                      Dahili No
+                      <input name="extension" required />
+                    </label>
+                    <label id="personnelCertificateField">
+                      Sertifika Derecesi
+                      <input name="certificate" placeholder="Örn. A-1, A-2" />
+                    </label>
+                    <label id="personnelExpertiseField">
+                      <span id="personnelExpertiseLabel">Uzmanlık / Görev Alanı</span>
+                      <input name="expertise" placeholder="Örn. BT, mali, performans..." />
+                    </label>
+                    <label>
+                      Durum
+                      <select name="status">
+                        <option>Aktif</option>
+                        <option>Pasif</option>
+                        <option>Geçici Görevli</option>
+                      </select>
+                    </label>
+                  </div>
+                </form>
+
+                <div class="profile-card auditor-only" id="profileAuditsCard">
+                  <div class="profile-section-head">
+                    <h3>Aktif Denetimler</h3>
+                  </div>
+                  <div class="personnel-linked-list" id="selectedPersonnelAudits"></div>
+                </div>
+
+                <div class="profile-card auditor-only" id="profileMonitoringsCard">
+                  <div class="profile-section-head">
+                    <h3>Aktif İzlemeler</h3>
+                  </div>
+                  <div class="personnel-linked-list" id="selectedPersonnelMonitorings"></div>
+                </div>
+
+                <div class="profile-card" id="profileEducationCard">
+                  <div class="profile-section-head">
+                    <h3 id="profileEducationTitle">Eğitim ve Sertifika</h3>
+                  </div>
+                  <div class="personnel-linked-list" id="selectedPersonnelEducation"></div>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel report-archive-panel" id="rapor-arsivi-panel" data-view="reports" hidden>
+              <div class="panel-head">
+                <div>
+                  <h2>Rapor Arşivi</h2>
+                  <p class="eyebrow">Seçili yılın tüm denetimlerine bağlı belge arşivi</p>
+                </div>
+                <span class="panel-count"><strong id="reportArchiveCount">0</strong> denetim</span>
+              </div>
+              <div class="panel-body">
+                <div class="report-audit-list" id="reportAuditRows"></div>
+                <div class="empty-state compact" id="reportArchiveEmpty" hidden>
+                  <strong>Denetim bulunamadı</strong>
+                  <span>Seçili yıla ait denetimler burada otomatik görünür.</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel" id="izleme-faaliyetleri-panel" data-view="monitoring" hidden>
+              <div class="panel-head">
+                <div>
+                  <h2>İzleme Faaliyetleri</h2>
+                  <p class="eyebrow">İzleme sürecine alınan denetimler</p>
+                </div>
+                <span class="panel-count"><strong id="monitoringCount">0</strong> denetim</span>
+              </div>
+              <div class="monitoring-report">
+                <div class="monitoring-stats">
+                  <div class="mini-stat">
+                    <span>İzlemeye Alınan Denetim</span>
+                    <strong id="monitoringTotalAudits">0</strong>
+                  </div>
+                  <div class="mini-stat">
+                    <span>İzlemesi Tamamlanan Denetim</span>
+                    <strong id="monitoringCompletedAudits">0</strong>
+                  </div>
+                  <div class="mini-stat">
+                    <span>Toplam Bulgu</span>
+                    <strong id="monitoringTotalFindings">0</strong>
+                  </div>
+                  <div class="mini-stat">
+                    <span>Tamamlanan Bulgu</span>
+                    <strong id="monitoringCompletedFindings">0</strong>
+                  </div>
+                  <div class="mini-stat">
+                    <span>Tüm Yıllar Açık Bulgu</span>
+                    <strong id="monitoringOpenFindings">0</strong>
+                  </div>
+                </div>
+
+                <div class="monitoring-charts">
+                  <div class="chart-panel">
+                    <div class="chart-head">
+                      <strong>Bulgu Durumu</strong>
+                      <span id="findingChartSummary">0 tamamlandı, 0 devam ediyor</span>
+                    </div>
+                    <div class="donut-chart" id="findingDonutChart" style="--done: 0%">
+                      <span id="findingDonutValue">0%</span>
+                    </div>
+                  </div>
+                  <div class="chart-panel">
+                    <div class="chart-head">
+                      <strong>Yıllara Göre Devam Eden Bulgular</strong>
+                      <span>Eski yıllardan devredenler dahil</span>
+                    </div>
+                    <div class="year-bars" id="monitoringYearBars"></div>
+                  </div>
+                </div>
+
+                <div class="module-filters monitoring-filters">
+                  <label>
+                    Kapsam
+                    <select id="monitoringScopeFilter">
+                      <option value="year">Seçili yıl</option>
+                      <option value="allOpen">Tüm yıllar - açık izlemeler</option>
+                      <option value="all">Tüm yıllar - tüm izlemeler</option>
+                    </select>
+                  </label>
+                  <label>
+                    Durum
+                    <select id="monitoringStatusFilter">
+                      <option value="Tümü">Tümü</option>
+                      <option value="open">İzlemesi tamamlanmayan</option>
+                      <option value="completed">İzlemesi tamamlanan</option>
+                    </select>
+                  </label>
+                  <label class="wide-filter">
+                    Arama
+                    <input id="monitoringSearchInput" placeholder="Birim, denetim adı veya sorumlu denetçi ara..." />
+                  </label>
+                  <button class="btn secondary" id="clearMonitoringFilters" type="button">Temizle</button>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="monitoring-table">
+                  <thead>
+                    <tr>
+                      <th>Denetim Yılı</th>
+                      <th>İlgili Birim</th>
+                      <th>Denetim Adı</th>
+                      <th>İzlemeden Sorumlu Denetçi</th>
+                      <th>Bulgu Sayısı</th>
+                      <th>İzlemesi Devam Eden Bulgu Sayısı</th>
+                      <th>İzleme Son Tarih</th>
+                      <th>İzleme Durumu</th>
+                      <th>İzleme Sonuçları Tablosu</th>
+                      <th>İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody id="monitoringRows"></tbody>
+                </table>
+              </div>
+              <div class="empty-state" id="monitoringEmptyState" hidden>
+                <strong>İzleme sürecinde denetim yok</strong>
+                <span>Denetim işlem menüsünden İzleme Sürecine Al seçilince burada görünür.</span>
+              </div>
+            </section>
+
+            <section class="panel" id="denetim-listesi" data-view="dashboard">
+              <div class="panel-head">
+                <div>
+                  <h2 id="auditListTitle">Tüm Denetimler</h2>
+                  <p class="eyebrow" id="auditListSummary">Seçilen yıla ait planlanan ve yürütülen denetimler</p>
+                </div>
+                <button class="btn secondary" type="button">⌁ Filtrele</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>No</th>
+                      <th>Tarih Aralığı</th>
+                      <th>İlgili Birim</th>
+                      <th>Denetim Alanının Kapsamı</th>
+                      <th>Türü</th>
+                      <th>Denetim Ekibi</th>
+                      <th>Gözetim Sorumlusu</th>
+                      <th>Durum</th>
+                      <th>İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody id="auditRows"></tbody>
+                </table>
+              </div>
+              <div class="empty-state" id="emptyState" hidden>
+                <strong>Kayıt bulunamadı</strong>
+                <span>Bu başlık altında programa eklenmiş denetim yok.</span>
+              </div>
+            </section>
+
+            <section class="panel deleted-audits-panel" id="silinen-kayitlar" data-view="dashboard" hidden>
+              <div class="panel-head">
+                <div>
+                  <h2>Silinen Kayıtlar</h2>
+                  <p class="eyebrow">Yanlışlıkla silinen denetimleri buradan geri alabilirsin</p>
+                </div>
+                <span class="panel-count"><strong id="deletedAuditCount">0</strong> kayıt</span>
+              </div>
+              <div class="table-wrap compact-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>No</th>
+                      <th>İlgili Birim</th>
+                      <th>Denetim Alanının Kapsamı</th>
+                      <th>Silinme Tarihi</th>
+                      <th>İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody id="deletedAuditRows"></tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+
+          <aside class="side-stack" data-view="dashboard">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>İzleme Özeti</h2>
+              </div>
+              <div class="panel-body">
+                <p class="eyebrow">9 bulgu izleme sürecinde</p>
+                <div class="progress-row">
+                  <div class="progress-label"><span>Kapandı</span><strong>44%</strong></div>
+                  <div class="bar"><span class="bg-green" style="width:44%"></span></div>
+                </div>
+                <div class="progress-row">
+                  <div class="progress-label"><span>Devam eden</span><strong>39%</strong></div>
+                  <div class="bar"><span class="bg-cyan" style="width:39%"></span></div>
+                </div>
+                <div class="progress-row">
+                  <div class="progress-label"><span>Geciken</span><strong>17%</strong></div>
+                  <div class="bar"><span class="bg-amber" style="width:17%"></span></div>
+                </div>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+    <dialog class="modal" id="auditModal">
+      <form class="modal-card" id="auditForm" method="dialog">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow" id="auditModalMode">Yeni kayıt</p>
+            <h2 id="auditModalTitle">Denetim Ekle</h2>
+          </div>
+          <button class="icon-btn" id="closeAuditModal" type="button" aria-label="Kapat">×</button>
+        </div>
+
+        <div class="form-grid">
+          <label>
+            İlgili Birim
+            <input name="unit" required placeholder="Örn. Eğitim ve Yayın Dairesi Başkanlığı" />
+          </label>
+          <label>
+            Denetim Türü
+            <select name="type">
+              <option>Sistem</option>
+              <option>Uygunluk</option>
+              <option>Sistem/Uygunluk</option>
+              <option>Bilgi Teknolojileri</option>
+              <option>Mali</option>
+              <option>Performans</option>
+              <option>Danışmanlık</option>
+              <option>İnceleme</option>
+              <option>Yönetim Faaliyetleri</option>
+            </select>
+          </label>
+          <label>
+            Denetim Alanının Kapsamı
+            <input name="scope" required placeholder="Örn. İç Kontrol Sistemi" />
+          </label>
+          <label>
+            Denetim Ekibi
+            <textarea name="team" required placeholder="Ad Soyad&#10;Ad Soyad"></textarea>
+          </label>
+          <label>
+            Başlangıç
+            <input name="start" type="date" required />
+          </label>
+          <label>
+            Bitiş
+            <input name="end" type="date" required />
+          </label>
+          <label>
+            Durum
+            <select name="status">
+              <option>Planlandı</option>
+              <option>Beklemede</option>
+              <option>Devam Ediyor</option>
+              <option>Tamamlandı</option>
+              <option>İptal Edildi</option>
+            </select>
+          </label>
+          <label>
+            Denetim Gözetim Sorumlusu
+            <input name="supervisor" required placeholder="Ad Soyad" />
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn secondary" id="cancelAudit" type="button">Vazgeç</button>
+          <button class="btn primary" id="saveAuditBtn" type="submit">Kaydet</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="monitoringModal">
+      <form class="modal-card" id="monitoringForm" method="dialog">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow">İzleme kaydı</p>
+            <h2>İzleme Bilgilerini Düzenle</h2>
+          </div>
+          <button class="icon-btn" id="closeMonitoringModal" type="button" aria-label="Kapat">×</button>
+        </div>
+
+        <div class="form-grid">
+          <label>
+            Denetim Yılı
+            <input name="year" readonly />
+          </label>
+          <label>
+            İlgili Birim
+            <input name="unit" readonly />
+          </label>
+          <label>
+            Denetim Adı
+            <input name="monitoringAuditName" required />
+          </label>
+          <label>
+            İzlemeden Sorumlu Denetçi
+            <input name="monitoringOfficer" required />
+          </label>
+          <label>
+            Bulgu Sayısı
+            <input name="findingCount" type="number" min="0" step="1" required />
+          </label>
+          <label>
+            İzlemesi Devam Eden Bulgu Sayısı
+            <input name="openFindingCount" type="number" min="0" step="1" required />
+          </label>
+          <label>
+            İzleme Son Tarih
+            <input name="monitoringDueDate" type="date" required />
+          </label>
+          <div class="form-field">
+            <span>İzleme Sonuçları Tablosu</span>
+            <label class="file-picker">
+              <input class="file-picker-input" name="monitoringResultDocument" type="file" multiple />
+              <span class="btn small secondary">Yeni Belge Seç</span>
+              <strong id="monitoringSelectedFileName">Dosya seçilmedi</strong>
+            </label>
+          </div>
+          <div class="form-note" id="monitoringDocumentInfo"></div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn secondary" id="cancelMonitoring" type="button">Vazgeç</button>
+          <button class="btn primary" type="submit">Kaydet</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal small-modal" id="documentChoiceModal">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow">Belge indir</p>
+            <h2>İndirilecek Belgeyi Seç</h2>
+          </div>
+          <button class="icon-btn" id="closeDocumentChoiceModal" type="button" aria-label="Kapat">×</button>
+        </div>
+        <div class="choice-list" id="documentChoiceList"></div>
+      </div>
+    </dialog>
+
+    <dialog class="modal" id="approvalModal">
+      <form class="modal-card" id="approvalForm" method="dialog">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow">Yeni olur kaydı</p>
+            <h2>Olur Yükle</h2>
+          </div>
+          <button class="icon-btn" id="closeApprovalModal" type="button" aria-label="Kapat">×</button>
+        </div>
+
+        <div class="form-grid">
+          <label>
+            Yıl
+            <select name="year" required>
+              <option>2026</option>
+              <option>2025</option>
+              <option>2024</option>
+            </select>
+          </label>
+          <label>
+            Olur No
+            <input name="no" readonly />
+          </label>
+          <label>
+            Olur Tarihi
+            <input name="date" type="date" required />
+          </label>
+          <label>
+            Durum
+            <select name="status">
+              <option>Yüklendi</option>
+              <option>Beklemede</option>
+              <option>İptal Edildi</option>
+            </select>
+          </label>
+          <label>
+            Konu
+            <input name="subject" required placeholder="Örn. 2026 yılı denetim programı oluru" />
+          </label>
+          <label>
+            İlgili Denetim / Faaliyet
+            <input name="related" placeholder="Örn. EYDB denetimi, danışmanlık, eğitim..." />
+          </label>
+          <label>
+            Olur Dosyası
+            <input name="file" type="file" />
+          </label>
+          <label>
+            Bulut Linki
+            <input name="cloudUrl" type="url" placeholder="https://bulut.tarimorman.gov.tr/..." />
+          </label>
+          <label>
+            Açıklama
+            <textarea name="note" placeholder="Gerekirse kısa not"></textarea>
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn secondary" id="cancelApproval" type="button">Vazgeç</button>
+          <button class="btn primary" type="submit">Kaydet</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="leaveModal">
+      <form class="modal-card" id="leaveForm" method="dialog">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow" id="leaveModalMode">Yeni izin kaydı</p>
+            <h2 id="leaveModalTitle">İzin Ekle</h2>
+          </div>
+          <button class="icon-btn" id="closeLeaveModal" type="button" aria-label="Kapat">×</button>
+        </div>
+
+        <div class="form-grid">
+          <label>
+            Personel
+            <input name="person" required placeholder="Ad Soyad" />
+          </label>
+          <label>
+            Birim
+            <input name="unit" required placeholder="Örn. İç Denetim Başkanlığı" />
+          </label>
+          <label>
+            İzin Türü
+            <select name="type">
+              <option>Yıllık İzin</option>
+              <option>Mazeret İzni</option>
+              <option>Rapor</option>
+              <option>Ücretsiz İzin</option>
+              <option>Görev İzni</option>
+            </select>
+          </label>
+          <label>
+            Durum
+            <select name="status">
+              <option>Onaylandı</option>
+              <option>Beklemede</option>
+              <option>İptal Edildi</option>
+            </select>
+          </label>
+          <label>
+            Başlangıç
+            <input name="start" type="date" required />
+          </label>
+          <label>
+            Bitiş
+            <input name="end" type="date" required />
+          </label>
+          <label>
+            İzin Günü
+            <input name="days" type="number" min="0.5" step="0.5" required placeholder="Örn. 5" />
+          </label>
+          <label>
+            Kalan Yıllık İzin
+            <input name="remaining" type="number" min="0" step="0.5" placeholder="Örn. 18" />
+          </label>
+          <label>
+            Açıklama
+            <textarea name="note" placeholder="Gerekirse kısa açıklama"></textarea>
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn secondary" id="cancelLeave" type="button">Vazgeç</button>
+          <button class="btn primary" id="saveLeaveBtn" type="submit">Kaydet</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="leaveRightModal">
+      <form class="modal-card" id="leaveRightForm" method="dialog">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow" id="leaveRightModalMode">Yeni hak tanımı</p>
+            <h2 id="leaveRightModalTitle">İzin Hakkı Tanımla</h2>
+          </div>
+          <button class="icon-btn" id="closeLeaveRightModal" type="button" aria-label="Kapat">×</button>
+        </div>
+
+        <div class="form-grid">
+          <label>
+            Personel
+            <input name="person" required placeholder="Ad Soyad" />
+          </label>
+          <label>
+            Birim
+            <input name="unit" required placeholder="Örn. İç Denetim Başkanlığı" />
+          </label>
+          <label>
+            Yıl
+            <select name="year" required>
+              <option>2026</option>
+              <option>2025</option>
+              <option>2024</option>
+            </select>
+          </label>
+          <label>
+            Yıllık İzin Hakkı
+            <input name="entitled" type="number" min="0" step="0.5" required placeholder="Örn. 30" />
+          </label>
+          <label>
+            Devreden İzin
+            <input name="carried" type="number" min="0" step="0.5" placeholder="Örn. 5" />
+          </label>
+          <label>
+            Not
+            <textarea name="note" placeholder="Gerekirse kısa açıklama"></textarea>
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn secondary" id="cancelLeaveRight" type="button">Vazgeç</button>
+          <button class="btn primary" id="saveLeaveRightBtn" type="submit">Kaydet</button>
+        </div>
+      </form>
+    </dialog>
+    <script src="script.js"></script>
+  </body>
+</html>
+
