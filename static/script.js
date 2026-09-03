@@ -3,6 +3,7 @@ const APPROVAL_DATA_VERSION = "2026-08-31-approvals-v1";
 const LEAVE_DATA_VERSION = "2026-08-31-leave-v1";
 const LEAVE_RIGHT_DATA_VERSION = "2026-08-31-leave-right-v1";
 const REPORT_DOCUMENT_DATA_VERSION = "2026-08-31-report-documents-v1";
+const API_STATE_URL = "/api/state";
 
 const defaultAudits = [
   {
@@ -1231,6 +1232,7 @@ const auditRows = document.querySelector("#auditRows");
 const auditModal = document.querySelector("#auditModal");
 const auditForm = document.querySelector("#auditForm");
 const newAuditBtn = document.querySelector("#newAuditBtn");
+const migrateLocalDataBtn = document.querySelector("#migrateLocalDataBtn");
 const closeAuditModal = document.querySelector("#closeAuditModal");
 const cancelAudit = document.querySelector("#cancelAudit");
 const auditListTitle = document.querySelector("#auditListTitle");
@@ -1375,6 +1377,19 @@ let editingLeaveRightId = null;
 let editingMonitoringAudit = null;
 let selectedReportAuditKey = "";
 let toastTimer = null;
+let sharedStateLoaded = false;
+let sharedStateSaveTimer = null;
+let deletedRecords = [];
+let lastSharedRecordJson = {};
+
+const sharedCollections = [
+  "audits",
+  "approvals",
+  "leaves",
+  "leaveRights",
+  "reportDocuments",
+  "personnelRecords",
+];
 
 const typeGroups = {
   "Sistem/Uygunluk": ["Sistem", "Uygunluk", "Sistem/Uygunluk"],
@@ -1446,6 +1461,7 @@ function saveAudits() {
     "ic-denetim-audits",
     JSON.stringify({ version: DATA_VERSION, audits }),
   );
+  scheduleSharedStateSave();
 }
 
 function loadApprovals() {
@@ -1476,6 +1492,7 @@ function saveApprovals() {
     "ic-denetim-approvals",
     JSON.stringify({ version: APPROVAL_DATA_VERSION, approvals }),
   );
+  scheduleSharedStateSave();
 }
 
 function loadLeaves() {
@@ -1503,6 +1520,7 @@ function saveLeaves() {
     "ic-denetim-leaves",
     JSON.stringify({ version: LEAVE_DATA_VERSION, leaves }),
   );
+  scheduleSharedStateSave();
 }
 
 function loadLeaveRights() {
@@ -1533,6 +1551,7 @@ function saveLeaveRights() {
     "ic-denetim-leave-rights",
     JSON.stringify({ version: LEAVE_RIGHT_DATA_VERSION, leaveRights }),
   );
+  scheduleSharedStateSave();
 }
 
 function loadReportDocuments() {
@@ -1566,6 +1585,7 @@ function saveReportDocuments() {
 
   try {
     localStorage.setItem("ic-denetim-report-documents", JSON.stringify(payload));
+    scheduleSharedStateSave();
     return true;
   } catch {
     const metadataOnlyDocuments = reportDocuments.map((document) => ({
@@ -1589,6 +1609,7 @@ function saveReportDocuments() {
     alert(
       "Belge kaydı ekranda gösterildi; ancak dosya büyük olduğu için kalıcı indirme sonraki aşamada backend dosya klasörüyle yapılmalı.",
     );
+    scheduleSharedStateSave();
     return false;
   }
 }
@@ -1633,6 +1654,334 @@ function savePersonnelRecords() {
     "ic-denetim-personnel",
     JSON.stringify({ personnelRecords }),
   );
+  scheduleSharedStateSave();
+}
+
+function buildSharedState() {
+  return {
+    version: "2026-09-03-sqlite-state-v1",
+    audits,
+    approvals,
+    leaves,
+    leaveRights,
+    reportDocuments,
+    personnelRecords,
+    deletedRecords,
+  };
+}
+
+function getSharedCollectionRecords(collection) {
+  if (collection === "audits") {
+    return audits;
+  }
+
+  if (collection === "approvals") {
+    return approvals;
+  }
+
+  if (collection === "leaves") {
+    return leaves;
+  }
+
+  if (collection === "leaveRights") {
+    return leaveRights;
+  }
+
+  if (collection === "reportDocuments") {
+    return reportDocuments;
+  }
+
+  if (collection === "personnelRecords") {
+    return personnelRecords;
+  }
+
+  return [];
+}
+
+function recordKeyForCollection(collection, record) {
+  if (collection === "audits" || collection === "approvals") {
+    return `${record.year}-${record.no}`;
+  }
+
+  if (collection === "leaves" || collection === "leaveRights") {
+    return String(record.id);
+  }
+
+  if (collection === "reportDocuments") {
+    return record.id || `${record.auditKey}-${record.documentType}-${record.isExtra}`;
+  }
+
+  if (collection === "personnelRecords") {
+    return personnelKey(record);
+  }
+
+  return "";
+}
+
+function markRecordDeleted(collection, record) {
+  const key = recordKeyForCollection(collection, record);
+
+  if (!key) {
+    return;
+  }
+
+  deletedRecords.push({ collection, key });
+}
+
+function buildSharedSnapshotFromState(state) {
+  const snapshot = {};
+
+  sharedCollections.forEach((collection) => {
+    snapshot[collection] = {};
+    const records = Array.isArray(state[collection]) ? state[collection] : [];
+
+    records.forEach((record) => {
+      const key = recordKeyForCollection(collection, record);
+
+      if (key) {
+        snapshot[collection][key] = JSON.stringify(record);
+      }
+    });
+  });
+
+  return snapshot;
+}
+
+function captureCurrentSharedSnapshot() {
+  lastSharedRecordJson = buildSharedSnapshotFromState(buildSharedState());
+}
+
+function buildChangedSharedState() {
+  const payload = {
+    version: "2026-09-03-sqlite-delta-v1",
+    deletedRecords,
+  };
+
+  sharedCollections.forEach((collection) => {
+    const changedRecords = [];
+    const previousRecords = lastSharedRecordJson[collection] || {};
+
+    getSharedCollectionRecords(collection).forEach((record) => {
+      const key = recordKeyForCollection(collection, record);
+
+      if (!key) {
+        return;
+      }
+
+      const value = JSON.stringify(record);
+
+      if (previousRecords[key] !== value) {
+        changedRecords.push(record);
+      }
+    });
+
+    if (changedRecords.length) {
+      payload[collection] = changedRecords;
+    }
+  });
+
+  return payload;
+}
+
+function hasPendingSharedChanges(payload) {
+  return sharedCollections.some((collection) => Array.isArray(payload[collection])) ||
+    (Array.isArray(payload.deletedRecords) && payload.deletedRecords.length > 0);
+}
+
+function readStoredJson(key) {
+  const value = localStorage.getItem(key);
+
+  if (!value) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return {};
+  }
+}
+
+function buildLocalStorageState() {
+  const storedAudits = readStoredJson("ic-denetim-audits");
+  const storedApprovals = readStoredJson("ic-denetim-approvals");
+  const storedLeaves = readStoredJson("ic-denetim-leaves");
+  const storedLeaveRights = readStoredJson("ic-denetim-leave-rights");
+  const storedReportDocuments = readStoredJson("ic-denetim-report-documents");
+  const storedPersonnel = readStoredJson("ic-denetim-personnel");
+
+  return {
+    version: "2026-09-03-sqlite-state-v1",
+    audits: Array.isArray(storedAudits.audits)
+      ? mergeDefaultAudits(storedAudits.audits)
+      : getDefaultAudits(),
+    approvals: Array.isArray(storedApprovals.approvals)
+      ? storedApprovals.approvals
+      : [...defaultApprovals],
+    leaves: Array.isArray(storedLeaves.leaves) ? storedLeaves.leaves : [...defaultLeaves],
+    leaveRights: Array.isArray(storedLeaveRights.leaveRights)
+      ? storedLeaveRights.leaveRights
+      : [...defaultLeaveRights],
+    reportDocuments: Array.isArray(storedReportDocuments.reportDocuments)
+      ? storedReportDocuments.reportDocuments
+      : [],
+    personnelRecords: Array.isArray(storedPersonnel.personnelRecords)
+      ? storedPersonnel.personnelRecords
+      : defaultPersonnelRecords.map((person) => ({
+          certificate: "",
+          expertise: "",
+          status: "Aktif",
+          ...person,
+        })),
+  };
+}
+
+function hasSharedState(payload) {
+  return (
+    payload &&
+    (Array.isArray(payload.audits) ||
+      Array.isArray(payload.approvals) ||
+      Array.isArray(payload.leaves) ||
+      Array.isArray(payload.leaveRights) ||
+      Array.isArray(payload.reportDocuments) ||
+      Array.isArray(payload.personnelRecords))
+  );
+}
+
+function applySharedState(payload) {
+  if (Array.isArray(payload.audits)) {
+    audits = payload.audits.map(normalizeAudit);
+  }
+
+  if (Array.isArray(payload.approvals)) {
+    approvals = payload.approvals;
+  }
+
+  if (Array.isArray(payload.leaves)) {
+    leaves = payload.leaves;
+  }
+
+  if (Array.isArray(payload.leaveRights)) {
+    leaveRights = payload.leaveRights;
+  }
+
+  if (Array.isArray(payload.reportDocuments)) {
+    reportDocuments = payload.reportDocuments;
+  }
+
+  if (Array.isArray(payload.personnelRecords)) {
+    personnelRecords = payload.personnelRecords.map((person) => ({
+      certificate: "",
+      expertise: "",
+      status: "Aktif",
+      ...person,
+    }));
+  }
+}
+
+function renderEverything() {
+  renderAudits();
+  renderApprovals();
+  renderLeaves();
+
+  if (activeModule === "personnel") {
+    renderPersonnel();
+  }
+
+  if (activeModule === "personnelProfile") {
+    renderPersonnelProfile();
+  }
+}
+
+async function saveSharedStateNow() {
+  if (!sharedStateLoaded) {
+    return;
+  }
+
+  try {
+    const payload = buildChangedSharedState();
+
+    if (!hasPendingSharedChanges(payload)) {
+      return;
+    }
+
+    await writeSharedState(payload);
+    deletedRecords = [];
+    captureCurrentSharedSnapshot();
+  } catch {
+    showToast("Sunucu veritabanına kaydedilemedi. Bağlantıyı kontrol et.");
+  }
+}
+
+async function writeSharedState(payload) {
+  const response = await fetch(API_STATE_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error("SQLite kaydı tamamlanamadı");
+  }
+}
+
+async function migrateLocalStorageToSqlite() {
+  const confirmed = confirm(
+    "Bu işlem bu tarayıcıdaki mevcut verileri ortak SQLite veritabanına aktaracak. Devam edilsin mi?",
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const localState = buildLocalStorageState();
+    await writeSharedState(localState);
+    applySharedState(localState);
+    deletedRecords = [];
+    captureCurrentSharedSnapshot();
+    sharedStateLoaded = true;
+    renderEverything();
+    showToast("Yerel veriler SQLite veritabanına aktarıldı.");
+  } catch {
+    showToast("Aktarım yapılamadı. Sunucunun çalıştığını kontrol et.");
+  }
+}
+
+function scheduleSharedStateSave() {
+  if (!sharedStateLoaded) {
+    return;
+  }
+
+  clearTimeout(sharedStateSaveTimer);
+  sharedStateSaveTimer = setTimeout(saveSharedStateNow, 250);
+}
+
+async function loadSharedState() {
+  try {
+    const response = await fetch(API_STATE_URL);
+
+    if (!response.ok) {
+      throw new Error("Ortak veri okunamadı");
+    }
+
+    const payload = await response.json();
+
+    if (hasSharedState(payload)) {
+      applySharedState(payload);
+      captureCurrentSharedSnapshot();
+      sharedStateLoaded = true;
+      renderEverything();
+      return;
+    }
+
+    sharedStateLoaded = true;
+    await saveSharedStateNow();
+    captureCurrentSharedSnapshot();
+  } catch {
+    sharedStateLoaded = false;
+    showToast("SQLite bağlantısı kurulamadı; veriler bu tarayıcıda geçici kalabilir.");
+  }
 }
 
 function normalizeText(value) {
@@ -3068,6 +3417,10 @@ function updateAudit(no, year, changes) {
 
 searchInput.addEventListener("input", renderAudits);
 
+if (migrateLocalDataBtn) {
+  migrateLocalDataBtn.addEventListener("click", migrateLocalStorageToSqlite);
+}
+
 yearSelect.addEventListener("change", (event) => {
   if (
     !approvalsNav.classList.contains("active") &&
@@ -3344,6 +3697,7 @@ reportAuditRows.addEventListener("click", (event) => {
       return;
     }
 
+    markRecordDeleted("reportDocuments", reportDocuments[documentIndex]);
     reportDocuments.splice(documentIndex, 1);
     saveReportDocuments();
     renderReportArchive();
@@ -3599,6 +3953,7 @@ monitoringDocumentInfo.addEventListener("click", (event) => {
       return;
     }
 
+    markRecordDeleted("reportDocuments", reportDocuments[documentIndex]);
     reportDocuments.splice(documentIndex, 1);
     saveReportDocuments();
     renderMonitoringDocumentInfo(audit);
@@ -3668,6 +4023,7 @@ leaveRows.addEventListener("click", (event) => {
       return;
     }
 
+    markRecordDeleted("leaves", leave);
     leaves = leaves.filter((item) => item.id !== leave.id);
     saveLeaves();
     renderLeaves();
@@ -3699,6 +4055,7 @@ leaveRightRows.addEventListener("click", (event) => {
       return;
     }
 
+    markRecordDeleted("leaveRights", right);
     leaveRights = leaveRights.filter((item) => item.id !== right.id);
     saveLeaveRights();
     renderLeaves();
@@ -3931,3 +4288,4 @@ leaveRightForm.addEventListener("submit", (event) => {
 renderAudits();
 renderApprovals();
 renderLeaves();
+loadSharedState();

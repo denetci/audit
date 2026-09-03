@@ -66,3 +66,25 @@ Bu klasor PyCharm ile acilabilecek basit bir web arayuzu projesidir..
 - Personel izin haklari degistirilebilir veya silinebilir.
 
 Ek paket kurulumu gerekmez. Standart Python yeterlidir.
+
+## Ortak veri / SQLite
+
+- Uygulama calistiginda `ic_denetim.db` adinda SQLite veritabani olusturulur.
+- Denetimler, olurlar, izleme kayitlari, izinler, personel bilgileri ve belge/link kayitlari bu veritabanina ayri kayitlar halinde yazilir.
+- Canli sunucuda tum kullanicilar ayni `ic_denetim.db` dosyasini kullandigi icin ayni verileri gorur.
+- Farkli kullanicilar farkli modullerde islem yaptiginda tum veri paketi ezilmez; tarayici sadece degisen kayitlari sunucuya gonderir.
+- Silinen kayitlar da veritabanina ayrica bildirilir, bu nedenle baska kullanicinin yeni ekledigi kayitlar toplu kayit sirasinda kaybolmaz.
+- Ayni kaydi iki kullanici ayni anda degistirirse son kaydeden kullanicinin degisikligi gecerli olur.
+- `ic_denetim.db` GitHub'a gonderilmez; her ortam kendi veritabani dosyasini kullanir.
+- Canli sunucuda bu dosyanin yedegi duzenli alinmalidir.
+
+## Mevcut tarayici verilerini SQLite'a aktarma
+
+Canliya gecmeden once veriler eski tarayici hafizasinda kaldiysa:
+
+1. Uygulamayi verilerin gorundugu bilgisayarda ac.
+2. Ust kisimdaki `Yerel Verileri SQLite'a Aktar` dugmesine bas.
+3. Onay ver.
+4. Sayfayi yenile ve kayitlarin gorundugunu kontrol et.
+
+Bu islem o tarayicidaki denetim, olur, izleme, izin, personel ve belge/link kayitlarini ortak SQLite veritabanina yazar.
