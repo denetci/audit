@@ -102,7 +102,6 @@
               <input id="searchInput" placeholder="Rapor, olur, denetim ara..." />
             </label>
             <button class="btn secondary" id="newAuditBtn" data-view="dashboard" type="button">＋ Yeni Denetim</button>
-            <button class="btn primary" data-view="dashboard" type="button">＋ Belge Yükle</button>
           </div>
         </header>
 
@@ -493,6 +492,36 @@
                 </div>
                 <span class="panel-count"><strong id="reportArchiveCount">0</strong> denetim</span>
               </div>
+              <div class="module-filters archive-filters" aria-label="Rapor arşivi filtreleri">
+                <label class="wide-filter">
+                  Arama
+                  <input id="reportArchiveSearch" placeholder="Birim, denetim alanı veya denetçi ara..." />
+                </label>
+                <label>
+                  Tür
+                  <select id="reportArchiveTypeFilter">
+                    <option value="Tümü">Tümü</option>
+                    <option>Sistem</option>
+                    <option>Uygunluk</option>
+                    <option>Sistem/Uygunluk</option>
+                    <option>Mali</option>
+                    <option>Performans</option>
+                    <option>Danışmanlık</option>
+                    <option>Bilgi Teknolojileri</option>
+                    <option>İnceleme</option>
+                    <option>Yönetim Faaliyetleri</option>
+                  </select>
+                </label>
+                <label>
+                  Link Durumu
+                  <select id="reportArchiveLinkFilter">
+                    <option value="Tümü">Tümü</option>
+                    <option value="Link Var">Link Var</option>
+                    <option value="Link Yok">Link Yok</option>
+                    <option value="İptal Edildi">İptal Edildi</option>
+                  </select>
+                </label>
+              </div>
               <div class="panel-body">
                 <div class="report-audit-list" id="reportAuditRows"></div>
                 <div class="empty-state compact" id="reportArchiveEmpty" hidden>
@@ -608,7 +637,10 @@
                   <h2 id="auditListTitle">Tüm Denetimler</h2>
                   <p class="eyebrow" id="auditListSummary">Seçilen yıla ait planlanan ve yürütülen denetimler</p>
                 </div>
-                <button class="btn secondary" type="button">⌁ Filtrele</button>
+                <div class="active-filter" id="auditQuickFilter" hidden>
+                  <span id="auditQuickFilterText">Filtre aktif</span>
+                  <button class="icon-btn" id="clearAuditQuickFilter" type="button" aria-label="Filtreyi temizle">×</button>
+                </div>
               </div>
               <div class="table-wrap">
                 <table>
@@ -662,21 +694,45 @@
           <aside class="side-stack" data-view="dashboard">
             <section class="panel">
               <div class="panel-head">
-                <h2>İzleme Özeti</h2>
+                <div>
+                  <h2>Program Özeti</h2>
+                  <p class="eyebrow">Seçili yılın denetim durumu</p>
+                </div>
               </div>
-              <div class="panel-body">
-                <p class="eyebrow">9 bulgu izleme sürecinde</p>
-                <div class="progress-row">
-                  <div class="progress-label"><span>Kapandı</span><strong>44%</strong></div>
-                  <div class="bar"><span class="bg-green" style="width:44%"></span></div>
+              <div class="panel-body side-panel-body">
+                <div class="side-metric-grid">
+                  <div>
+                    <span>Toplam</span>
+                    <strong id="sideTotalAudits">0</strong>
+                  </div>
+                  <div>
+                    <span>Aktif</span>
+                    <strong id="sideActiveAudits">0</strong>
+                  </div>
+                  <div>
+                    <span>İzlemede</span>
+                    <strong id="sideMonitoringAudits">0</strong>
+                  </div>
+                  <div>
+                    <span>İptal</span>
+                    <strong id="sideCancelledAudits">0</strong>
+                  </div>
                 </div>
-                <div class="progress-row">
-                  <div class="progress-label"><span>Devam eden</span><strong>39%</strong></div>
-                  <div class="bar"><span class="bg-cyan" style="width:39%"></span></div>
+
+                <div class="side-section">
+                  <div class="side-section-head">
+                    <strong>Denetlenecek Birimler</strong>
+                    <span id="sideUpcomingCount">0 kayıt</span>
+                  </div>
+                  <div class="side-list scrollable" id="sideUpcomingAudits"></div>
                 </div>
-                <div class="progress-row">
-                  <div class="progress-label"><span>Geciken</span><strong>17%</strong></div>
-                  <div class="bar"><span class="bg-amber" style="width:17%"></span></div>
+
+                <div class="side-section">
+                  <div class="side-section-head">
+                    <strong>Denetçi Yükü</strong>
+                    <span id="sideAuditorLoadCount">0 kişi</span>
+                  </div>
+                  <div class="side-list scrollable" id="sideAuditorLoad"></div>
                 </div>
               </div>
             </section>

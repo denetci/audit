@@ -108,15 +108,14 @@ def build_state_from_records(connection):
     rows = connection.execute(
         "SELECT collection, value FROM records ORDER BY collection, record_key",
     ).fetchall()
-    payload = {collection: [] for collection in COLLECTIONS}
-    payload["version"] = "2026-09-03-sqlite-records-v1"
+    payload = {"version": "2026-09-03-sqlite-records-v1"}
 
     for collection, value in rows:
-        if collection not in payload:
+        if collection not in COLLECTIONS:
             continue
 
         try:
-            payload[collection].append(json.loads(value))
+            payload.setdefault(collection, []).append(json.loads(value))
         except json.JSONDecodeError:
             continue
 

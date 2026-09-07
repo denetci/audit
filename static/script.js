@@ -1163,14 +1163,7 @@ const defaultLeaveRights = [
   },
 ];
 
-const reportDocumentTypes = [
-  "Olur",
-  "İdareye Bildirim Yazısı",
-  "Denetim Ekibi Bildirim Yazısı",
-  "Rapor",
-  "Raporun Onay Oluru",
-  "Raporun İdareye Bildirim Yazısı",
-];
+const reportArchiveLinkType = "Rapor Arşivi Bulut Linki";
 
 const defaultPersonnelRecords = [
   { no: 1, name: "Erdal ÖZYÖN", title: "Başkan", extension: "8801", group: "Denetçiler" },
@@ -1237,6 +1230,9 @@ const closeAuditModal = document.querySelector("#closeAuditModal");
 const cancelAudit = document.querySelector("#cancelAudit");
 const auditListTitle = document.querySelector("#auditListTitle");
 const auditListSummary = document.querySelector("#auditListSummary");
+const auditQuickFilter = document.querySelector("#auditQuickFilter");
+const auditQuickFilterText = document.querySelector("#auditQuickFilterText");
+const clearAuditQuickFilter = document.querySelector("#clearAuditQuickFilter");
 const auditModalMode = document.querySelector("#auditModalMode");
 const auditModalTitle = document.querySelector("#auditModalTitle");
 const saveAuditBtn = document.querySelector("#saveAuditBtn");
@@ -1338,6 +1334,9 @@ const saveLeaveRightBtn = document.querySelector("#saveLeaveRightBtn");
 const reportArchiveCount = document.querySelector("#reportArchiveCount");
 const reportAuditRows = document.querySelector("#reportAuditRows");
 const reportArchiveEmpty = document.querySelector("#reportArchiveEmpty");
+const reportArchiveSearch = document.querySelector("#reportArchiveSearch");
+const reportArchiveTypeFilter = document.querySelector("#reportArchiveTypeFilter");
+const reportArchiveLinkFilter = document.querySelector("#reportArchiveLinkFilter");
 const monitoringRows = document.querySelector("#monitoringRows");
 const monitoringCount = document.querySelector("#monitoringCount");
 const monitoringEmptyState = document.querySelector("#monitoringEmptyState");
@@ -1366,9 +1365,18 @@ const documentChoiceList = document.querySelector("#documentChoiceList");
 const deletedAuditsPanel = document.querySelector("#silinen-kayitlar");
 const deletedAuditRows = document.querySelector("#deletedAuditRows");
 const deletedAuditCount = document.querySelector("#deletedAuditCount");
+const sideTotalAudits = document.querySelector("#sideTotalAudits");
+const sideActiveAudits = document.querySelector("#sideActiveAudits");
+const sideMonitoringAudits = document.querySelector("#sideMonitoringAudits");
+const sideCancelledAudits = document.querySelector("#sideCancelledAudits");
+const sideUpcomingCount = document.querySelector("#sideUpcomingCount");
+const sideUpcomingAudits = document.querySelector("#sideUpcomingAudits");
+const sideAuditorLoad = document.querySelector("#sideAuditorLoad");
+const sideAuditorLoadCount = document.querySelector("#sideAuditorLoadCount");
 let activeTypeFilter = "Tümü";
 let activeLeaveModule = "Tümü";
 let activePersonnelModule = "Denetçiler";
+let activeQuickFilter = null;
 let selectedPersonnelKey = "";
 let activeModule = "dashboard";
 let editingAuditNo = null;
@@ -2041,6 +2049,74 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function cleanPersonName(value) {
+  const name = String(value || "")
+    .replace(/^[^:]{1,40}:\s*/u, "")
+    .replace(/\s*[-–—]\s*(koordinatör|koordinator|denetim gözetim sorumlusu|gözetim sorumlusu)\s*$/iu, "")
+    .replace(/\([^)]*\)/gu, "")
+    .replace(/\s+/gu, " ")
+    .trim();
+
+  if (!name || normalizeText(name) === "tüm iç denetçiler") {
+    return "";
+  }
+
+  return name;
+}
+
+function splitPersonNames(value) {
+  return String(value || "")
+    .split(/[\n;,]+/u)
+    .map(cleanPersonName)
+    .filter(Boolean);
+}
+
+function uniquePersonNames(names) {
+  const seen = new Set();
+
+  return names.filter((name) => {
+    const key = normalizeText(name);
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
+function uniqueTextValues(values) {
+  const seen = new Set();
+
+  return values.filter((value) => {
+    const key = normalizeText(value);
+
+    if (!key || seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
+function getAuditTeamNames(audit) {
+  return uniquePersonNames((audit.team || []).flatMap(splitPersonNames));
+}
+
+function getAuditSupervisorNames(audit) {
+  return uniquePersonNames(splitPersonNames(audit.supervisor));
+}
+
+function getAuditPersonNames(audit) {
+  return uniquePersonNames([...getAuditTeamNames(audit), ...getAuditSupervisorNames(audit)]);
+}
+
+function renderPersonNames(names) {
+  return names.length ? names.map(escapeHtml).join("<br>") : "-";
+}
+
 function showToast(message) {
   clearTimeout(toastTimer);
   toast.textContent = message;
@@ -2057,6 +2133,7 @@ function makeSearchText(audit) {
     audit.unit,
     audit.scope,
     audit.type,
+    getAuditPersonNames(audit).join(" "),
     audit.team.join(" "),
     audit.supervisor,
     audit.status,
@@ -2144,8 +2221,28 @@ function auditMatchesGroup(audit, groupName) {
 }
 
 function getReportArchiveAudits() {
+  const query = normalizeText(reportArchiveSearch?.value || "");
+  const typeFilter = reportArchiveTypeFilter?.value || "Tümü";
+  const linkFilter = reportArchiveLinkFilter?.value || "Tümü";
+
   return audits
-    .filter((audit) => !isAuditDeleted(audit) && auditMatchesYear(audit))
+    .filter((audit) => {
+      const archiveLink = getReportArchiveLink(audit);
+      const matchesYear = !isAuditDeleted(audit) && auditMatchesYear(audit);
+      const matchesType = typeFilter === "Tümü" || audit.type === typeFilter;
+      const matchesSearch =
+        !query ||
+        normalizeText(
+          `${audit.year} ${audit.no} ${audit.unit} ${audit.scope} ${audit.type} ${getAuditPersonNames(audit).join(" ")} ${audit.team.join(" ")} ${audit.supervisor}`,
+        ).includes(query);
+      const matchesLink =
+        linkFilter === "Tümü" ||
+        (linkFilter === "Link Var" && archiveLink) ||
+        (linkFilter === "Link Yok" && !archiveLink && audit.status !== "İptal Edildi") ||
+        (linkFilter === "İptal Edildi" && audit.status === "İptal Edildi");
+
+      return matchesYear && matchesType && matchesSearch && matchesLink;
+    })
     .sort((a, b) => String(a.year).localeCompare(String(b.year)) || a.no - b.no);
 }
 
@@ -2170,6 +2267,14 @@ function findReportDocumentIndex(audit, documentType) {
   );
 }
 
+function getReportArchiveLink(audit) {
+  return findReportDocument(audit, reportArchiveLinkType);
+}
+
+function getReportArchiveLinkIndex(audit) {
+  return findReportDocumentIndex(audit, reportArchiveLinkType);
+}
+
 function upsertReportDocument(audit, documentRecord) {
   const existingIndex = findReportDocumentIndex(audit, documentRecord.documentType);
 
@@ -2183,8 +2288,7 @@ function upsertReportDocument(audit, documentRecord) {
 }
 
 function getReportDocumentCount(audit) {
-  return reportDocumentTypes.filter((documentType) => findReportDocument(audit, documentType))
-    .length;
+  return getReportArchiveLink(audit) ? 1 : 0;
 }
 
 function getExtraReportDocuments(audit) {
@@ -2213,8 +2317,17 @@ function getVisibleAudits() {
     const matchesYear = auditMatchesYear(audit);
     const matchesType = auditMatchesType(audit);
     const matchesSearch = normalizeText(makeSearchText(audit)).includes(query);
-    return matchesYear && matchesType && matchesSearch;
-  });
+    const matchesQuickFilter =
+      !activeQuickFilter ||
+      (activeQuickFilter.type === "auditor" &&
+        getAuditPersonNames(audit).some((name) =>
+          normalizeText(name) === normalizeText(activeQuickFilter.value),
+        )) ||
+      (activeQuickFilter.type === "unit" &&
+        normalizeText(audit.unit) === normalizeText(activeQuickFilter.value));
+
+    return matchesYear && matchesType && matchesSearch && matchesQuickFilter;
+  }).sort((a, b) => Number(a.no) - Number(b.no));
 }
 
 function createAuditRow(audit) {
@@ -2227,8 +2340,8 @@ function createAuditRow(audit) {
     <td class="unit-cell"><strong>${escapeHtml(audit.unit)}</strong></td>
     <td class="scope-cell">${escapeHtml(audit.scope)}</td>
     <td><span class="type-pill">${escapeHtml(audit.type)}</span></td>
-    <td class="team-cell">${audit.team.map(escapeHtml).join("<br>")}</td>
-    <td class="supervisor-cell">${escapeHtml(audit.supervisor)}</td>
+    <td class="team-cell">${renderPersonNames(getAuditTeamNames(audit))}</td>
+    <td class="supervisor-cell">${renderPersonNames(getAuditSupervisorNames(audit))}</td>
     <td><span class="status ${getStatusClass(audit.status)}">${escapeHtml(audit.status)}</span></td>
     <td>
       <div class="row-actions">
@@ -2254,8 +2367,8 @@ function createReadonlyAuditRow(audit) {
     <td class="unit-cell"><strong>${escapeHtml(audit.unit)}</strong></td>
     <td class="scope-cell">${escapeHtml(audit.scope)}</td>
     <td><span class="type-pill">${escapeHtml(audit.type)}</span></td>
-    <td class="team-cell">${audit.team.map(escapeHtml).join("<br>")}</td>
-    <td class="supervisor-cell">${escapeHtml(audit.supervisor)}</td>
+    <td class="team-cell">${renderPersonNames(getAuditTeamNames(audit))}</td>
+    <td class="supervisor-cell">${renderPersonNames(getAuditSupervisorNames(audit))}</td>
     <td><span class="status ${getStatusClass(audit.status)}">${escapeHtml(audit.status)}</span></td>
   `;
   return row;
@@ -2596,21 +2709,30 @@ function renderMonitoringAudits() {
   renderMonitoringReport(monitoringAudits);
 }
 
-function renderAudits() {
+function renderAudits(options = {}) {
+  const refreshSidePanel = options.refreshSidePanel !== false;
   auditRows.innerHTML = "";
   const visibleAudits = getVisibleAudits();
+  const filterLabel = activeQuickFilter?.label || "";
 
   visibleAudits.forEach((audit) => auditRows.append(createAuditRow(audit)));
-  auditListTitle.textContent =
-    activeTypeFilter === "Tümü"
+  auditListTitle.textContent = filterLabel
+    ? filterLabel
+    : activeTypeFilter === "Tümü"
       ? "Tüm Denetimler"
       : `${activeTypeFilter} Faaliyetleri`;
-  auditListSummary.textContent =
-    activeTypeFilter === "Tümü"
+  auditListSummary.textContent = filterLabel
+    ? `${yearSelect.value} programında bu filtreye uyan ${visibleAudits.length} denetim kaydı listeleniyor.`
+    : activeTypeFilter === "Tümü"
       ? `${yearSelect.value} programında toplam ${visibleAudits.length} denetim kaydı listeleniyor.`
       : `${activeTypeFilter} başlığı altında ${visibleAudits.length} faaliyet kaydı listeleniyor.`;
+  auditQuickFilter.hidden = !activeQuickFilter;
+  auditQuickFilterText.textContent = filterLabel ? `${filterLabel} filtresi` : "";
   emptyState.hidden = visibleAudits.length > 0;
   renderStatCards();
+  if (refreshSidePanel) {
+    renderDashboardSidePanel();
+  }
   renderReportArchive();
   renderDeletedAudits();
   renderMonitoringAudits();
@@ -2619,6 +2741,8 @@ function renderAudits() {
 function renderReportArchive() {
   const archiveAudits = getReportArchiveAudits();
   const previousValue = selectedReportAuditKey;
+  const linkedCount = archiveAudits.filter(getReportArchiveLink).length;
+  const cancelledCount = archiveAudits.filter((audit) => audit.status === "İptal Edildi").length;
 
   reportArchiveCount.textContent = archiveAudits.length;
   reportAuditRows.innerHTML = "";
@@ -2636,9 +2760,7 @@ function renderReportArchive() {
 
   archiveAudits.forEach((audit) => {
     const key = auditKey(audit);
-    const uploadedCount = getReportDocumentCount(audit);
-    const extraCount = getExtraReportDocuments(audit).length;
-    const completionPercent = Math.round((uploadedCount / reportDocumentTypes.length) * 100);
+    const archiveLink = getReportArchiveLink(audit);
     const isSelected = key === selectedReportAuditKey;
     const isCancelled = audit.status === "İptal Edildi";
     const item = document.createElement("article");
@@ -2648,7 +2770,10 @@ function renderReportArchive() {
     item.dataset.reportAuditKey = key;
     item.innerHTML = `
       <div class="report-audit-summary">
-        <div class="report-no">${audit.year}/${audit.no}</div>
+        <div class="report-no">
+          <span>${audit.year}</span>
+          <strong>${audit.no}</strong>
+        </div>
         <div class="report-title">
           <h3>${escapeHtml(audit.unit)}</h3>
           <p>${escapeHtml(audit.scope)}</p>
@@ -2656,13 +2781,12 @@ function renderReportArchive() {
         <div class="report-badges">
           <span class="report-type">${escapeHtml(audit.type)}</span>
           ${isCancelled ? `<span class="status cancelled">İptal Edildi</span>` : ""}
+          ${!isCancelled ? `<span class="status ${getStatusClass(audit.status)}">${escapeHtml(audit.status)}</span>` : ""}
         </div>
-        <div class="report-team">${audit.team.map(escapeHtml).join("<br>")}</div>
+        <div class="report-team">${renderPersonNames(getAuditTeamNames(audit))}</div>
         <div class="report-doc-state">
-          <span class="status ${uploadedCount > 0 ? "done" : "waiting"}">${uploadedCount}/${reportDocumentTypes.length}${extraCount ? ` +${extraCount}` : ""}</span>
-          <div class="report-progress" aria-label="Belge yükleme oranı">
-            <span style="width:${completionPercent}%"></span>
-          </div>
+          <span class="status ${archiveLink ? "done" : "waiting"}">${archiveLink ? "Link Var" : "Link Yok"}</span>
+          ${archiveLink ? `<button class="btn small secondary" data-report-document-action="open-link" data-report-document-type="${reportArchiveLinkType}" type="button">Bulutta Aç</button>` : ""}
         </div>
         <button class="icon-btn report-disclosure" data-report-select="${key}" type="button" aria-label="Belge alanını aç veya kapat">${isSelected ? "⌃" : "⌄"}</button>
       </div>
@@ -2674,78 +2798,59 @@ function renderReportArchive() {
 
     reportAuditRows.append(item);
   });
+
+  reportAuditRows.insertAdjacentHTML(
+    "afterbegin",
+    `
+      <div class="archive-overview" aria-label="Rapor arşivi özeti">
+        <div>
+          <span>Seçili Yıl</span>
+          <strong>${escapeHtml(yearSelect.value)}</strong>
+        </div>
+        <div>
+          <span>Denetim</span>
+          <strong>${archiveAudits.length}</strong>
+        </div>
+        <div>
+          <span>Link Tanımlı</span>
+          <strong>${linkedCount}</strong>
+        </div>
+        <div>
+          <span>İptal</span>
+          <strong>${cancelledCount}</strong>
+        </div>
+      </div>
+    `,
+  );
 }
 
 function createReportDocumentPanel(audit) {
+  const archiveLink = getReportArchiveLink(audit);
   const panel = document.createElement("div");
   panel.className = "document-upload-list";
-
-  reportDocumentTypes.forEach((documentType) => {
-    const documentRecord = findReportDocument(audit, documentType);
-    const row = document.createElement("div");
-    row.className = "document-upload-row";
-    row.innerHTML = `
-      <strong>${escapeHtml(documentType)}</strong>
-      <div class="document-source-fields">
-        <input data-report-document-type="${escapeHtml(documentType)}" type="file" />
-        <div class="cloud-link-row">
-          <input data-report-cloud-link-type="${escapeHtml(documentType)}" type="url" value="${escapeHtml(documentRecord?.cloudUrl || "")}" placeholder="Bulut linki yapıştır..." />
-          <button class="btn small secondary" data-report-document-action="save-link" data-report-document-type="${escapeHtml(documentType)}" type="button">Link Kaydet</button>
-        </div>
+  panel.innerHTML = `
+    <div class="document-upload-heading">
+      <div>
+        <strong>${escapeHtml(audit.year)}/${escapeHtml(audit.no)} - ${escapeHtml(audit.unit)}</strong>
+        <span>Bu denetimin tüm olur, yazı, rapor ve ekleri için Bakanlık bulut klasör linki</span>
       </div>
-      <div class="document-upload-meta">
-        <span>${documentRecord ? escapeHtml(documentRecord.fileName || "Bulut bağlantısı") : "Henüz yüklenmedi"}</span>
-        <span class="status ${documentRecord ? "done" : "waiting"}">${documentRecord ? "Yüklendi" : "Bekliyor"}</span>
-        <div class="document-actions">
-          ${
-            documentRecord?.fileData
-              ? `<a class="btn small secondary" href="${documentRecord.fileData}" download="${escapeHtml(documentRecord.fileName)}">İndir</a>`
-              : `<button class="btn small secondary" type="button" disabled>İndir</button>`
-          }
-          <button class="btn small secondary" data-report-document-action="open-link" data-report-document-type="${escapeHtml(documentType)}" type="button" ${documentRecord?.cloudUrl ? "" : "disabled"}>Bulutta Aç</button>
-          <button class="btn small secondary" data-report-document-action="rename" data-report-document-type="${escapeHtml(documentType)}" type="button" ${documentRecord ? "" : "disabled"}>Ad Değiştir</button>
-          <button class="btn small secondary danger-soft" data-report-document-action="delete" data-report-document-type="${escapeHtml(documentType)}" type="button" ${documentRecord ? "" : "disabled"}>Sil</button>
-        </div>
-      </div>
-    `;
-    panel.append(row);
-  });
-
-  const extraDocuments = getExtraReportDocuments(audit);
-  const extraUpload = document.createElement("div");
-  extraUpload.className = "extra-document-upload";
-  extraUpload.innerHTML = `
-    <div>
-      <strong>Ek Belgeler</strong>
-      <span>Standart ${reportDocumentTypes.length} belge dışında kalan dosyaları buradan ekleyebilirsin.</span>
+      <span class="status ${archiveLink ? "done" : "waiting"}">${archiveLink ? "Link Tanımlı" : "Link Bekliyor"}</span>
     </div>
-    <input data-report-extra-document type="file" multiple />
-  `;
-  panel.append(extraUpload);
-
-  extraDocuments.forEach((documentRecord) => {
-    const row = document.createElement("div");
-    row.className = "document-upload-row extra-document-row";
-    row.innerHTML = `
-      <strong>Ek Belge</strong>
-      <span class="extra-document-name">${escapeHtml(documentRecord.fileName || "Bulut bağlantısı")}</span>
-      <div class="document-upload-meta">
-        <span>${escapeHtml(documentRecord.fileName || "Bulut bağlantısı")}</span>
-        <span class="status done">Yüklendi</span>
-        <div class="document-actions">
-          ${
-            documentRecord.fileData
-              ? `<a class="btn small secondary" href="${documentRecord.fileData}" download="${escapeHtml(documentRecord.fileName)}">İndir</a>`
-              : `<button class="btn small secondary" type="button" disabled>İndir</button>`
-          }
-          <button class="btn small secondary" data-report-document-action="open-link" data-report-document-id="${escapeHtml(documentRecord.id)}" type="button" ${documentRecord.cloudUrl ? "" : "disabled"}>Bulutta Aç</button>
-          <button class="btn small secondary" data-report-document-action="rename" data-report-document-id="${escapeHtml(documentRecord.id)}" type="button">Ad Değiştir</button>
-          <button class="btn small secondary danger-soft" data-report-document-action="delete" data-report-document-id="${escapeHtml(documentRecord.id)}" type="button">Sil</button>
-        </div>
+    <div class="archive-link-card">
+      <div class="archive-link-main">
+        <strong>Bulut Klasör Linki</strong>
+        <p>${archiveLink ? escapeHtml(archiveLink.cloudUrl) : "Bu denetime ait bulut klasör linki henüz eklenmedi."}</p>
       </div>
-    `;
-    panel.append(row);
-  });
+      <div class="cloud-link-row">
+        <input data-report-cloud-link-type="${reportArchiveLinkType}" type="url" value="${escapeHtml(archiveLink?.cloudUrl || "")}" placeholder="https://bulut.tarimorman.gov.tr/... klasör linki" />
+        <button class="btn small primary" data-report-document-action="save-link" data-report-document-type="${reportArchiveLinkType}" type="button">Kaydet</button>
+      </div>
+      <div class="document-actions">
+        <button class="btn small secondary" data-report-document-action="open-link" data-report-document-type="${reportArchiveLinkType}" type="button" ${archiveLink?.cloudUrl ? "" : "disabled"}>Bulutta Aç</button>
+        <button class="btn small secondary danger-soft" data-report-document-action="delete" data-report-document-type="${reportArchiveLinkType}" type="button" ${archiveLink ? "" : "disabled"}>Linki Kaldır</button>
+      </div>
+    </div>
+  `;
 
   return panel;
 }
@@ -2764,7 +2869,109 @@ function renderStatCards() {
   });
 }
 
+function getSelectedYearAudits() {
+  return audits.filter((audit) => !isAuditDeleted(audit) && auditMatchesYear(audit));
+}
+
+function getAuditStartDate(audit) {
+  const date = new Date(`${audit.start}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getDaysUntilAudit(audit) {
+  const startDate = getAuditStartDate(audit);
+
+  if (!startDate) {
+    return null;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.ceil((startDate - today) / 86400000);
+}
+
+function renderDashboardSidePanel() {
+  const yearAudits = getSelectedYearAudits();
+  const activeAudits = yearAudits.filter(
+    (audit) => !["İptal Edildi", "İzleme Sürecinde"].includes(audit.status),
+  );
+  const monitoringAudits = yearAudits.filter((audit) => audit.status === "İzleme Sürecinde");
+  const cancelledAudits = yearAudits.filter((audit) => audit.status === "İptal Edildi");
+  const unitGroups = new Map();
+
+  yearAudits
+    .filter((audit) => audit.status !== "İptal Edildi")
+    .forEach((audit) => {
+      const key = normalizeText(audit.unit);
+      const existing = unitGroups.get(key);
+
+      if (existing) {
+        existing.count += 1;
+        existing.scopes.push(audit.scope);
+        existing.firstNo = Math.min(existing.firstNo, Number(audit.no));
+      } else {
+        unitGroups.set(key, {
+          unit: audit.unit,
+          count: 1,
+          firstNo: Number(audit.no),
+          scopes: [audit.scope],
+        });
+      }
+    });
+
+  const auditUnits = [...unitGroups.values()].sort((a, b) => a.firstNo - b.firstNo);
+  const auditorCounts = new Map();
+
+  yearAudits
+    .filter((audit) => audit.status !== "İptal Edildi")
+    .forEach((audit) => {
+      getAuditPersonNames(audit).forEach((auditor) => {
+        auditorCounts.set(auditor, (auditorCounts.get(auditor) || 0) + 1);
+      });
+    });
+
+  const auditorLoad = [...auditorCounts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "tr-TR"));
+
+  sideTotalAudits.textContent = yearAudits.length;
+  sideActiveAudits.textContent = activeAudits.length;
+  sideMonitoringAudits.textContent = monitoringAudits.length;
+  sideCancelledAudits.textContent = cancelledAudits.length;
+  sideUpcomingCount.textContent = `${auditUnits.length} birim`;
+  sideAuditorLoadCount.textContent = `${auditorLoad.length} kişi`;
+
+  sideUpcomingAudits.innerHTML = auditUnits.length
+    ? auditUnits
+        .map((audit) => {
+          return `
+            <button class="side-list-item" data-side-unit="${escapeHtml(audit.unit)}" type="button">
+              <span>
+                <strong>${escapeHtml(audit.unit)}</strong>
+                <small>${escapeHtml(uniqueTextValues(audit.scopes).slice(0, 2).join(" / "))}</small>
+              </span>
+              <em>${audit.count}</em>
+            </button>
+          `;
+        })
+        .join("")
+    : `<div class="side-empty">Seçili yıl için denetlenecek birim bulunmuyor.</div>`;
+
+  sideAuditorLoad.innerHTML = auditorLoad.length
+    ? auditorLoad
+        .map(
+          ([auditor, count]) => `
+            <button class="side-load-item" data-side-auditor="${escapeHtml(auditor)}" type="button">
+              <span>${escapeHtml(auditor)}</span>
+              <strong>${count}</strong>
+            </button>
+          `,
+        )
+        .join("")
+    : `<div class="side-empty">Görev dağılımı bulunmuyor.</div>`;
+}
+
 function setActiveTypeFilter(filterName) {
+  activeQuickFilter = null;
   activeTypeFilter = filterName;
   typeFilterButtons.forEach((item) => {
     item.classList.toggle("active", item.dataset.typeFilter === filterName);
@@ -3415,7 +3622,10 @@ function updateAudit(no, year, changes) {
   saveAudits();
 }
 
-searchInput.addEventListener("input", renderAudits);
+searchInput.addEventListener("input", () => {
+  activeQuickFilter = null;
+  renderAudits();
+});
 
 if (migrateLocalDataBtn) {
   migrateLocalDataBtn.addEventListener("click", migrateLocalStorageToSqlite);
@@ -3432,6 +3642,59 @@ yearSelect.addEventListener("change", (event) => {
   }
   approvalForm.elements.year.value = event.target.value;
   approvalForm.elements.no.value = getNextApprovalNo(event.target.value);
+  renderAudits();
+});
+
+[reportArchiveSearch, reportArchiveTypeFilter, reportArchiveLinkFilter].forEach((control) => {
+  control?.addEventListener("input", renderReportArchive);
+  control?.addEventListener("change", renderReportArchive);
+});
+
+sideUpcomingAudits.addEventListener("click", (event) => {
+  const item = event.target.closest("[data-side-unit]");
+
+  if (!item) {
+    return;
+  }
+
+  activeTypeFilter = "Tümü";
+  typeFilterButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.typeFilter === "Tümü");
+  });
+  activeQuickFilter = {
+    type: "unit",
+    value: item.dataset.sideUnit,
+    label: item.dataset.sideUnit,
+  };
+  renderAudits({ refreshSidePanel: false });
+});
+
+sideAuditorLoad.addEventListener("click", (event) => {
+  const item = event.target.closest("[data-side-auditor]");
+
+  if (!item) {
+    return;
+  }
+
+  activeTypeFilter = "Tümü";
+  typeFilterButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.typeFilter === "Tümü");
+  });
+  activeQuickFilter = {
+    type: "auditor",
+    value: item.dataset.sideAuditor,
+    label: item.dataset.sideAuditor,
+  };
+  renderAudits({ refreshSidePanel: false });
+});
+
+clearAuditQuickFilter?.addEventListener("click", () => {
+  activeQuickFilter = null;
+  searchInput.value = "";
+  activeTypeFilter = "Tümü";
+  typeFilterButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.typeFilter === "Tümü");
+  });
   renderAudits();
 });
 
@@ -3581,7 +3844,10 @@ reportAuditRows.addEventListener("click", (event) => {
   const selectButton = event.target.closest("[data-report-select]");
   const reportRow = event.target.closest("[data-report-audit-key]");
 
-  if (event.target.closest(".document-upload-list")) {
+  if (
+    event.target.closest(".document-upload-list") ||
+    event.target.closest("[data-report-document-action]")
+  ) {
     return;
   }
 
@@ -3601,13 +3867,16 @@ reportAuditRows.addEventListener("click", (event) => {
     return;
   }
 
-  const audit = getSelectedReportAudit();
+  const reportRow = event.target.closest("[data-report-audit-key]");
+  const reportAuditKey = reportRow?.dataset.reportAuditKey || selectedReportAuditKey;
+  const audit = getReportArchiveAudits().find(
+    (archiveAudit) => auditKey(archiveAudit) === reportAuditKey,
+  );
 
   if (!audit) {
     return;
   }
 
-  const documentId = actionButton.dataset.reportDocumentId;
   const documentType = actionButton.dataset.reportDocumentType;
 
   if (actionButton.dataset.reportDocumentAction === "save-link") {
@@ -3650,17 +3919,10 @@ reportAuditRows.addEventListener("click", (event) => {
   }
 
   const documentIndex = reportDocuments.findIndex(
-    (document) => {
-      if (document.auditKey !== auditKey(audit)) {
-        return false;
-      }
-
-      if (documentId) {
-        return document.id === documentId;
-      }
-
-      return document.documentType === documentType && !document.isExtra;
-    },
+    (document) =>
+      document.auditKey === auditKey(audit) &&
+      document.documentType === documentType &&
+      !document.isExtra,
   );
 
   if (documentIndex === -1) {
@@ -3672,26 +3934,8 @@ reportAuditRows.addEventListener("click", (event) => {
     return;
   }
 
-  if (actionButton.dataset.reportDocumentAction === "rename") {
-    const currentName = reportDocuments[documentIndex].fileName;
-    const nextName = prompt("Belge adı", currentName);
-
-    if (!nextName || !nextName.trim()) {
-      return;
-    }
-
-    reportDocuments[documentIndex] = {
-      ...reportDocuments[documentIndex],
-      fileName: nextName.trim(),
-      updatedAt: new Date().toISOString(),
-    };
-    saveReportDocuments();
-    renderReportArchive();
-    return;
-  }
-
   if (actionButton.dataset.reportDocumentAction === "delete") {
-    const shouldDelete = confirm(`${reportDocuments[documentIndex].fileName} belgesi silinsin mi?`);
+    const shouldDelete = confirm("Bu denetime ait bulut klasör linki kaldırılsın mı?");
 
     if (!shouldDelete) {
       return;
@@ -3702,75 +3946,6 @@ reportAuditRows.addEventListener("click", (event) => {
     saveReportDocuments();
     renderReportArchive();
   }
-});
-
-reportAuditRows.addEventListener("change", async (event) => {
-  const input = event.target.closest("[data-report-document-type]");
-  const extraInput = event.target.closest("[data-report-extra-document]");
-
-  if ((!input && !extraInput) || !event.target.files.length) {
-    return;
-  }
-
-  const audit = getSelectedReportAudit();
-
-  if (!audit) {
-    return;
-  }
-
-  if (extraInput) {
-    const files = Array.from(extraInput.files);
-    const newDocuments = await Promise.all(
-      files.map(async (file, index) => ({
-        id: `extra-${Date.now()}-${index}-${Math.random().toString(16).slice(2)}`,
-        auditKey: auditKey(audit),
-        auditYear: audit.year,
-        auditNo: audit.no,
-        documentType: "Ek Belge",
-        isExtra: true,
-        fileName: file.name,
-        fileType: file.type,
-        fileData: await readFileAsDataUrl(file),
-        uploadedAt: new Date().toISOString(),
-      })),
-    );
-    reportDocuments.push(...newDocuments);
-    saveReportDocuments();
-    renderReportArchive();
-    return;
-  }
-
-  const documentType = input.dataset.reportDocumentType;
-  const file = input.files[0];
-  const fileData = await readFileAsDataUrl(file);
-  const existingIndex = reportDocuments.findIndex(
-    (document) =>
-      document.auditKey === auditKey(audit) && document.documentType === documentType,
-  );
-  const previousDocument = existingIndex > -1 ? reportDocuments[existingIndex] : {};
-  const documentRecord = {
-    ...previousDocument,
-    auditKey: auditKey(audit),
-    auditYear: audit.year,
-    auditNo: audit.no,
-    documentType,
-    isExtra: false,
-    fileName: file.name,
-    fileType: file.type,
-    fileData,
-    cloudUrl: previousDocument.cloudUrl || "",
-    uploadedAt: previousDocument.uploadedAt || new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  if (existingIndex > -1) {
-    reportDocuments[existingIndex] = documentRecord;
-  } else {
-    reportDocuments.push(documentRecord);
-  }
-
-  saveReportDocuments();
-  renderReportArchive();
 });
 
 [leaveYearFilter, leaveTypeFilter, leaveStatusFilter, leaveSearchInput].forEach(
