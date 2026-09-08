@@ -866,6 +866,17 @@
                 <button class="btn secondary" id="downloadDbBackup" type="button">Veritabanı Yedeği İndir</button>
               </div>
 
+              <section class="admin-block">
+                <h3>Veritabanı Yedeğini Geri Yükle</h3>
+                <p>Seçilen yedek, mevcut kayıtların ve kullanıcı hesaplarının yerine geçer. Yedekteki parolalar geçerli olur ve tüm oturumlar kapanır. Mevcut veritabanının güvenlik kopyası sunucuda otomatik saklanır.</p>
+                <form id="restoreDatabaseForm">
+                  <label>Yedek dosyası (.db) <input id="restoreDatabaseFile" type="file" accept=".db,.sqlite,.sqlite3" required /></label>
+                  <label><input id="restoreDatabaseConfirm" type="checkbox" required /> Mevcut verilerin yedekteki verilerle değiştirileceğini anladım.</label>
+                  <button class="btn secondary" id="restoreDatabaseBtn" type="submit">Yedeği Geri Yükle</button>
+                  <p id="restoreDatabaseStatus" role="status"></p>
+                </form>
+              </section>
+
               <div class="admin-grid">
                 <section class="admin-block owner-block">
                   <span class="owner-kicker">Ana Yönetici</span>

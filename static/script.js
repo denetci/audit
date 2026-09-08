@@ -4819,3 +4819,32 @@ async function refreshAccess() {
 window.addEventListener("focus", refreshAccess);
 setInterval(refreshAccess, 60000);
 initAuth();
+
+
+document.querySelector("#restoreDatabaseForm")?.addEventListener("submit", async event => {
+  event.preventDefault();
+  if (!currentUser?.owner) return;
+  const file = document.querySelector("#restoreDatabaseFile").files[0];
+  const status = document.querySelector("#restoreDatabaseStatus");
+  const button = document.querySelector("#restoreDatabaseBtn");
+  if (!file || !document.querySelector("#restoreDatabaseConfirm").checked) return;
+  if (file.size > 100 * 1024 * 1024) { status.textContent = "Dosya en fazla 100 MB olabilir."; return; }
+  if (!confirm(`${file.name} geri yüklenecek. Kayıtlar ve kullanıcılar değişecek; yedekteki parolanızla yeniden giriş yapmanız gerekecek. Devam edilsin mi?`)) return;
+  button.disabled = true;
+  clearTimeout(sharedStateSaveTimer);
+  sharedStateLoaded = false;
+  status.textContent = "Yedek doğrulanıyor ve geri yükleniyor. Bu sayfayı kapatmayın…";
+  try {
+    const response = await fetch("/api/admin/db/restore", {
+      method: "POST", credentials: "same-origin",
+      headers: {"Content-Type": "application/octet-stream", "X-Confirm-Restore": "replace-database"}, body: file,
+    });
+    const result = await readApiJson(response, "Sunucu yanıtı okunamadı. Geri yükleme durumunu kontrol etmek için yeniden giriş yapın.");
+    if (!response.ok) throw new Error(result.error || "Geri yükleme başarısız.");
+    alert("Yedek geri yüklendi. Yedekteki kullanıcı adı ve parolanızla yeniden giriş yapın.");
+    location.reload();
+  } catch(error) {
+    status.textContent = error.message;
+    button.disabled = false;
+  }
+});
