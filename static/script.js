@@ -1,3 +1,56 @@
+const MODULE_LABELS = {dashboard:"Faaliyet Paneli", audits:"Denetimler", approvals:"Olurlar", personnel:"Personel", leaves:"Personel İzinleri", duties:"Görev Durumu", monitoring:"İzleme Faaliyetleri", reports:"Rapor Arşivi"};
+function hasAccess(module, edit = false) {
+  if (!currentUser) return false;
+  if (currentUser.owner) return true;
+  const level = currentUser.permissions?.[module] || "none";
+  return edit ? level === "edit" : ["view", "edit"].includes(level);
+}
+function leaveAccessModule() { return activeLeaveModule === "Görev Durumu" ? "duties" : "leaves"; }
+function canEditModule(module) {
+  const year = module === "duties" ? dutyYearFilter.value : leaveYearFilter.value;
+  return hasAccess(module, true) && (!["leaves", "duties"].includes(module) || year === "Tümü" || Number(year) >= new Date().getFullYear());
+}
+function permissionsEditor(user) {
+  return `<details class="module-permissions"><summary>Modül Yetkileri</summary><div class="permission-grid">${Object.entries(MODULE_LABELS).map(([key,label]) => `<label>${label}<select data-permission="${key}" ${user.owner ? "disabled" : ""}>${[["none","Erişim yok"],["view","Görüntüleme"],["edit","Görüntüleme ve değişiklik"]].map(([value,text]) => `<option value="${value}" ${(user.owner ? "edit" : user.permissions?.[key] || "none") === value ? "selected" : ""}>${text}</option>`).join("")}</select></label>`).join("")}</div></details>`;
+}
+function mutationModule(element) {
+  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
+  if (ids[element.id]) return ids[element.id];
+  for (const [attr,module] of [["data-action","audits"],["data-approval-action","approvals"],["data-leave-action","leaves"],["data-leave-right-action","leaves"],["data-duty-action","duties"],["data-monitoring-document-action","monitoring"],["data-report-document-action","reports"],["data-personnel-action","personnel"]]) {
+    const action = element.getAttribute(attr);
+    if (["edit","delete","cancel","return","rename","save-link","monitoring"].includes(action)) return action === "monitoring" ? "monitoring" : module;
+  }
+  if (element.matches("[data-restore-audit]")) return "audits";
+  if (element.matches("[data-personnel-delete]")) return "personnel";
+  if (element.matches("[data-monitoring-edit]")) return "monitoring";
+  return null;
+}
+function applyModulePermissions() {
+  const navs = [["#dashboardNav","dashboard"],["#auditMenuToggle","audits"],["#approvalsNav","approvals"],["#personnelMenuToggle","personnel"],["#reportsNav","reports"],["#monitoringNav","monitoring"]];
+  navs.forEach(([selector,module]) => { const el=document.querySelector(selector); if(el) el.hidden=!hasAccess(module); });
+  leaveMenuToggle.hidden = !hasAccess("leaves") && !hasAccess("duties");
+  leaveModuleButtons.forEach(button => {button.hidden=!hasAccess(button.dataset.leaveModule === "Görev Durumu" ? "duties" : "leaves");});
+  adminNav.hidden = !currentUser?.owner;
+  document.querySelectorAll("[data-report-cloud-link-type]").forEach(el => { el.disabled = !hasAccess("reports", true); });
+  document.querySelectorAll("button, form").forEach(el => {
+    const module=mutationModule(el);
+    if (!module) return;
+      let lockedRecord = false;
+    const id = el.dataset.id;
+    const record = module === "leaves" ? (el.hasAttribute("data-leave-right-action") ? leaveRights : leaves).find(r => String(r.id) === id) : module === "duties" ? dutyRecords.find(r => String(r.id) === id) : null;
+    if(record) lockedRecord = Number(record.year) < new Date().getFullYear();
+    if (el.tagName === "FORM" && ["leaves", "duties"].includes(module) && el.closest("dialog[open]")) {
+      const formYear = Number(el.elements.year?.value);
+      lockedRecord ||= formYear > 0 && formYear < new Date().getFullYear();
+    }
+    const disabled=!canEditModule(module) || lockedRecord;
+    if(el.tagName === "FORM") el.querySelectorAll("input,select,textarea,button[type=submit]").forEach(input => {input.disabled=disabled;});
+    else el.disabled=disabled;
+  });
+  // Placeholder navigation has no implemented module or data endpoint yet.
+  document.querySelectorAll('.sidebar a[href="#"]').forEach(el => { if(!el.id) el.hidden=true; });
+}
+
 const DATA_VERSION = "2026-08-31-actions-v1";
 const APPROVAL_DATA_VERSION = "2026-08-31-approvals-v1";
 const LEAVE_DATA_VERSION = "2026-08-31-leave-v1";
@@ -5,1091 +58,11 @@ const LEAVE_RIGHT_DATA_VERSION = "2026-08-31-leave-right-v1";
 const REPORT_DOCUMENT_DATA_VERSION = "2026-08-31-report-documents-v1";
 const API_STATE_URL = "/api/state";
 
-const defaultAudits = [
-  {
-    no: 1,
-    start: "2026-02-02",
-    end: "2026-06-26",
-    unit: "Eğitim ve Yayın Dairesi Başkanlığı (EYDB)",
-    scope: "Yayım ve Eğitim ile Yayın ve Tanıtım Hizmetleri Faaliyetleri Süreci",
-    type: "Sistem/Uygunluk",
-    team: ["Mesut EKMEKÇİ", "Öznur YAVUZ"],
-    supervisor: "M. Ramiz DİLLİ",
-    status: "Planlandı",
-  },
-  {
-    no: 2,
-    start: "2026-02-02",
-    end: "2026-06-26",
-    unit: "Tütün ve Alkol Dairesi Başkanlığı (TADAB)",
-    scope: "Tütün/Alkol İşlemleri ve Denetimi Faaliyetleri Süreci",
-    type: "Sistem/Uygunluk",
-    team: ["Selin YÖRÜK"],
-    supervisor: "Mustafa BEGEN",
-    status: "Planlandı",
-  },
-  {
-    no: 3,
-    start: "2026-06-01",
-    end: "2026-11-27",
-    unit: "Bilgi Teknolojileri Genel Müdürlüğü",
-    scope:
-      "Bilgi ve İletişim Güvenliği Rehberi kapsamında Bilgi ve İletişim Güvenliği Süreci",
-    type: "Bilgi Teknolojileri",
-    team: ["Çiğdem ÖZGEL"],
-    supervisor: "Ramazan ORMAN",
-    status: "Planlandı",
-  },
-  {
-    no: 4,
-    start: "2026-07-06",
-    end: "2026-10-30",
-    unit: "Van İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Sistemi",
-    type: "Sistem",
-    team: ["Mesut EKMEKÇİ"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    no: 5,
-    start: "2026-07-06",
-    end: "2026-10-30",
-    unit: "Rize İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Sistemi",
-    type: "Sistem",
-    team: ["Mesut EKMEKÇİ"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    no: 6,
-    start: "2026-07-06",
-    end: "2026-10-30",
-    unit: "Artvin İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Sistemi",
-    type: "Sistem",
-    team: ["Dr. Handan ERKAN ŞAHİN"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    no: 7,
-    start: "2026-07-06",
-    end: "2026-10-30",
-    unit: "Kırıkkale İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Sistemi",
-    type: "Sistem",
-    team: ["Setenay Beril TEKİN"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    no: 8,
-    start: "2026-07-06",
-    end: "2026-10-30",
-    unit: "Kars İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Sistemi",
-    type: "Sistem",
-    team: ["Serkan DOĞAN"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    no: 9,
-    start: "2026-07-06",
-    end: "2026-10-30",
-    unit: "Iğdır İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Sistemi",
-    type: "Sistem",
-    team: ["Öznur YAVUZ"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    no: 10,
-    start: "2026-07-06",
-    end: "2026-10-30",
-    unit: "Erzincan İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Sistemi",
-    type: "Sistem",
-    team: ["Setenay Beril TEKİN"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    no: 11,
-    start: "2026-07-06",
-    end: "2026-10-30",
-    unit: "Karabük İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Sistemi",
-    type: "Sistem",
-    team: ["Serkan DOĞAN"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    no: 12,
-    start: "2026-07-06",
-    end: "2026-10-30",
-    unit: "Kastamonu İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Sistemi",
-    type: "Sistem",
-    team: ["Öznur YAVUZ"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    no: 13,
-    start: "2026-07-06",
-    end: "2026-10-30",
-    unit: "Kırşehir İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Sistemi",
-    type: "Sistem",
-    team: ["Dr. Handan ERKAN ŞAHİN"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    no: 14,
-    start: "2026-07-06",
-    end: "2026-10-30",
-    unit: "Çankırı İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Sistemi",
-    type: "Sistem",
-    team: ["Dr. Şerife SERTKAYA"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    no: 15,
-    start: "2026-07-06",
-    end: "2026-10-30",
-    unit: "Erzurum İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Sistemi",
-    type: "Sistem",
-    team: ["Dr. Şerife SERTKAYA"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    no: 16,
-    start: "2026-08-31",
-    end: "2026-12-04",
-    unit: "Avrupa Birliği ve Dış İlişkiler Genel Müdürlüğü (ABDGM)",
-    scope: "IPA Kurumsal Kapasite Geliştirme İş ve İşlemleri Süreci",
-    type: "Sistem/Uygunluk",
-    team: ["Dr. Selçuk OLUM"],
-    supervisor: "Esra DARGA",
-    status: "Planlandı",
-  },
-  {
-    no: 17,
-    start: "2026-08-17",
-    end: "2026-12-04",
-    unit: "Tarım Reformu Genel Müdürlüğü (TRGM)",
-    scope: "IPARD Yönetim Otoritesi İş ve İşlemleri Süreci",
-    type: "Sistem/Uygunluk",
-    team: ["Setenay Beril TEKİN"],
-    supervisor: "Esra DARGA",
-    status: "Planlandı",
-  },
-  {
-    no: 18,
-    start: "2026-07-06",
-    end: "2026-10-30",
-    unit: "Tarımsal Araştırmalar ve Politikalar Genel Müdürlüğü (TAGEM)",
-    scope: "Biyoçeşitlilik ve Genetik Kaynakların Korunması Süreci",
-    type: "Sistem/Uygunluk",
-    team: ["Selin YÖRÜK"],
-    supervisor: "Mustafa BEGEN",
-    status: "Planlandı",
-  },
-  {
-    no: 19,
-    start: "2025-02-02",
-    end: "2026-10-30",
-    unit: "Tarımsal Araştırmalar ve Politikalar Genel Müdürlüğü (TAGEM) ve bağlı Enstitüler",
-    scope: "TAGEM'e bağlı Enstitü Müdürlüklerinin Etkinlikleri ve Çalışmalarının Değerlendirilmesi",
-    type: "Performans",
-    team: [
-      "Mehmet KURU",
-      "Şehmuz AYYILDIZ",
-      "Semih EROĞLU",
-      "Ramazan ORMAN",
-      "Haydar SÜNER",
-      "Dr. Alpay ALTUNTAŞ",
-    ],
-    supervisor: "Şehmuz AYYILDIZ, Semih EROĞLU, Ramazan ORMAN",
-    status: "Planlandı",
-  },
-  {
-    no: 20,
-    start: "2026-02-02",
-    end: "2026-06-26",
-    unit: "Şeker Dairesi Başkanlığı",
-    scope: "Risk Esaslı Denetim Planlaması Süreci",
-    type: "Danışmanlık",
-    team: ["Mecbure ASLAN", "Dr. Handan ERKAN ŞAHİN"],
-    supervisor: "Dr. Emir Sadettin KABAKÇI",
-    status: "Planlandı",
-  },
-  {
-    no: 21,
-    start: "2026-03-09",
-    end: "2026-06-26",
-    unit: "Hayvancılık Genel Müdürlüğü (HAYGEM)",
-    scope: "Küçükbaş Hayvan Desteği Süreci (Kuzu/Oğlak)",
-    type: "Danışmanlık",
-    team: ["Lütfi KORKUT", "Dr. Yavuz YENER"],
-    supervisor: "Esra DARGA",
-    status: "Planlandı",
-  },
-  {
-    no: 22,
-    start: "2026-07-06",
-    end: "2026-10-30",
-    unit: "Hayvancılık Genel Müdürlüğü (HAYGEM)",
-    scope: "Büyükbaş Hayvan Desteği Süreci (Buzağı/Malak)",
-    type: "Danışmanlık",
-    team: ["Lütfi KORKUT", "Dr. Yavuz YENER"],
-    supervisor: "Esra DARGA",
-    status: "Planlandı",
-  },
-  {
-    no: 23,
-    start: "2026-02-02",
-    end: "2026-03-13",
-    unit: "Hayvancılık Genel Müdürlüğü (HAYGEM)",
-    scope: "Veteriner Yol Kontrol ve Denetim İstasyonları Süreci",
-    type: "Danışmanlık",
-    team: ["Lütfi KORKUT", "Dr. Yavuz YENER"],
-    supervisor: "Esra DARGA",
-    status: "Planlandı",
-  },
-  {
-    no: 24,
-    start: "2026-02-02",
-    end: "2026-06-26",
-    unit: "Strateji Geliştirme Başkanlığı (SGB)",
-    scope: "Kurumsal Risk Yönetimi Süreci",
-    type: "Danışmanlık",
-    team: ["Mecbure ASLAN", "Dr. Handan ERKAN ŞAHİN"],
-    supervisor: "Dr. Emir Sadettin KABAKÇI",
-    status: "Planlandı",
-  },
-  {
-    no: 25,
-    start: "2026-02-02",
-    end: "2026-06-26",
-    unit: "Tarımsal Araştırmalar ve Politikalar Genel Müdürlüğü (TAGEM)",
-    scope: "Araştırma yönetiminde Proje Değerlendirme Grubu (PDG) Toplantıları Süreci",
-    type: "Danışmanlık",
-    team: ["Dr. Şerife SERTKAYA", "Setenay Beril TEKİN"],
-    supervisor: "Serkan DOĞAN",
-    status: "Planlandı",
-  },
-  {
-    no: 26,
-    start: "2026-02-04",
-    end: "2026-12-04",
-    unit: "Tarımsal Desteklemeler Başvuru Süreci",
-    scope: "İlgili tüm birimler",
-    type: "Danışmanlık",
-    team: ["Dr. Hakan VELİOĞLU", "Dr. Selçuk OLUM"],
-    supervisor: "Esra DARGA",
-    status: "Planlandı",
-  },
-  {
-    no: 27,
-    start: "2026-05-18",
-    end: "2026-05-29",
-    unit: "İç Denetim Başkanlığı",
-    scope: "İzleme Sonuçları Takip Raporu 1 (01/01/2026-30/06/2026)",
-    type: "Yönetim Faaliyetleri",
-    team: ["Koordinasyon: Ramazan ORMAN", "İç Denetçi: Çiğdem ÖZGEL"],
-    supervisor: "Ramazan ORMAN",
-    status: "Planlandı",
-  },
-  {
-    no: 28,
-    start: "2026-11-30",
-    end: "2026-12-11",
-    unit: "İç Denetim Başkanlığı",
-    scope: "İzleme Sonuçları Takip Raporu 2 (01/07/2026-30/11/2026)",
-    type: "Yönetim Faaliyetleri",
-    team: ["Koordinasyon: Ramazan ORMAN", "İç Denetçi: Çiğdem ÖZGEL"],
-    supervisor: "Ramazan ORMAN",
-    status: "Planlandı",
-  },
-  {
-    no: 29,
-    start: "2026-12-07",
-    end: "2026-12-25",
-    unit: "İç Denetim Başkanlığı",
-    scope: "2026 Yılı Dönemsel Gözden Geçirme Raporu",
-    type: "Yönetim Faaliyetleri",
-    team: ["Çiğdem ÖZGEL", "Semih EROĞLU (Denetim Gözetim Sorumlusu)"],
-    supervisor: "Semih EROĞLU",
-    status: "Planlandı",
-  },
-  {
-    no: 30,
-    start: "2027-01-25",
-    end: "2027-02-05",
-    unit: "İç Denetim Başkanlığı",
-    scope: "2026 Yılı Dönemsel Rapor",
-    type: "Yönetim Faaliyetleri",
-    team: ["Esra DARGA"],
-    supervisor: "Esra DARGA",
-    status: "Planlandı",
-  },
-  {
-    no: 31,
-    start: "2026-12-14",
-    end: "2027-01-15",
-    unit: "İç Denetim Başkanlığı",
-    scope: "2026 Yılına ait Birim Faaliyet Raporu",
-    type: "Yönetim Faaliyetleri",
-    team: ["Setenay Beril TEKİN"],
-    supervisor: "Setenay Beril TEKİN",
-    status: "Planlandı",
-  },
-  {
-    no: 32,
-    start: "2026-12-07",
-    end: "2026-12-25",
-    unit: "İç Denetim Başkanlığı",
-    scope: "2026 Yılı Yönerge Gözden Geçirme Çalışması",
-    type: "Yönetim Faaliyetleri",
-    team: ["Koordinasyon: Öznur YAVUZ", "Görevlendirme: Tüm İç Denetçiler"],
-    supervisor: "Öznur YAVUZ",
-    status: "Planlandı",
-  },
-  {
-    no: 33,
-    start: "2026-12-07",
-    end: "2026-12-25",
-    unit: "İç Denetim Başkanlığı",
-    scope: "2026 Kalite Güvence ve Geliştirme Programı Gözden Geçirme",
-    type: "Yönetim Faaliyetleri",
-    team: ["Koordinasyon: Öznur YAVUZ", "Görevlendirme: Tüm İç Denetçiler"],
-    supervisor: "Öznur YAVUZ",
-    status: "Planlandı",
-  },
-  {
-    no: 34,
-    start: "2026-11-16",
-    end: "2026-12-31",
-    unit: "İç Denetim Başkanlığı",
-    scope: "2027 Yılı Plan ve Program Hazırlıkları",
-    type: "Yönetim Faaliyetleri",
-    team: ["Esra DARGA - Koordinatör", "Dr. Hakan VELİOĞLU - Koordinatör"],
-    supervisor: "Esra DARGA, Dr. Hakan VELİOĞLU",
-    status: "Planlandı",
-  },
-];
+const defaultAudits = [];
 
-const defaultApprovals = [
-  {
-    year: "2026",
-    no: 1,
-    date: "2026-01-12",
-    subject: "2026 yılı iç denetim programı oluru",
-    related: "2026 Program Çizelgesi",
-    status: "Yüklendi",
-    fileName: "2026 Program Çizelgesi 12.01.2026.doc",
-    cloudUrl: "",
-    note: "Yıllık program başlangıç oluru",
-  },
-  {
-    year: "2026",
-    no: 2,
-    date: "2026-02-02",
-    subject: "EYDB denetimi görevlendirme oluru",
-    related: "Eğitim ve Yayın Dairesi Başkanlığı denetimi",
-    status: "Beklemede",
-    fileName: "",
-    cloudUrl: "",
-    note: "",
-  },
-  {
-    year: "2026",
-    no: 3,
-    date: "2026-02-02",
-    subject: "TADAB denetimi görevlendirme oluru",
-    related: "Tütün ve Alkol Dairesi Başkanlığı denetimi",
-    status: "Beklemede",
-    fileName: "",
-    cloudUrl: "",
-    note: "",
-  },
-  {
-    year: "2026",
-    no: 4,
-    date: "2026-03-09",
-    subject: "Danışmanlık faaliyeti görevlendirme oluru",
-    related: "HAYGEM Küçükbaş Hayvan Desteği Süreci",
-    status: "Beklemede",
-    fileName: "",
-    cloudUrl: "",
-    note: "",
-  },
-];
+const defaultApprovals = [];
 
-const defaultAudits2025 = [
-  {
-    year: "2025",
-    no: 1,
-    start: "2025-02-21",
-    end: "2025-06-27",
-    unit: "Destek Hizmetleri Dairesi Başkanlığı",
-    scope: "Genel Evrak süreci",
-    type: "Sistem/Uygunluk",
-    team: ["Çiğdem ÖZGEL", "Dr. Selçuk OLUM"],
-    supervisor: "Ramazan ORMAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 2,
-    start: "2025-02-21",
-    end: "2025-11-28",
-    unit: "Döner Sermaye İş ve İşlemleri",
-    scope: "Döner sermaye iş ve işlemleri süreci",
-    type: "Mali",
-    team: ["Erdal ÖZYÜN", "Dr. Kerim ÜSTÜN", "Metin SÜERDEM"],
-    supervisor: "Dr. Emir Sadettin KABAKÇI",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 3,
-    start: "2025-09-22",
-    end: "2025-11-28",
-    unit: "Bilgi Teknolojileri Genel Müdürlüğü",
-    scope:
-      "Bilgi ve İletişim Güvenliği Rehberi kapsamında Bilgi ve İletişim Güvenliği Süreci",
-    type: "Bilgi Teknolojileri",
-    team: ["Dr. Selçuk OLUM", "Dr. Yavuz YENER"],
-    supervisor: "Dr. Hakan VELİOĞLU",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 4,
-    start: "2025-02-10",
-    end: "2025-12-05",
-    unit: "Gıda ve Kontrol Genel Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktaları İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Lütfi KORKUT", "Dr. Yavuz YENER", "Dr. Hakan VELİOĞLU"],
-    supervisor: "Esra DARGA",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 5,
-    start: "2025-02-10",
-    end: "2025-09-19",
-    unit: "Edirne Kapıkule Veteriner Sınır Kontrol Noktası Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktası Müdürlükleri İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Lütfi KORKUT", "Dr. Yavuz YENER", "Dr. Hakan VELİOĞLU"],
-    supervisor: "Esra DARGA",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 6,
-    start: "2025-02-10",
-    end: "2025-09-19",
-    unit: "Edirne İpsala Sınır Kapısı Veteriner Sınır Kontrol Noktası Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktası Müdürlükleri İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Lütfi KORKUT", "Dr. Yavuz YENER", "Dr. Hakan VELİOĞLU"],
-    supervisor: "Esra DARGA",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 7,
-    start: "2025-02-10",
-    end: "2025-09-19",
-    unit: "İstanbul Pendik Veteriner Sınır Kontrol Noktası Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktası Müdürlükleri İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Lütfi KORKUT", "Dr. Yavuz YENER", "Dr. Hakan VELİOĞLU"],
-    supervisor: "Esra DARGA",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 8,
-    start: "2025-02-10",
-    end: "2025-09-19",
-    unit: "İstanbul Ambarlı Veteriner Sınır Kontrol Noktası Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktası Müdürlükleri İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Lütfi KORKUT", "Dr. Yavuz YENER", "Dr. Hakan VELİOĞLU"],
-    supervisor: "Esra DARGA",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 9,
-    start: "2025-02-10",
-    end: "2025-09-19",
-    unit: "İstanbul Sabiha Gökçen Havalimanı Veteriner Sınır Kontrol Noktası Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktası Müdürlükleri İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Lütfi KORKUT", "Dr. Yavuz YENER", "Dr. Hakan VELİOĞLU"],
-    supervisor: "Esra DARGA",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 10,
-    start: "2025-02-10",
-    end: "2025-09-19",
-    unit: "İstanbul Havalimanı Veteriner Sınır Kontrol Noktası Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktası Müdürlükleri İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Lütfi KORKUT", "Dr. Yavuz YENER", "Dr. Hakan VELİOĞLU"],
-    supervisor: "Esra DARGA",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 11,
-    start: "2025-02-10",
-    end: "2025-09-19",
-    unit: "Mersin Veteriner Sınır Kontrol Noktası Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktası Müdürlükleri İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Lütfi KORKUT", "Dr. Yavuz YENER", "Dr. Hakan VELİOĞLU"],
-    supervisor: "Esra DARGA",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 12,
-    start: "2025-02-10",
-    end: "2025-09-19",
-    unit: "Şırnak Habur Veteriner Sınır Kontrol Noktası Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktası Müdürlükleri İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Lütfi KORKUT", "Dr. Yavuz YENER", "Dr. Hakan VELİOĞLU"],
-    supervisor: "Esra DARGA",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 13,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "İzmir Veteriner Sınır Kontrol Noktası Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktası Müdürlükleri İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Mustafa BEGEN"],
-    supervisor: "M. Ramiz DİLLİ",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 14,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "İzmir Adnan Menderes Havalimanı Sınır Kontrol Noktası Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktası Müdürlükleri İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Mustafa BEGEN"],
-    supervisor: "M. Ramiz DİLLİ",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 15,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Kocaeli Derince Limanı Veteriner Sınır Kontrol Noktası Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktası Müdürlükleri İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Çiğdem ÖZGEL", "Erdal ÖZYÜN"],
-    supervisor: "Mustafa BEGEN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 16,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Artvin Sarp Veteriner Sınır Kontrol Noktası Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktası Müdürlükleri İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Mustafa BEGEN"],
-    supervisor: "M. Ramiz DİLLİ",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 17,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Antalya Havalimanı Veteriner Sınır Kontrol Noktası Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktası Müdürlükleri İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Dr. Alpay ALTUNTAŞ"],
-    supervisor: "Mustafa BEGEN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 18,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Balıkesir Bandırma Limanı Veteriner Sınır Kontrol Noktası Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktası Müdürlükleri İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Setenay Beril TEKİN"],
-    supervisor: "Mustafa BEGEN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 19,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Tekirdağ Limanı Veteriner Sınır Kontrol Noktası Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktası Müdürlükleri İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Selin YÖRÜK"],
-    supervisor: "Mustafa BEGEN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 20,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Samsun Limanı Veteriner Sınır Kontrol Noktası Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktası Müdürlükleri İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Çiğdem ÖZGEL", "Mehmet KURU"],
-    supervisor: "Mustafa BEGEN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 21,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Trabzon Limanı Veteriner Sınır Kontrol Noktası Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktası Müdürlükleri İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Dr. Şerife SERTKAYA"],
-    supervisor: "Mustafa BEGEN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 22,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Zonguldak Limanı Veteriner Sınır Kontrol Noktası Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktası Müdürlükleri İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Dr. Şerife SERTKAYA"],
-    supervisor: "Mustafa BEGEN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 23,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Ağrı Gürbulak Veteriner Sınır Kontrol Noktası Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktası Müdürlükleri İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Haydar SÜNER", "Mehmet KURU"],
-    supervisor: "Mustafa BEGEN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 24,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Iğdır Dilucu Sınır Kapısı Veteriner Sınır Kontrol Noktası Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktası Müdürlükleri İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Haydar SÜNER", "Mehmet KURU"],
-    supervisor: "Mustafa BEGEN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 25,
-    start: "2025-07-07",
-    end: "2025-09-19",
-    unit: "Ankara Esenboğa Havalimanı Veteriner Sınır Kontrol Noktası Müdürlüğü",
-    scope: "Veteriner Sınır Kontrol Noktası Müdürlükleri İş ve İşlemleri",
-    type: "Sistem/Uygunluk",
-    team: ["Setenay Beril TEKİN"],
-    supervisor: "Mustafa BEGEN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 26,
-    start: "2025-02-10",
-    end: "2025-06-27",
-    unit: "Mersin İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Faaliyetleri",
-    type: "Sistem",
-    team: ["Öznur YAVUZ", "Serkan DOĞAN"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 27,
-    start: "2025-02-10",
-    end: "2025-06-27",
-    unit: "Afyon İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Faaliyetleri",
-    type: "Sistem",
-    team: ["Dr. Handan ERKAN ŞAHİN"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 28,
-    start: "2025-02-10",
-    end: "2025-06-27",
-    unit: "Sinop İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Faaliyetleri",
-    type: "Sistem",
-    team: ["Serkan DOĞAN"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 29,
-    start: "2025-02-10",
-    end: "2025-06-27",
-    unit: "Trabzon İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Faaliyetleri",
-    type: "Sistem",
-    team: ["Mesut EKMEKÇİ"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 30,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Manisa İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Faaliyetleri",
-    type: "Sistem",
-    team: ["Öznur YAVUZ"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 31,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Uşak İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Faaliyetleri",
-    type: "Sistem",
-    team: ["Dr. Handan ERKAN ŞAHİN"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 32,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Denizli İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Faaliyetleri",
-    type: "Sistem",
-    team: ["Serkan DOĞAN"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 33,
-    start: "2025-02-10",
-    end: "2025-06-27",
-    unit: "Isparta İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Faaliyetleri",
-    type: "Sistem",
-    team: ["Mesut EKMEKÇİ"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 34,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Batman İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Faaliyetleri",
-    type: "Sistem",
-    team: ["Dr. Alpay ALTUNTAŞ"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 35,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Mardin İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Faaliyetleri",
-    type: "Sistem",
-    team: ["Serkan DOĞAN"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 36,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Sivas Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Faaliyetleri",
-    type: "Sistem",
-    team: ["Mesut EKMEKÇİ"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 37,
-    start: "2025-02-10",
-    end: "2025-06-27",
-    unit: "Tokat İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Faaliyetleri",
-    type: "Sistem",
-    team: ["Dr. Handan ERKAN ŞAHİN", "Dr. Alpay ALTUNTAŞ"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 38,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Çorum İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Faaliyetleri",
-    type: "Sistem",
-    team: ["Dr. Handan ERKAN ŞAHİN"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 39,
-    start: "2025-02-10",
-    end: "2025-06-27",
-    unit: "Nevşehir İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Faaliyetleri",
-    type: "Sistem",
-    team: ["Serkan DOĞAN"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 40,
-    start: "2025-02-10",
-    end: "2025-06-27",
-    unit: "Kocaeli İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Faaliyetleri",
-    type: "Sistem",
-    team: ["Öznur YAVUZ", "Mesut EKMEKÇİ"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 41,
-    start: "2025-02-10",
-    end: "2025-06-27",
-    unit: "Ordu İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Faaliyetleri",
-    type: "Sistem",
-    team: ["Dr. Alpay ALTUNTAŞ"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 42,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Malatya İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Faaliyetleri",
-    type: "Sistem",
-    team: ["Dr. Handan ERKAN ŞAHİN", "Mesut EKMEKÇİ"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 43,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Düzce İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Faaliyetleri",
-    type: "Sistem",
-    team: ["Öznur YAVUZ"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 44,
-    start: "2025-02-10",
-    end: "2025-06-27",
-    unit: "Sakarya İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Faaliyetleri",
-    type: "Sistem",
-    team: ["Öznur YAVUZ", "Dr. Alpay ALTUNTAŞ"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 45,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Antalya İl Tarım ve Orman Müdürlüğü",
-    scope: "İç Kontrol Faaliyetleri",
-    type: "Sistem",
-    team: ["Dr. Alpay ALTUNTAŞ"],
-    supervisor: "Mecbure ASLAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 46,
-    start: "2025-02-14",
-    end: "2025-09-30",
-    unit: "Tarımsal Araştırmalar ve Politikalar Genel Müdürlüğü",
-    scope: "Kamu-Özel Sektör İşbirliği Projeleri Süreci",
-    type: "Sistem",
-    team: ["Dr. Şerife SERTKAYA", "Şehmus AYYILDIZ"],
-    supervisor: "Semih EROĞLU",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 47,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Avrupa Birliği ve Dış İlişkiler Genel Müdürlüğü",
-    scope: "IPA Kurumsal Kapasite İş ve İşlemleri Süreci",
-    type: "Sistem/Uygunluk",
-    team: ["Öznur YAVUZ"],
-    supervisor: "Esra DARGA",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 48,
-    start: "2025-07-07",
-    end: "2025-11-28",
-    unit: "Tarım Reformu Genel Müdürlüğü",
-    scope: "IPARD Yönetim Otoritesi İş ve İşlemleri Süreci",
-    type: "Sistem/Uygunluk",
-    team: ["Setenay Beril TEKİN"],
-    supervisor: "Esra DARGA",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 49,
-    start: "2025-02-10",
-    end: "2025-04-21",
-    unit: "Şeker Dairesi Başkanlığı",
-    scope: "Şeker Kanunu kapsamındaki inceleme ve denetim süreci",
-    type: "İnceleme",
-    team: ["Semih EROĞLU", "Şehmus AYYILDIZ"],
-    supervisor: "Ramazan ORMAN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 50,
-    start: "2025-02-10",
-    end: "2025-06-27",
-    unit: "Gıda ve Kontrol Genel Müdürlüğü",
-    scope: "Bitki Koruma Ürünleri Üretim Yeri ve Bayi Kontrol Süreci",
-    type: "Sistem/Uygunluk",
-    team: ["Selin YÖRÜK"],
-    supervisor: "Mustafa BEGEN",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 51,
-    start: "2025-02-10",
-    end: "2025-04-11",
-    unit: "Tarım Reformu Genel Müdürlüğü",
-    scope:
-      "Tarım Bilgi Sistemi uygulamaları ülke modeli fizibilite çalışması kapsamında üretilen zirai meteorolojik fenolojik gözlem istasyonları",
-    type: "Danışmanlık",
-    team: ["Selin YÖRÜK"],
-    supervisor: "M. Ramiz DİLLİ",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 52,
-    start: "2025-04-14",
-    end: "2025-09-30",
-    unit: "Tarımsal Araştırmalar ve Politikalar Genel Müdürlüğü (TAGEM)",
-    scope: "TAGEM'in organizasyonel yapısı ve süreçlerin değerlendirilmesi",
-    type: "Danışmanlık",
-    team: ["Selin YÖRÜK", "Semih EROĞLU"],
-    supervisor: "Şehmus AYYILDIZ",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 53,
-    start: "2025-02-10",
-    end: "2025-06-20",
-    unit: "Gıda ve Kontrol Genel Müdürlüğü",
-    scope:
-      "Özel Gıda Kontrol Laboratuvarlarıyla ilgili iş ve işlemler (yetkilendirme, denetim vb. süreçler)",
-    type: "İnceleme",
-    team: ["Setenay Beril TEKİN", "M. Ramiz DİLLİ"],
-    supervisor: "Esra DARGA",
-    status: "Planlandı",
-  },
-  {
-    year: "2025",
-    no: 54,
-    start: "2025-01-01",
-    end: "2025-12-31",
-    unit: "Tüm Birimler",
-    scope: "İhtiyat inceleme görevleri",
-    type: "İnceleme",
-    team: ["Dr. Kerim ÜSTÜN", "Metin SÜERDEM"],
-    supervisor: "M. Ramiz DİLLİ",
-    status: "Planlandı",
-  },
-];
+const defaultAudits2025 = [];
 
 const defaultLeaves = [];
 
@@ -1100,60 +73,15 @@ const defaultDutyRecords = [];
 const reportArchiveLinkType = "Rapor Arşivi Bulut Linki";
 const ACTIVE_VIEW_KEY = "ic-denetim-active-view";
 
-const defaultPersonnelRecords = [
-  { no: 1, name: "Erdal ÖZYÖN", title: "Başkan", extension: "8801", group: "Denetçiler" },
-  { no: 2, name: "Esra DARGA", title: "Başkan Yardımcısı", extension: "8772", group: "Denetçiler" },
-  { no: 3, name: "Dr. Hakan VELİOĞLU", title: "Başkan Yardımcısı", extension: "8788", group: "Denetçiler" },
-  { no: 4, name: "Ramazan ORMAN", title: "Başkan Yardımcısı", extension: "8769", group: "Denetçiler" },
-  { no: 5, name: "Dr. Alpay ALTUNTAŞ", title: "İç Denetçi", extension: "2707", group: "Denetçiler" },
-  { no: 6, name: "Bahadır TOPAL", title: "İç Denetçi", extension: "8765", group: "Denetçiler" },
-  { no: 7, name: "Çiğdem ÖZGEL", title: "İç Denetçi", extension: "8767", group: "Denetçiler" },
-  { no: 8, name: "Dr. Deniz Savaş SARI", title: "İç Denetçi", extension: "2730", group: "Denetçiler" },
-  { no: 9, name: "Dr. Emir Sadettin KABAKÇI", title: "İç Denetçi", extension: "2726", group: "Denetçiler" },
-  { no: 10, name: "Dr. Handan Erkan ŞAHİN", title: "İç Denetçi", extension: "2709", group: "Denetçiler" },
-  { no: 11, name: "Dr. Hasan Alper ELEKON", title: "İç Denetçi", extension: "2761", group: "Denetçiler" },
-  { no: 12, name: "Haydar SÜNER", title: "İç Denetçi", extension: "2702", group: "Denetçiler" },
-  { no: 13, name: "Lütfi KORKUT", title: "İç Denetçi", extension: "2729", group: "Denetçiler" },
-  { no: 14, name: "Mecbure ASLAN", title: "İç Denetçi", extension: "2710", group: "Denetçiler" },
-  { no: 15, name: "Mehmet KURU", title: "İç Denetçi", extension: "2728", group: "Denetçiler" },
-  { no: 16, name: "Mesut EKMEKÇİ", title: "İç Denetçi", extension: "2715", group: "Denetçiler" },
-  { no: 17, name: "Muhammet Ramiz DİLLİ", title: "İç Denetçi", extension: "8760", group: "Denetçiler" },
-  { no: 18, name: "Mustafa BEGEN", title: "İç Denetçi", extension: "8768", group: "Denetçiler" },
-  { no: 19, name: "Öznur YAVUZ", title: "İç Denetçi", extension: "2763", group: "Denetçiler" },
-  { no: 20, name: "Dr. Selçuk OLUM", title: "İç Denetçi", extension: "8770", group: "Denetçiler" },
-  { no: 21, name: "Selin YÖRÜK", title: "İç Denetçi", extension: "2739", group: "Denetçiler" },
-  { no: 22, name: "Semih EROĞLU", title: "İç Denetçi", extension: "2724", group: "Denetçiler" },
-  { no: 23, name: "Serkan DOĞAN", title: "İç Denetçi", extension: "2760", group: "Denetçiler" },
-  { no: 24, name: "Setenay Beril TEKİN", title: "İç Denetçi", extension: "2751", group: "Denetçiler" },
-  { no: 25, name: "Şehmus AYYILDIZ", title: "İç Denetçi", extension: "2750", group: "Denetçiler" },
-  { no: 26, name: "Dr. Şerife SERTKAYA", title: "İç Denetçi", extension: "2711", group: "Denetçiler" },
-  { no: 27, name: "Dr. Yavuz YENER", title: "İç Denetçi", extension: "2708", group: "Denetçiler" },
-  { no: 28, name: "Dr. Kerim ÜSTÜN", title: "Bakanlık Müşaviri", extension: "2756", group: "Denetçiler" },
-  { no: 29, name: "Süleyman DEĞERLİ", title: "Bakanlık Müşaviri", extension: "2752", group: "Denetçiler" },
-  { no: 1, name: "Emine GÖRGÜLÜ", title: "Yönetici Asistanı", extension: "8801", group: "İdari Personel" },
-  { no: 2, name: "Elmas ÖZDEMİR", title: "Yönetici Asistanı", extension: "8885", group: "İdari Personel" },
-  { no: 3, name: "Sibel ÇALIŞKAN", title: "Büro", extension: "2717", group: "İdari Personel" },
-  { no: 4, name: "Nilüfer ALA", title: "Büro", extension: "2714", group: "İdari Personel" },
-  { no: 5, name: "Kenan KOPAN", title: "Tekniker", extension: "8789", group: "İdari Personel" },
-  { no: 6, name: "Mahmut Sami ÖZKAN", title: "Mühendis", extension: "8766", group: "İdari Personel" },
-  { no: 7, name: "M. Kemal DEMİREL", title: "Memur", extension: "2706", group: "İdari Personel" },
-  { no: 8, name: "Meryem KOYUNCU", title: "Kat Görevlisi", extension: "2734", group: "İdari Personel" },
-  { no: 9, name: "Hasan YÜKSEL", title: "Kat Görevlisi", extension: "2734", group: "İdari Personel" },
-  { no: 10, name: "Elmaziye AKTAŞ", title: "Kat Görevlisi", extension: "2720", group: "İdari Personel" },
-  { no: 11, name: "Hümeysa YILMAZ", title: "Kat Görevlisi", extension: "2720", group: "İdari Personel" },
-  { no: 12, name: "Yunus Emre KAYRA", title: "Kat Görevlisi", extension: "2720", group: "İdari Personel" },
-  { no: 13, name: "İlhan ÜNAL", title: "Kat Görevlisi", extension: "2716", group: "İdari Personel" },
-  { no: 14, name: "Volkan DAL", title: "Şoför", extension: "2704", group: "İdari Personel" },
-  { no: 15, name: "Ayşegül YALÇIN", title: "Güvenlik", extension: "2732", group: "İdari Personel" },
-];
+const defaultPersonnelRecords = [];
 
-let audits = loadAudits();
-let approvals = loadApprovals();
-let leaves = loadLeaves();
-let dutyRecords = loadDutyRecords();
-let reportDocuments = loadReportDocuments();
-let personnelRecords = loadPersonnelRecords();
-let leaveRights = loadLeaveRights();
+let audits = [];
+let approvals = [];
+let leaves = [];
+let dutyRecords = [];
+let reportDocuments = [];
+let personnelRecords = [];
+let leaveRights = [];
 
 const searchInput = document.querySelector("#searchInput");
 const yearSelect = document.querySelector("#yearSelect");
@@ -1797,6 +725,8 @@ function buildChangedSharedState() {
   };
 
   sharedCollections.forEach((collection) => {
+    const modules = {audits:"audits",approvals:"approvals",leaves:"leaves",leaveRights:"leaves",dutyRecords:"duties",reportDocuments:"reports",personnelRecords:"personnel"};
+    if (!hasAccess(modules[collection], true) && !(collection === "audits" && hasAccess("monitoring", true)) && !(collection === "reportDocuments" && hasAccess("monitoring", true))) return;
     const changedRecords = [];
     const previousRecords = lastSharedRecordJson[collection] || {};
 
@@ -1809,6 +739,8 @@ function buildChangedSharedState() {
 
       const value = JSON.stringify(record);
 
+      const year = Number(record.year || String(record.start || "").slice(0,4));
+      if (["leaves","leaveRights","dutyRecords"].includes(collection) && year < new Date().getFullYear()) return;
       if (previousRecords[key] !== value) {
         changedRecords.push(record);
       }
@@ -1893,6 +825,7 @@ function hasSharedState(payload) {
 }
 
 function applySharedState(payload) {
+  if (payload.user) currentUser = payload.user;
   if (Array.isArray(payload.audits)) {
     audits = payload.audits.map(normalizeAudit);
   }
@@ -1926,7 +859,8 @@ function applySharedState(payload) {
     }));
   }
 
-  leaveRights = syncLeaveRightsWithPersonnel(leaveRights);
+  if (hasAccess("leaves")) leaveRights = syncLeaveRightsWithPersonnel(leaveRights);
+  else leaveRights = [];
 }
 
 async function apiFetch(url, options = {}) {
@@ -1965,7 +899,8 @@ function renderAuthState() {
 
   authScreen.hidden = isLoggedIn;
   currentUserBox.hidden = !isLoggedIn;
-  adminNav.hidden = currentUser?.role !== "admin";
+  adminNav.hidden = !currentUser?.owner;
+  applyModulePermissions();
 
   if (isLoggedIn) {
     const currentRoleLabel = currentUser.owner ? "Ana Yönetici" : roleLabel(currentUser.role);
@@ -2026,6 +961,11 @@ async function logout() {
   await apiFetch("/api/logout", { method: "POST" });
   currentUser = null;
   sharedStateLoaded = false;
+  clearTimeout(sharedStateSaveTimer);
+  audits = []; approvals = []; leaves = []; leaveRights = []; dutyRecords = []; reportDocuments = []; personnelRecords = [];
+  deletedRecords = [];
+  document.querySelectorAll("dialog[open]").forEach(dialog => dialog.close());
+  renderEverything();
   renderAuthState();
 }
 
@@ -2075,7 +1015,7 @@ function renderRoleOptions(selectedRole, isOwner) {
 }
 
 async function loadAdminDashboard() {
-  if (currentUser?.role !== "admin") {
+  if (!currentUser?.owner) {
     return;
   }
 
@@ -2124,6 +1064,7 @@ async function loadAdminDashboard() {
             <button class="btn small secondary" data-user-action="save" type="button" ${userManagementDisabled ? "disabled" : ""}>Kaydet</button>
             <button class="btn small secondary danger-soft" data-user-action="delete" type="button" ${user.owner || userManagementDisabled ? "disabled" : ""}>Sil</button>
           </div>
+          ${permissionsEditor(user)}
           <span class="role-pill ${escapeHtml(user.owner ? "admin" : user.role)}">${user.owner ? "Ana Yönetici" : roleLabel(user.role)}</span>
         </div>
       `,
@@ -2285,7 +1226,7 @@ async function loadSharedState() {
         ? payload.leaveRights.length
         : 0;
       applySharedState(payload);
-      const shouldSeedLeaveRights = originalLeaveRightCount !== leaveRights.length;
+      const shouldSeedLeaveRights = hasAccess("leaves", true) && originalLeaveRightCount !== leaveRights.length;
       captureCurrentSharedSnapshot();
       sharedStateLoaded = true;
 
@@ -3428,6 +2369,18 @@ function setActiveTypeFilter(filterName) {
 }
 
 function setActiveModule(moduleName, options = {}) {
+  if (moduleName === "leave" && !hasAccess(leaveAccessModule())) activeLeaveModule = hasAccess("leaves") ? "Personel" : "Görev Durumu";
+  leaveModuleButtons.forEach(button => button.classList.toggle("active", button.dataset.leaveModule === activeLeaveModule));
+  const moduleKey = moduleName === "leave" ? leaveAccessModule() : moduleName === "personnelProfile" ? "personnel" : moduleName;
+  const allowed = moduleName === "admin" ? currentUser?.owner : moduleName === "dashboard" ? (hasAccess("dashboard") || hasAccess("audits")) : hasAccess(moduleKey);
+  if (!allowed) {
+    const fallback = ["dashboard","approvals","personnel","leave","monitoring","reports","admin"].find(name => name === "admin" ? currentUser?.owner : name === "leave" ? (hasAccess("leaves") || hasAccess("duties")) : name === "dashboard" ? (hasAccess("dashboard") || hasAccess("audits")) : hasAccess(name));
+    if (fallback && fallback !== moduleName) return setActiveModule(fallback, options);
+    document.querySelectorAll("[data-view]").forEach(el => { el.hidden = true; });
+    document.querySelector(".topbar h1").textContent = "Henüz modül yetkiniz tanımlanmamış";
+    applyModulePermissions();
+    return;
+  }
   if (moduleName === "admin" && currentUser?.role !== "admin") {
     showToast("Yönetim paneli için yönetici yetkisi gerekli.");
     return;
@@ -3502,55 +2455,55 @@ function setActiveModule(moduleName, options = {}) {
   }
 
   if (showApprovals) {
-    document.querySelector("h1").textContent = "Olurlar";
+    document.querySelector(".topbar h1").textContent = "Olurlar";
     topbarSubtitle.textContent = "Yıl bazında olur arşivi ve filtreleme ekranı";
     renderApprovals();
     return;
   }
 
   if (showLeave) {
-    document.querySelector("h1").textContent = "İzin Takip";
+    document.querySelector(".topbar h1").textContent = "İzin Takip";
     topbarSubtitle.textContent = "Personel izin kayıtları, izin türleri ve bakiye takibi";
     renderLeaves();
     return;
   }
 
   if (showPersonnel) {
-    document.querySelector("h1").textContent = "Personel";
+    document.querySelector(".topbar h1").textContent = "Personel";
     topbarSubtitle.textContent = "Denetçiler ve idari personel kayıt ekranı";
     renderPersonnel();
     return;
   }
 
   if (showPersonnelProfile) {
-    document.querySelector("h1").textContent = "Personel Profili";
+    document.querySelector(".topbar h1").textContent = "Personel Profili";
     topbarSubtitle.textContent = "Personel bilgileri, aktif görevler, eğitim ve sertifika kayıtları";
     renderPersonnelProfile();
     return;
   }
 
   if (showReports) {
-    document.querySelector("h1").textContent = "Rapor Arşivi";
+    document.querySelector(".topbar h1").textContent = "Rapor Arşivi";
     topbarSubtitle.textContent = "Seçili yılın denetimlerine ait olur, yazı ve rapor belgeleri";
     renderReportArchive();
     return;
   }
 
   if (showMonitoring) {
-    document.querySelector("h1").textContent = "İzleme Faaliyetleri";
+    document.querySelector(".topbar h1").textContent = "İzleme Faaliyetleri";
     topbarSubtitle.textContent = "İzleme sürecine alınan denetimler ve takip kayıtları";
     renderMonitoringAudits();
     return;
   }
 
   if (showAdmin) {
-    document.querySelector("h1").textContent = "Yönetim Paneli";
+    document.querySelector(".topbar h1").textContent = "Yönetim Paneli";
     topbarSubtitle.textContent = "Kullanıcı yetkileri, veri güvenliği ve işlem geçmişi";
     loadAdminDashboard();
     return;
   }
 
-  document.querySelector("h1").textContent = `${yearSelect.value} Faaliyet Paneli`;
+  document.querySelector(".topbar h1").textContent = `${yearSelect.value} Faaliyet Paneli`;
   topbarSubtitle.textContent = "Yıllık denetim, olur, eğitim ve izleme takip sistemi";
 }
 
@@ -3855,7 +2808,7 @@ function renderPersonnel() {
   const visiblePersonnel = sortPersonnelRecords(
     personnelRecords.filter((person) => person.group === activePersonnelModule),
   );
-  const canManagePersonnel = Boolean(currentUser?.owner);
+  const canManagePersonnel = hasAccess("personnel", true);
 
   personnelTitle.textContent = activePersonnelModule;
   personnelSummary.textContent =
@@ -4147,7 +3100,7 @@ function getPersonnelStatusRecord(person) {
 
   return {
     person,
-    status: "Birimde",
+    status: hasAccess("leaves") ? "Birimde" : "Görev kaydı yok",
     place: person.unit || getPersonnelUnit(person),
     detail: person.group || "Personel",
     start: "",
@@ -4274,13 +3227,17 @@ function getUpcomingDutyLeaves() {
 }
 
 function renderDutyRecords() {
+  dutyTotalDays.closest(".card").hidden = !hasAccess("leaves");
+  dutyUpcomingLeaveCount.closest(".card").hidden = !hasAccess("leaves");
+  dutyActiveCount.closest(".card").querySelector("p").textContent = hasAccess("leaves") ? "Birimde" : "Aktif Görevi Olmayanlar";
+  dutyActiveCount.closest(".card").querySelector(".note").textContent = hasAccess("leaves") ? "Bugün kurumda görünen personel" : "İzin durumu bu yetkiyle görüntülenmez";
   const visibleStatuses = getVisiblePersonnelStatuses();
   const allStatuses = getLeavePersonnel().map(getPersonnelStatusRecord);
   const activeDuties = dutyRecords.filter((duty) => matchesSelectedRecordYear(duty, dutyYearFilter.value) && duty.status === "Görevde");
   const unavailablePeople = allStatuses.filter((record) =>
     ["Görev İzninde", "İzinde", "Raporlu"].includes(record.status),
   );
-  const officePeople = allStatuses.filter((record) => record.status === "Birimde");
+  const officePeople = allStatuses.filter((record) => ["Birimde", "Görev kaydı yok"].includes(record.status));
   const upcoming = getUpcomingDutyLeaves();
   const people = new Map();
   upcoming.forEach((leave) => {
@@ -4330,7 +3287,7 @@ function createLeaveRightRow(right) {
 }
 
 function renderLeaveRights() {
-  leaveRights = syncLeaveRightsWithPersonnel(leaveRights);
+  leaveRights = hasAccess("leaves") ? syncLeaveRightsWithPersonnel(leaveRights) : [];
   leaveRightRows.innerHTML = "";
   const selectedYear = leaveYearFilter.value;
   const query = normalizeText(leaveRightSearchInput.value);
@@ -4833,6 +3790,7 @@ adminUsersRows?.addEventListener("click", async (event) => {
           role: getField("role")?.value,
           active: getField("active")?.value === "1",
           password: getField("password")?.value,
+          permissions: Object.fromEntries(Array.from(row.querySelectorAll("[data-permission]")).map(el => [el.dataset.permission, el.value])),
         },
       });
       const payload = await readApiJson(response, "Kullanıcı güncellenemedi.");
@@ -4897,8 +3855,8 @@ personnelModuleButtons.forEach((button) => {
 });
 
 newPersonnelBtn.addEventListener("click", () => {
-  if (!currentUser?.owner) {
-    showToast("Personel ekleme yetkisi sadece ana yöneticidedir.");
+  if (!hasAccess("personnel", true)) {
+    showToast("Personel ekleme yetkiniz yok.");
     return;
   }
 
@@ -4925,8 +3883,8 @@ personnelRows.addEventListener("click", (event) => {
   const deleteButton = event.target.closest("[data-personnel-delete]");
 
   if (deleteButton) {
-    if (!currentUser?.owner) {
-      showToast("Personel silme yetkisi sadece ana yöneticidedir.");
+    if (!hasAccess("personnel", true)) {
+      showToast("Personel silme yetkiniz yok.");
       return;
     }
 
@@ -4946,10 +3904,6 @@ personnelRows.addEventListener("click", (event) => {
     }
 
     markRecordDeleted("personnelRecords", person);
-    leaveRights
-      .filter((right) => right.person === person.name)
-      .forEach((right) => markRecordDeleted("leaveRights", right));
-    leaveRights = leaveRights.filter((right) => right.person !== person.name);
     personnelRecords.splice(personIndex, 1);
     selectedPersonnelKey = "";
     creatingPersonnel = false;
@@ -4988,8 +3942,8 @@ personnelProfileForm.addEventListener("submit", (event) => {
   const expertise = String(formData.get("expertise")).trim();
   const status = String(formData.get("status"));
 
-  if (!currentUser?.owner && creatingPersonnel) {
-    showToast("Personel ekleme yetkisi sadece ana yöneticidedir.");
+  if (!hasAccess("personnel", true) && creatingPersonnel) {
+    showToast("Personel ekleme yetkiniz yok.");
     return;
   }
 
@@ -5833,4 +4787,35 @@ leaveRightForm.addEventListener("submit", (event) => {
   closeLeaveRightDialog();
 });
 
+document.addEventListener("click", event => {
+  const el=event.target.closest("button");
+  const module=el && mutationModule(el);
+  if(module && !canEditModule(module)) {event.preventDefault();event.stopImmediatePropagation();showToast("Bu alan salt okunurdur.");}
+}, true);
+document.addEventListener("submit", event => {
+  const module=mutationModule(event.target);
+  if(module && !canEditModule(module)) {event.preventDefault();event.stopImmediatePropagation();showToast("Bu alan salt okunurdur.");}
+}, true);
+new MutationObserver(() => applyModulePermissions()).observe(document.body, {childList:true,subtree:true});
+async function refreshAccess() {
+  if (!currentUser) return;
+  try {
+    const response = await apiFetch("/api/me");
+    const payload = await response.json();
+    if (!payload.user) { location.reload(); return; }
+    if (JSON.stringify(payload.user.permissions) !== JSON.stringify(currentUser.permissions)) {
+      clearTimeout(sharedStateSaveTimer);
+      deletedRecords = [];
+      document.querySelectorAll("dialog[open]").forEach(dialog => dialog.close());
+      currentUser = payload.user;
+      await loadSharedState();
+      renderEverything();
+      setActiveModule(activeModule);
+      renderAuthState();
+      showToast("Modül yetkileriniz güncellendi.");
+    }
+  } catch { /* The next server request still enforces current permissions. */ }
+}
+window.addEventListener("focus", refreshAccess);
+setInterval(refreshAccess, 60000);
 initAuth();

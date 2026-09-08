@@ -2891,3 +2891,8 @@
         background: #185abd;
         border-color: #185abd;
       }
+
+.permission-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; padding:14px 0; }
+.permission-grid label { display:grid; gap:6px; }
+.module-permissions { margin-top:12px; }
+button:disabled { opacity:.45; cursor:not-allowed; }
