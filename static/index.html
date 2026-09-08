@@ -97,14 +97,8 @@
               <span class="chevron" aria-hidden="true">⌄</span>
             </button>
             <div class="subnav" id="leaveSubnav" aria-label="İzin takip alt modülleri" hidden>
-              <button class="subnav-item active" data-leave-module="Tümü" type="button">Tüm İzinler</button>
-              <button class="subnav-item" data-leave-module="Personel" type="button">Personel İzinleri</button>
-              <button class="subnav-item" data-leave-module="Yıllık İzin" type="button">Yıllık İzin</button>
-              <button class="subnav-item" data-leave-module="Mazeret İzni" type="button">Mazeret İzni</button>
-              <button class="subnav-item" data-leave-module="Rapor" type="button">Rapor</button>
-              <button class="subnav-item" data-leave-module="Ücretsiz İzin" type="button">Ücretsiz İzin</button>
-              <button class="subnav-item" data-leave-module="Görev İzni" type="button">Görev İzni</button>
-              <button class="subnav-item" data-leave-module="Bakiye" type="button">İzin Bakiyeleri</button>
+              <button class="subnav-item active" data-leave-module="Personel" type="button">Personel İzinleri</button>
+              <button class="subnav-item" data-leave-module="Görev Durumu" type="button">Görev Durumu</button>
             </div>
           </div>
           <a href="#"><span class="nav-icon">◇</span>Eğitimler</a>
@@ -269,6 +263,10 @@
             </section>
 
             <section class="panel" id="izin-takip-panel" data-view="leave" hidden>
+              <nav class="leave-module-tabs" aria-label="İzin takip sekmeleri">
+                <button class="subnav-item active" data-leave-module="Personel" type="button">Personel İzinleri</button>
+                <button class="subnav-item" data-leave-module="Görev Durumu" type="button">Görev Durumu</button>
+              </nav>
               <div class="panel-head">
                 <div>
                   <h2>İzin Takip</h2>
@@ -276,6 +274,7 @@
                 </div>
                 <div class="panel-actions">
                   <span class="panel-count"><strong id="leaveVisibleCount">0</strong> kayıt</span>
+                  <button class="btn primary" id="newDutyBtn" type="button" hidden>＋ Görev Ekle</button>
                   <button class="btn secondary" id="newLeaveRightBtn" type="button">＋ İzin Hakkı Tanımla</button>
                   <button class="btn primary" id="newLeaveBtn" type="button">＋ İzin Ekle</button>
                 </div>
@@ -308,19 +307,138 @@
                 </article>
               </div>
 
+              <section class="leave-overview" aria-label="Güncel izin durumu">
+                <article class="leave-overview-card">
+                  <div class="sub-panel-head compact-head">
+                    <div>
+                      <h3>Bugün İzinde Olanlar</h3>
+                      <p class="eyebrow" id="leaveActiveSummary">Bugün için aktif izin kaydı</p>
+                    </div>
+                    <span class="panel-count"><strong id="leaveActiveCount">0</strong> kişi</span>
+                  </div>
+                  <div class="leave-overview-list" id="leaveActiveList"></div>
+                </article>
+                <article class="leave-overview-card">
+                  <div class="sub-panel-head compact-head">
+                    <div>
+                      <h3>Yaklaşan İzinler</h3>
+                      <p class="eyebrow" id="leaveUpcomingSummary">Başlangıç tarihi yaklaşan izinler</p>
+                    </div>
+                    <span class="panel-count"><strong id="leaveUpcomingCount">0</strong> kayıt</span>
+                  </div>
+                  <div class="leave-overview-list" id="leaveUpcomingList"></div>
+                </article>
+              </section>
+
+              <section class="duty-panel" id="dutyStatusPanel" hidden>
+                <div class="stats duty-stats" aria-label="Görev durumu özetleri">
+                  <article class="card">
+                    <div class="stat-top">
+                      <div class="stat-icon bg-green">✓</div>
+                    </div>
+                    <p>Birimde</p>
+                    <div class="value"><strong id="dutyActiveCount">0</strong><span>kişi</span></div>
+                    <div class="note">Bugün kurumda görünen personel</div>
+                  </article>
+                  <article class="card">
+                    <div class="stat-top">
+                      <div class="stat-icon bg-blue">▦</div>
+                    </div>
+                    <p>Görevde</p>
+                    <div class="value"><strong id="dutyRecordCount">0</strong><span>kayıt</span></div>
+                    <div class="note">Dönüşü yapılmamış aktif görevler</div>
+                  </article>
+                  <article class="card">
+                    <div class="stat-top">
+                      <div class="stat-icon bg-amber">◷</div>
+                    </div>
+                    <p>İzin / Rapor</p>
+                    <div class="value"><strong id="dutyTotalDays">0</strong><span>kişi</span></div>
+                    <div class="note">Bugün izinli veya raporlu olanlar</div>
+                  </article>
+                  <article class="card">
+                    <div class="stat-top">
+                      <div class="stat-icon bg-cyan" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18M8 16h3"/></svg></div>
+                    </div>
+                    <p>İzni Yaklaşanlar</p>
+                    <div class="value"><strong id="dutyUpcomingLeaveCount">0</strong><span>kişi</span></div>
+                    <div class="note">Önümüzdeki 30 günde onaylı izni başlayacak personel</div>
+                    <div class="note" id="dutyUpcomingLeaveNames"></div>
+                  </article>
+                </div>
+
+                <div class="module-filters duty-filters" aria-label="Görev durumu filtreleri">
+                  <label>
+                    Yıl
+                    <select id="dutyYearFilter">
+                      <option value="Tümü">Tümü</option>
+                      <option value="2026" selected>2026</option>
+                      <option value="2025">2025</option>
+                      <option value="2024">2024</option>
+                    </select>
+                  </label>
+                  <label>
+                    Durum
+                    <select id="dutyStatusFilter">
+                      <option value="Tümü">Tümü</option>
+                      <option>Birimde</option>
+                      <option>Görevde</option>
+                      <option>Görev İzninde</option>
+                      <option>İzinde</option>
+                      <option>Raporlu</option>
+                      <option>Döndü</option>
+                    </select>
+                  </label>
+                  <label class="wide-filter">
+                    Arama
+                    <input id="dutySearchInput" placeholder="Personel, durum, görev veya bulunduğu yer ara..." />
+                  </label>
+                  <button class="btn secondary" id="clearDutyFilters" type="button">Temizle</button>
+                </div>
+
+                <div class="table-wrap">
+                  <table class="duty-table">
+                    <thead>
+                      <tr>
+                        <th>Personel</th>
+                        <th>Unvan</th>
+                        <th>Bugünkü Durum</th>
+                        <th>Bulunduğu Yer</th>
+                        <th>Başlama</th>
+                        <th>İşe Başlama / Dönüş</th>
+                        <th>Yıllık Görev</th>
+                        <th>İşlem</th>
+                      </tr>
+                    </thead>
+                    <tbody id="dutyRows"></tbody>
+                  </table>
+                </div>
+                <div class="empty-state" id="dutyEmptyState" hidden>
+                  <strong>Görev kaydı bulunamadı</strong>
+                  <span>Yeni görev ekleyebilir veya filtreleri değiştirebilirsin.</span>
+                </div>
+              </section>
+
               <section class="sub-panel" id="leaveRightsPanel">
                 <div class="sub-panel-head">
                   <div>
                     <h3>Personel İzin Hakları</h3>
                     <p class="eyebrow">Yıl bazında tanımlanan hak, kullanılan gün ve kalan bakiye</p>
                   </div>
-                  <span class="panel-count"><strong id="leaveRightCount">0</strong> personel</span>
+                  <div class="sub-panel-actions">
+                    <label class="compact-search">
+                      <span>Personel Ara</span>
+                      <input id="leaveRightSearchInput" placeholder="Ad, unvan veya birim ara..." />
+                    </label>
+                    <span class="panel-count"><strong id="leaveRightCount">0</strong> personel</span>
+                  </div>
                 </div>
                 <div class="table-wrap">
                   <table class="leave-rights-table">
                     <thead>
                       <tr>
                         <th>Personel</th>
+                        <th>Unvan</th>
                         <th>Birim</th>
                         <th>Yıl</th>
                         <th>Hak</th>
@@ -372,15 +490,16 @@
                 <button class="btn secondary" id="clearLeaveFilters" type="button">Temizle</button>
               </div>
 
-              <div class="table-wrap">
+              <div class="table-wrap" id="leaveRecordsPanel">
                 <table class="leave-table">
                   <thead>
                     <tr>
                       <th>Personel</th>
+                      <th>Unvan</th>
                       <th>Birim</th>
                       <th>İzin Türü</th>
                       <th>Başlangıç</th>
-                      <th>Bitiş</th>
+                      <th>İşe Başlama</th>
                       <th>Gün</th>
                       <th>Kalan</th>
                       <th>Durum</th>
@@ -403,16 +522,19 @@
                   <h2 id="personnelTitle">Denetçiler</h2>
                   <p class="eyebrow" id="personnelSummary">İç denetçi kayıtları ve personel bilgileri</p>
                 </div>
-                <span class="panel-count"><strong id="personnelCount">0</strong> personel</span>
+                <div class="panel-actions">
+                  <span class="panel-count"><strong id="personnelCount">0</strong> personel</span>
+                  <button class="btn primary small" id="newPersonnelBtn" type="button">+ Personel Ekle</button>
+                </div>
               </div>
               <div class="table-wrap">
                 <table class="personnel-table">
                   <thead>
                     <tr>
-                      <th>Sıra No</th>
-                      <th>Adı Soyadı</th>
-                      <th>Unvanı</th>
-                      <th>Dahili No</th>
+                      <th><button class="sort-header" data-personnel-sort="no" type="button">Sıra No <span data-personnel-sort-icon="no">↕</span></button></th>
+                      <th><button class="sort-header" data-personnel-sort="name" type="button">Adı Soyadı <span data-personnel-sort-icon="name">↕</span></button></th>
+                      <th><button class="sort-header" data-personnel-sort="title" type="button">Unvanı <span data-personnel-sort-icon="title">↕</span></button></th>
+                      <th><button class="sort-header" data-personnel-sort="extension" type="button">Dahili No <span data-personnel-sort-icon="extension">↕</span></button></th>
                       <th>İşlem</th>
                     </tr>
                   </thead>
@@ -1103,11 +1225,16 @@
         <div class="form-grid">
           <label>
             Personel
-            <input name="person" required placeholder="Ad Soyad" />
+            <input name="person" list="leavePersonOptions" required placeholder="Personel ara veya seç" autocomplete="off" />
+            <datalist id="leavePersonOptions"></datalist>
+          </label>
+          <label>
+            Unvanı
+            <input name="title" readonly />
           </label>
           <label>
             Birim
-            <input name="unit" required placeholder="Örn. İç Denetim Başkanlığı" />
+            <input name="unit" required readonly />
           </label>
           <label>
             İzin Türü
@@ -1132,7 +1259,7 @@
             <input name="start" type="date" required />
           </label>
           <label>
-            Bitiş
+            İşe Başlama Tarihi
             <input name="end" type="date" required />
           </label>
           <label>
@@ -1169,11 +1296,15 @@
         <div class="form-grid">
           <label>
             Personel
-            <input name="person" required placeholder="Ad Soyad" />
+            <select name="person" required></select>
+          </label>
+          <label>
+            Unvanı
+            <input name="title" readonly />
           </label>
           <label>
             Birim
-            <input name="unit" required placeholder="Örn. İç Denetim Başkanlığı" />
+            <input name="unit" required readonly />
           </label>
           <label>
             Yıl
@@ -1200,6 +1331,66 @@
         <div class="modal-actions">
           <button class="btn secondary" id="cancelLeaveRight" type="button">Vazgeç</button>
           <button class="btn primary" id="saveLeaveRightBtn" type="submit">Kaydet</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="dutyModal">
+      <form class="modal-card" id="dutyForm" method="dialog">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow" id="dutyModalMode">Yeni görev kaydı</p>
+            <h2 id="dutyModalTitle">Görev Ekle</h2>
+          </div>
+          <button class="icon-btn" id="closeDutyModal" type="button" aria-label="Kapat">×</button>
+        </div>
+
+        <div class="form-grid">
+          <label>
+            Personel
+            <input name="person" list="dutyPersonOptions" required placeholder="Personel ara veya seç" autocomplete="off" />
+            <datalist id="dutyPersonOptions"></datalist>
+          </label>
+          <label>
+            Unvanı
+            <input name="title" readonly />
+          </label>
+          <label>
+            Birim / Görev Alanı
+            <input name="unit" required readonly />
+          </label>
+          <label>
+            Görev Adı
+            <input name="dutyName" required placeholder="Örn. Eğitim, komisyon, saha görevi" />
+          </label>
+          <label>
+            Görev Yeri
+            <input name="dutyPlace" required placeholder="Örn. Ankara, İzmir, BTGM" />
+          </label>
+          <label>
+            Göreve Başlama Tarihi
+            <input name="start" type="date" required />
+          </label>
+          <label>
+            Planlanan / Fiili Dönüş Tarihi
+            <input name="returnDate" type="date" />
+          </label>
+          <label>
+            Durum
+            <select name="status">
+              <option>Görevde</option>
+              <option>Döndü</option>
+            </select>
+          </label>
+          <label>
+            Açıklama
+            <textarea name="note" placeholder="Gerekirse kısa açıklama"></textarea>
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn secondary" id="cancelDuty" type="button">Vazgeç</button>
+          <button class="btn primary" id="saveDutyBtn" type="submit">Kaydet</button>
         </div>
       </form>
     </dialog>

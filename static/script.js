@@ -1091,79 +1091,14 @@ const defaultAudits2025 = [
   },
 ];
 
-const defaultLeaves = [
-  {
-    id: 1,
-    year: "2026",
-    person: "Ramazan ORMAN",
-    unit: "İç Denetim Başkanlığı",
-    type: "Yıllık İzin",
-    start: "2026-06-22",
-    end: "2026-06-26",
-    days: 5,
-    remaining: 15,
-    status: "Onaylandı",
-    note: "Yıllık izin kullanımı",
-  },
-  {
-    id: 2,
-    year: "2026",
-    person: "Esra DARGA",
-    unit: "İç Denetim Başkanlığı",
-    type: "Mazeret İzni",
-    start: "2026-03-18",
-    end: "2026-03-18",
-    days: 1,
-    remaining: 20,
-    status: "Onaylandı",
-    note: "Mazeret izni",
-  },
-  {
-    id: 3,
-    year: "2026",
-    person: "Çiğdem ÖZGEL",
-    unit: "İç Denetim Başkanlığı",
-    type: "Rapor",
-    start: "2026-04-06",
-    end: "2026-04-08",
-    days: 3,
-    remaining: 18,
-    status: "Beklemede",
-    note: "Sağlık raporu",
-  },
-];
+const defaultLeaves = [];
 
-const defaultLeaveRights = [
-  {
-    id: 1,
-    year: "2026",
-    person: "Ramazan ORMAN",
-    unit: "İç Denetim Başkanlığı",
-    entitled: 20,
-    carried: 0,
-    note: "2026 yılı yıllık izin hakkı",
-  },
-  {
-    id: 2,
-    year: "2026",
-    person: "Esra DARGA",
-    unit: "İç Denetim Başkanlığı",
-    entitled: 21,
-    carried: 0,
-    note: "2026 yılı yıllık izin hakkı",
-  },
-  {
-    id: 3,
-    year: "2026",
-    person: "Çiğdem ÖZGEL",
-    unit: "İç Denetim Başkanlığı",
-    entitled: 21,
-    carried: 0,
-    note: "2026 yılı yıllık izin hakkı",
-  },
-];
+const defaultLeaveRights = [];
+
+const defaultDutyRecords = [];
 
 const reportArchiveLinkType = "Rapor Arşivi Bulut Linki";
+const ACTIVE_VIEW_KEY = "ic-denetim-active-view";
 
 const defaultPersonnelRecords = [
   { no: 1, name: "Erdal ÖZYÖN", title: "Başkan", extension: "8801", group: "Denetçiler" },
@@ -1215,9 +1150,10 @@ const defaultPersonnelRecords = [
 let audits = loadAudits();
 let approvals = loadApprovals();
 let leaves = loadLeaves();
-let leaveRights = loadLeaveRights();
+let dutyRecords = loadDutyRecords();
 let reportDocuments = loadReportDocuments();
 let personnelRecords = loadPersonnelRecords();
+let leaveRights = loadLeaveRights();
 
 const searchInput = document.querySelector("#searchInput");
 const yearSelect = document.querySelector("#yearSelect");
@@ -1292,6 +1228,8 @@ const personnelSummary = document.querySelector("#personnelSummary");
 const personnelCount = document.querySelector("#personnelCount");
 const personnelRows = document.querySelector("#personnelRows");
 const personnelEmptyState = document.querySelector("#personnelEmptyState");
+const newPersonnelBtn = document.querySelector("#newPersonnelBtn");
+const personnelSortButtons = Array.from(document.querySelectorAll("[data-personnel-sort]"));
 const backToPersonnelList = document.querySelector("#backToPersonnelList");
 const personnelProfileForm = document.querySelector("#personnelProfileForm");
 const selectedPersonnelInitials = document.querySelector("#selectedPersonnelInitials");
@@ -1314,10 +1252,43 @@ const personnelTitleLabel = document.querySelector("#personnelTitleLabel");
 const personnelExpertiseLabel = document.querySelector("#personnelExpertiseLabel");
 const profileEducationTitle = document.querySelector("#profileEducationTitle");
 const leaveRows = document.querySelector("#leaveRows");
+const leaveStats = document.querySelector(".leave-stats");
+const leaveOverview = document.querySelector(".leave-overview");
+const leaveRightsPanel = document.querySelector("#leaveRightsPanel");
+const leaveFilters = document.querySelector(".leave-filters");
+const leaveRecordsPanel = document.querySelector("#leaveRecordsPanel");
 const leaveModal = document.querySelector("#leaveModal");
 const leaveForm = document.querySelector("#leaveForm");
+const leavePersonOptions = document.querySelector("#leavePersonOptions");
 const newLeaveBtn = document.querySelector("#newLeaveBtn");
 const newLeaveRightBtn = document.querySelector("#newLeaveRightBtn");
+const newDutyBtn = document.querySelector("#newDutyBtn");
+const dutyStatusPanel = document.querySelector("#dutyStatusPanel");
+const dutyRows = document.querySelector("#dutyRows");
+const dutyEmptyState = document.querySelector("#dutyEmptyState");
+const dutyActiveCount = document.querySelector("#dutyActiveCount");
+const dutyRecordCount = document.querySelector("#dutyRecordCount");
+const dutyTotalDays = document.querySelector("#dutyTotalDays");
+const dutyUpcomingLeaveCount = document.querySelector("#dutyUpcomingLeaveCount");
+const dutyUpcomingLeaveNames = document.querySelector("#dutyUpcomingLeaveNames");
+const dutyYearFilter = document.querySelector("#dutyYearFilter");
+const dutyStatusFilter = document.querySelector("#dutyStatusFilter");
+const dutySearchInput = document.querySelector("#dutySearchInput");
+const clearDutyFilters = document.querySelector("#clearDutyFilters");
+const dutyModal = document.querySelector("#dutyModal");
+const dutyForm = document.querySelector("#dutyForm");
+const dutyPersonOptions = document.querySelector("#dutyPersonOptions");
+const closeDutyModal = document.querySelector("#closeDutyModal");
+const cancelDuty = document.querySelector("#cancelDuty");
+const dutyModalMode = document.querySelector("#dutyModalMode");
+const dutyModalTitle = document.querySelector("#dutyModalTitle");
+const saveDutyBtn = document.querySelector("#saveDutyBtn");
+const leaveActiveSummary = document.querySelector("#leaveActiveSummary");
+const leaveActiveCount = document.querySelector("#leaveActiveCount");
+const leaveActiveList = document.querySelector("#leaveActiveList");
+const leaveUpcomingSummary = document.querySelector("#leaveUpcomingSummary");
+const leaveUpcomingCount = document.querySelector("#leaveUpcomingCount");
+const leaveUpcomingList = document.querySelector("#leaveUpcomingList");
 const closeLeaveModal = document.querySelector("#closeLeaveModal");
 const cancelLeave = document.querySelector("#cancelLeave");
 const leaveModalMode = document.querySelector("#leaveModalMode");
@@ -1334,6 +1305,7 @@ const leaveStatusFilter = document.querySelector("#leaveStatusFilter");
 const leaveSearchInput = document.querySelector("#leaveSearchInput");
 const clearLeaveFilters = document.querySelector("#clearLeaveFilters");
 const leaveEmptyState = document.querySelector("#leaveEmptyState");
+const leaveRightSearchInput = document.querySelector("#leaveRightSearchInput");
 const leaveRightRows = document.querySelector("#leaveRightRows");
 const leaveRightCount = document.querySelector("#leaveRightCount");
 const leaveRightModal = document.querySelector("#leaveRightModal");
@@ -1394,14 +1366,17 @@ const adminLogRows = document.querySelector("#adminLogRows");
 const ownerPanelName = document.querySelector("#ownerPanelName");
 const ownerPanelMeta = document.querySelector("#ownerPanelMeta");
 let activeTypeFilter = "Tümü";
-let activeLeaveModule = "Tümü";
+let activeLeaveModule = "Personel";
 let activePersonnelModule = "Denetçiler";
 let activeQuickFilter = null;
 let selectedPersonnelKey = "";
+let creatingPersonnel = false;
+let personnelSort = { key: "no", direction: "asc" };
 let activeModule = "dashboard";
 let editingAuditNo = null;
 let editingLeaveId = null;
 let editingLeaveRightId = null;
+let editingDutyId = null;
 let editingMonitoringAudit = null;
 let selectedReportAuditKey = "";
 let toastTimer = null;
@@ -1416,6 +1391,7 @@ const sharedCollections = [
   "approvals",
   "leaves",
   "leaveRights",
+  "dutyRecords",
   "reportDocuments",
   "personnelRecords",
 ];
@@ -1552,11 +1528,39 @@ function saveLeaves() {
   scheduleSharedStateSave();
 }
 
+function loadDutyRecords() {
+  const storedDuties = localStorage.getItem("ic-denetim-duties");
+
+  if (!storedDuties) {
+    return [...defaultDutyRecords];
+  }
+
+  try {
+    const parsed = JSON.parse(storedDuties);
+
+    if (!Array.isArray(parsed.dutyRecords)) {
+      return [...defaultDutyRecords];
+    }
+
+    return parsed.dutyRecords;
+  } catch {
+    return [...defaultDutyRecords];
+  }
+}
+
+function saveDutyRecords() {
+  localStorage.setItem(
+    "ic-denetim-duties",
+    JSON.stringify({ version: LEAVE_DATA_VERSION, dutyRecords }),
+  );
+  scheduleSharedStateSave();
+}
+
 function loadLeaveRights() {
   const storedRights = localStorage.getItem("ic-denetim-leave-rights");
 
   if (!storedRights) {
-    return [...defaultLeaveRights];
+    return syncLeaveRightsWithPersonnel(defaultLeaveRights);
   }
 
   try {
@@ -1566,12 +1570,12 @@ function loadLeaveRights() {
       parsed.version !== LEAVE_RIGHT_DATA_VERSION ||
       !Array.isArray(parsed.leaveRights)
     ) {
-      return [...defaultLeaveRights];
+      return syncLeaveRightsWithPersonnel(defaultLeaveRights);
     }
 
-    return parsed.leaveRights;
+    return syncLeaveRightsWithPersonnel(parsed.leaveRights);
   } catch {
-    return [...defaultLeaveRights];
+    return syncLeaveRightsWithPersonnel(defaultLeaveRights);
   }
 }
 
@@ -1683,6 +1687,7 @@ function savePersonnelRecords() {
     "ic-denetim-personnel",
     JSON.stringify({ personnelRecords }),
   );
+  leaveRights = syncLeaveRightsWithPersonnel(leaveRights);
   scheduleSharedStateSave();
 }
 
@@ -1693,6 +1698,7 @@ function buildSharedState() {
     approvals,
     leaves,
     leaveRights,
+    dutyRecords,
     reportDocuments,
     personnelRecords,
     deletedRecords,
@@ -1716,6 +1722,10 @@ function getSharedCollectionRecords(collection) {
     return leaveRights;
   }
 
+  if (collection === "dutyRecords") {
+    return dutyRecords;
+  }
+
   if (collection === "reportDocuments") {
     return reportDocuments;
   }
@@ -1732,7 +1742,7 @@ function recordKeyForCollection(collection, record) {
     return `${record.year}-${record.no}`;
   }
 
-  if (collection === "leaves" || collection === "leaveRights") {
+  if (collection === "leaves" || collection === "leaveRights" || collection === "dutyRecords") {
     return String(record.id);
   }
 
@@ -1835,6 +1845,7 @@ function buildLocalStorageState() {
   const storedAudits = readStoredJson("ic-denetim-audits");
   const storedApprovals = readStoredJson("ic-denetim-approvals");
   const storedLeaves = readStoredJson("ic-denetim-leaves");
+  const storedDuties = readStoredJson("ic-denetim-duties");
   const storedLeaveRights = readStoredJson("ic-denetim-leave-rights");
   const storedReportDocuments = readStoredJson("ic-denetim-report-documents");
   const storedPersonnel = readStoredJson("ic-denetim-personnel");
@@ -1848,6 +1859,9 @@ function buildLocalStorageState() {
       ? storedApprovals.approvals
       : [...defaultApprovals],
     leaves: Array.isArray(storedLeaves.leaves) ? storedLeaves.leaves : [...defaultLeaves],
+    dutyRecords: Array.isArray(storedDuties.dutyRecords)
+      ? storedDuties.dutyRecords
+      : [...defaultDutyRecords],
     leaveRights: Array.isArray(storedLeaveRights.leaveRights)
       ? storedLeaveRights.leaveRights
       : [...defaultLeaveRights],
@@ -1872,6 +1886,7 @@ function hasSharedState(payload) {
       Array.isArray(payload.approvals) ||
       Array.isArray(payload.leaves) ||
       Array.isArray(payload.leaveRights) ||
+      Array.isArray(payload.dutyRecords) ||
       Array.isArray(payload.reportDocuments) ||
       Array.isArray(payload.personnelRecords))
   );
@@ -1890,6 +1905,10 @@ function applySharedState(payload) {
     leaves = payload.leaves;
   }
 
+  if (Array.isArray(payload.dutyRecords)) {
+    dutyRecords = payload.dutyRecords;
+  }
+
   if (Array.isArray(payload.leaveRights)) {
     leaveRights = payload.leaveRights;
   }
@@ -1906,6 +1925,8 @@ function applySharedState(payload) {
       ...person,
     }));
   }
+
+  leaveRights = syncLeaveRightsWithPersonnel(leaveRights);
 }
 
 async function apiFetch(url, options = {}) {
@@ -1950,6 +1971,10 @@ function renderAuthState() {
     const currentRoleLabel = currentUser.owner ? "Ana Yönetici" : roleLabel(currentUser.role);
     currentUserLabel.textContent = `${currentUser.displayName || currentUser.username} · ${currentRoleLabel}`;
   }
+
+  if (activeModule === "personnel") {
+    renderPersonnel();
+  }
 }
 
 function showLoginError(message) {
@@ -1974,10 +1999,8 @@ async function initAuth() {
   renderAuthState();
 
   if (currentUser) {
-    renderAudits();
-    renderApprovals();
-    renderLeaves();
     await loadSharedState();
+    restoreActiveView();
   }
 }
 
@@ -1996,7 +2019,7 @@ async function login(username, password) {
   renderAuthState();
   sharedStateLoaded = false;
   await loadSharedState();
-  renderEverything();
+  restoreActiveView();
 }
 
 async function logout() {
@@ -2139,6 +2162,44 @@ function renderEverything() {
   }
 }
 
+function saveActiveView() {
+  localStorage.setItem(
+    ACTIVE_VIEW_KEY,
+    JSON.stringify({
+      module: activeModule,
+      leaveModule: activeLeaveModule,
+      personnelModule: activePersonnelModule,
+    }),
+  );
+}
+
+function getValidLeaveModule(moduleName) {
+  const validModules = new Set(leaveModuleButtons.map((button) => button.dataset.leaveModule));
+  return validModules.has(moduleName) ? moduleName : "Personel";
+}
+
+function restoreActiveView() {
+  const storedView = readStoredJson(ACTIVE_VIEW_KEY);
+  const moduleName =
+    storedView.module === "admin" && currentUser?.role !== "admin"
+      ? "dashboard"
+      : storedView.module || "dashboard";
+
+  activeLeaveModule = getValidLeaveModule(storedView.leaveModule || activeLeaveModule);
+  leaveModuleButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.leaveModule === activeLeaveModule);
+  });
+
+  if (storedView.personnelModule) {
+    activePersonnelModule = storedView.personnelModule;
+    personnelModuleButtons.forEach((button) => {
+      button.classList.toggle("active", button.dataset.personnelModule === activePersonnelModule);
+    });
+  }
+
+  setActiveModule(moduleName || "dashboard", { skipSave: true });
+}
+
 async function saveSharedStateNow() {
   if (!sharedStateLoaded) {
     return;
@@ -2220,10 +2281,19 @@ async function loadSharedState() {
     const payload = await response.json();
 
     if (hasSharedState(payload)) {
+      const originalLeaveRightCount = Array.isArray(payload.leaveRights)
+        ? payload.leaveRights.length
+        : 0;
       applySharedState(payload);
+      const shouldSeedLeaveRights = originalLeaveRightCount !== leaveRights.length;
       captureCurrentSharedSnapshot();
       sharedStateLoaded = true;
-      renderEverything();
+
+      if (shouldSeedLeaveRights) {
+        lastSharedRecordJson.leaveRights = {};
+        await saveSharedStateNow();
+      }
+
       return;
     }
 
@@ -2266,6 +2336,25 @@ function addMonths(dateText, monthCount) {
 
   date.setMonth(date.getMonth() + monthCount);
   return date.toISOString().slice(0, 10);
+}
+
+function parseDateOnly(value) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getTodayDateOnly() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
+function getDayDifference(fromDate, toDate) {
+  return Math.ceil((toDate - fromDate) / 86400000);
 }
 
 function getStatusClass(status) {
@@ -2399,9 +2488,13 @@ function makeApprovalSearchText(approval) {
 }
 
 function makeLeaveSearchText(leave) {
+  const person = findPersonnelByName(leave.person);
+
   return [
     leave.year,
     leave.person,
+    leave.title,
+    person?.title,
     leave.unit,
     leave.type,
     leave.start,
@@ -2441,6 +2534,117 @@ function getRemainingAnnualLeave(person, year) {
   }
 
   return Number(right.entitled || 0) + Number(right.carried || 0) - getUsedAnnualLeave(person, year);
+}
+
+function getPersonnelUnit(person) {
+  return person.expertise || person.workArea || "İç Denetim Başkanlığı";
+}
+
+function getLeavePersonnel() {
+  return personnelRecords
+    .filter((person) => (person.status || "Aktif") !== "Pasif")
+    .map((person) => ({
+      ...person,
+      unit: getPersonnelUnit(person),
+    }))
+    .sort(
+      (a, b) =>
+        String(a.group).localeCompare(String(b.group), "tr") ||
+        Number(a.no || 0) - Number(b.no || 0) ||
+        String(a.name).localeCompare(String(b.name), "tr"),
+    );
+}
+
+function findPersonnelByName(name) {
+  return getLeavePersonnel().find(
+    (person) => normalizeText(person.name) === normalizeText(name),
+  );
+}
+
+function renderPersonnelOptions(selectElement, selectedName = "") {
+  const people = getLeavePersonnel();
+  const isDatalist = selectElement.tagName === "DATALIST";
+  selectElement.innerHTML = people
+    .map(
+      (person) =>
+        isDatalist
+          ? `<option value="${escapeHtml(person.name)}">${escapeHtml(person.title)}</option>`
+          : `<option value="${escapeHtml(person.name)}" ${normalizeText(person.name) === normalizeText(selectedName) ? "selected" : ""}>${escapeHtml(person.name)} · ${escapeHtml(person.title)}</option>`,
+    )
+    .join("");
+}
+
+function applySelectedPersonnelToForm(form) {
+  const person = findPersonnelByName(form.elements.person.value);
+
+  if (!person) {
+    form.elements.title.value = "";
+    form.elements.unit.value = "";
+    return;
+  }
+
+  form.elements.title.value = person.title || "";
+  form.elements.unit.value = person.unit || "İç Denetim Başkanlığı";
+}
+
+function syncLeaveRightsWithPersonnel(existingRights = leaveRights) {
+  const selectedYears = new Set(["2026"]);
+  const sourceRights = Array.isArray(existingRights) ? existingRights : [];
+  const people = getLeavePersonnel();
+  const peopleByName = new Map(people.map((person) => [normalizeText(person.name), person]));
+  const nextRights = [];
+  let nextId = Math.max(...sourceRights.map((right) => Number(right.id) || 0), 0);
+
+  sourceRights.forEach((right) => {
+    const person = peopleByName.get(normalizeText(right.person));
+
+    if (!person) {
+      return;
+    }
+
+    selectedYears.add(String(right.year || "2026"));
+    nextRights.push({
+      ...right,
+      person: person.name,
+      title: person.title,
+      unit: getPersonnelUnit(person),
+      group: person.group,
+    });
+  });
+
+  people.forEach((person) => {
+    selectedYears.forEach((year) => {
+      const exists = nextRights.some(
+        (right) =>
+          normalizeText(right.person) === normalizeText(person.name) &&
+          String(right.year) === String(year),
+      );
+
+      if (exists) {
+        return;
+      }
+
+      nextId += 1;
+      nextRights.push({
+        id: nextId,
+        year,
+        person: person.name,
+        title: person.title,
+        unit: getPersonnelUnit(person),
+        group: person.group,
+        entitled: 0,
+        carried: 0,
+        note: "",
+      });
+    });
+  });
+
+  return nextRights.sort(
+    (a, b) =>
+      String(a.year).localeCompare(String(b.year)) ||
+      String(a.group).localeCompare(String(b.group), "tr") ||
+      String(a.person).localeCompare(String(b.person), "tr"),
+  );
 }
 
 function auditMatchesType(audit) {
@@ -3223,13 +3427,18 @@ function setActiveTypeFilter(filterName) {
   renderAudits();
 }
 
-function setActiveModule(moduleName) {
+function setActiveModule(moduleName, options = {}) {
   if (moduleName === "admin" && currentUser?.role !== "admin") {
     showToast("Yönetim paneli için yönetici yetkisi gerekli.");
     return;
   }
 
   activeModule = moduleName;
+
+  if (!options.skipSave) {
+    saveActiveView();
+  }
+
   const showApprovals = moduleName === "approvals";
   const showLeave = moduleName === "leave";
   const showPersonnel = moduleName === "personnel";
@@ -3277,11 +3486,8 @@ function setActiveModule(moduleName) {
     showApprovals || showLeave || showPersonnel || showPersonnelProfile || showReports || showMonitoring || showAdmin,
   );
 
-  if (!showLeave) {
-    leaveMenuToggle.setAttribute("aria-expanded", "false");
-    leaveMenuToggle.classList.remove("open");
-    leaveSubnav.hidden = true;
-  }
+  leaveMenuToggle.setAttribute("aria-expanded", String(showLeave));
+  leaveSubnav.hidden = !showLeave;
 
   if (!showPersonnel && !showPersonnelProfile) {
     personnelMenuToggle.setAttribute("aria-expanded", "false");
@@ -3298,12 +3504,14 @@ function setActiveModule(moduleName) {
   if (showApprovals) {
     document.querySelector("h1").textContent = "Olurlar";
     topbarSubtitle.textContent = "Yıl bazında olur arşivi ve filtreleme ekranı";
+    renderApprovals();
     return;
   }
 
   if (showLeave) {
     document.querySelector("h1").textContent = "İzin Takip";
     topbarSubtitle.textContent = "Personel izin kayıtları, izin türleri ve bakiye takibi";
+    renderLeaves();
     return;
   }
 
@@ -3402,6 +3610,64 @@ function getSelectedPersonnel() {
   return personnelRecords.find((person) => personnelKey(person) === selectedPersonnelKey);
 }
 
+function getNextPersonnelNo(group) {
+  const numbers = personnelRecords
+    .filter((person) => person.group === group)
+    .map((person) => Number(person.no) || 0);
+  return numbers.length ? Math.max(...numbers) + 1 : 1;
+}
+
+function getPersonnelDraft() {
+  return {
+    no: getNextPersonnelNo(activePersonnelModule),
+    name: "",
+    title: activePersonnelModule === "Denetçiler" ? "İç Denetçi" : "",
+    extension: "",
+    certificate: "",
+    expertise: "",
+    status: "Aktif",
+    group: activePersonnelModule,
+  };
+}
+
+function sortPersonnelRecords(records) {
+  const sorted = [...records];
+  const direction = personnelSort.direction === "desc" ? -1 : 1;
+  const collator = new Intl.Collator("tr-TR", { sensitivity: "base", numeric: true });
+
+  sorted.sort((a, b) => {
+    if (personnelSort.key === "no" || personnelSort.key === "extension") {
+      const numberA = Number(a[personnelSort.key]) || 0;
+      const numberB = Number(b[personnelSort.key]) || 0;
+      return (numberA - numberB) * direction;
+    }
+
+    const first = String(a[personnelSort.key] || "");
+    const second = String(b[personnelSort.key] || "");
+    return collator.compare(first, second) * direction;
+  });
+
+  return sorted;
+}
+
+function updatePersonnelSortButtons() {
+  personnelSortButtons.forEach((button) => {
+    const key = button.dataset.personnelSort;
+    const icon = button.querySelector("[data-personnel-sort-icon]");
+    const isActive = key === personnelSort.key;
+
+    button.classList.toggle("active", isActive);
+    button.setAttribute(
+      "aria-sort",
+      isActive ? (personnelSort.direction === "asc" ? "ascending" : "descending") : "none",
+    );
+
+    if (icon) {
+      icon.textContent = isActive ? (personnelSort.direction === "asc" ? "↑" : "↓") : "↕";
+    }
+  });
+}
+
 function textIncludesPerson(text, person) {
   return normalizeText(text).includes(normalizeText(person.name));
 }
@@ -3477,16 +3743,17 @@ function getPersonnelInitials(name) {
 }
 
 function renderPersonnelProfile() {
-  const person = getSelectedPersonnel();
+  const person = creatingPersonnel ? getPersonnelDraft() : getSelectedPersonnel();
 
   if (!person) {
     setActiveModule("personnel");
     return;
   }
 
-  const activeAudits = getActivePersonnelAudits(person);
-  const activeMonitorings = person.group === "Denetçiler" ? getActivePersonnelMonitorings(person) : [];
   const isAuditor = person.group === "Denetçiler";
+  const activeAudits = creatingPersonnel ? [] : getActivePersonnelAudits(person);
+  const activeMonitorings =
+    !creatingPersonnel && isAuditor ? getActivePersonnelMonitorings(person) : [];
 
   auditorOnlyProfileElements.forEach((element) => {
     element.hidden = !isAuditor;
@@ -3496,10 +3763,12 @@ function renderPersonnelProfile() {
   personnelExpertiseLabel.textContent = isAuditor ? "Uzmanlık / Görev Alanı" : "Görev Yaptığı Alan";
   personnelProfileForm.elements.certificate.required = false;
   profileEducationTitle.textContent = isAuditor ? "Eğitim ve Sertifika" : "Görev Alanı";
-  selectedPersonnelInitials.textContent = getPersonnelInitials(person.name);
+  selectedPersonnelInitials.textContent = creatingPersonnel ? "+" : getPersonnelInitials(person.name);
   selectedPersonnelGroup.textContent = person.group;
-  selectedPersonnelName.textContent = person.name;
-  selectedPersonnelMeta.textContent = `${person.title} • Dahili ${person.extension}`;
+  selectedPersonnelName.textContent = creatingPersonnel ? "Yeni Personel" : person.name;
+  selectedPersonnelMeta.textContent = creatingPersonnel
+    ? `${person.group} listesine yeni kayıt eklenecek`
+    : `${person.title} • Dahili ${person.extension}`;
   profilePersonnelStatus.textContent = person.status || "Aktif";
   profilePersonnelStatus.className = `status ${(person.status || "Aktif") === "Aktif" ? "done" : "waiting"}`;
   selectedPersonnelAuditCount.textContent = activeAudits.length;
@@ -3583,9 +3852,10 @@ function renderApprovals() {
 }
 
 function renderPersonnel() {
-  const visiblePersonnel = personnelRecords.filter(
-    (person) => person.group === activePersonnelModule,
+  const visiblePersonnel = sortPersonnelRecords(
+    personnelRecords.filter((person) => person.group === activePersonnelModule),
   );
+  const canManagePersonnel = Boolean(currentUser?.owner);
 
   personnelTitle.textContent = activePersonnelModule;
   personnelSummary.textContent =
@@ -3593,7 +3863,9 @@ function renderPersonnel() {
       ? "İç denetçi kayıtları, uzmanlık alanları ve görev bilgileri"
       : "İdari personel kayıtları, görev alanları ve iletişim bilgileri";
   personnelCount.textContent = visiblePersonnel.length;
+  newPersonnelBtn.hidden = !canManagePersonnel;
   personnelRows.innerHTML = "";
+  updatePersonnelSortButtons();
 
   visiblePersonnel.forEach((person) => {
     const row = document.createElement("tr");
@@ -3604,7 +3876,16 @@ function renderPersonnel() {
       <td class="unit-cell"><strong>${escapeHtml(person.name)}</strong></td>
       <td><span class="type-pill">${escapeHtml(person.title)}</span></td>
       <td><strong>${escapeHtml(person.extension)}</strong></td>
-      <td><button class="btn small secondary" data-personnel-key="${key}" type="button">Profili Aç</button></td>
+      <td>
+        <div class="inline-actions compact-actions">
+          <button class="btn small secondary" data-personnel-open="${key}" type="button">Profili Aç</button>
+          ${
+            canManagePersonnel
+              ? `<button class="btn small secondary danger-soft" data-personnel-delete="${key}" type="button">Sil</button>`
+              : ""
+          }
+        </div>
+      </td>
     `;
     personnelRows.append(row);
   });
@@ -3638,6 +3919,9 @@ function getVisibleLeaves() {
 
 function createLeaveRow(leave) {
   const row = document.createElement("tr");
+  const person = findPersonnelByName(leave.person);
+  const title = leave.title || person?.title || "-";
+  const unit = leave.unit || person?.unit || "-";
   const calculatedRemaining =
     leave.type === "Yıllık İzin"
       ? getRemainingAnnualLeave(leave.person, leave.year)
@@ -3645,7 +3929,8 @@ function createLeaveRow(leave) {
 
   row.innerHTML = `
     <td><strong>${escapeHtml(leave.person)}</strong></td>
-    <td>${escapeHtml(leave.unit)}</td>
+    <td><span class="type-pill">${escapeHtml(title)}</span></td>
+    <td>${escapeHtml(unit)}</td>
     <td>${escapeHtml(leave.type)}</td>
     <td>${formatDate(leave.start)}</td>
     <td>${formatDate(leave.end)}</td>
@@ -3665,15 +3950,369 @@ function createLeaveRow(leave) {
   return row;
 }
 
+function createLeaveOverviewItem(leave, variant) {
+  const person = findPersonnelByName(leave.person);
+  const title = leave.title || person?.title || "-";
+  const today = getTodayDateOnly();
+  const startDate = parseDateOnly(leave.start);
+  const endDate = parseDateOnly(leave.end);
+  const dayText =
+    variant === "active"
+      ? `${Math.max(getDayDifference(today, endDate), 0)} gün sonra işbaşı`
+      : `${Math.max(getDayDifference(today, startDate), 0)} gün sonra`;
+
+  return `
+    <article class="leave-overview-item ${variant}">
+      <div class="leave-person-line">
+        <strong>${escapeHtml(leave.person)}</strong>
+        <span class="type-pill">${escapeHtml(title)}</span>
+      </div>
+      <div class="leave-overview-meta">
+        <span>${escapeHtml(leave.type)}</span>
+        <span>${formatDate(leave.start)} - İşbaşı ${formatDate(leave.end)}</span>
+      </div>
+      <div class="leave-overview-foot">
+        <span class="status ${getStatusClass(leave.status)}">${escapeHtml(leave.status)}</span>
+        <strong>${escapeHtml(dayText)}</strong>
+      </div>
+    </article>
+  `;
+}
+
+function matchesSelectedRecordYear(record, year) {
+  return year === "Tümü" || String(record.year || String(record.start || "").slice(0, 4)) === String(year);
+}
+
+function renderLeaveOverview() {
+  const today = getTodayDateOnly();
+  const activeLeaves = leaves.filter((leave) => matchesSelectedRecordYear(leave, leaveYearFilter.value))
+    .filter((leave) => {
+      if (leave.status !== "Onaylandı") {
+        return false;
+      }
+
+      const startDate = parseDateOnly(leave.start);
+      const endDate = parseDateOnly(leave.end);
+      return startDate && endDate && startDate <= today && endDate > today;
+    })
+    .sort((a, b) => String(a.end).localeCompare(String(b.end)));
+  const upcomingLeaves = leaves.filter((leave) => matchesSelectedRecordYear(leave, leaveYearFilter.value))
+    .filter((leave) => {
+      if (leave.status === "İptal Edildi") {
+        return false;
+      }
+
+      const startDate = parseDateOnly(leave.start);
+      return startDate && startDate > today;
+    })
+    .sort((a, b) => String(a.start).localeCompare(String(b.start)))
+    .slice(0, 6);
+
+  leaveActiveCount.textContent = activeLeaves.length;
+  leaveUpcomingCount.textContent = upcomingLeaves.length;
+  leaveActiveSummary.textContent = activeLeaves.length
+    ? "Bugün izinli görünen personel"
+    : "Bugün için aktif izin görünmüyor";
+  leaveUpcomingSummary.textContent = upcomingLeaves.length
+    ? "Başlama tarihi en yakın izinler"
+    : "Yaklaşan izin kaydı bulunmuyor";
+  leaveActiveList.innerHTML = activeLeaves.length
+    ? activeLeaves.map((leave) => createLeaveOverviewItem(leave, "active")).join("")
+    : `<div class="empty-inline">Bugün izinde olan personel bulunmuyor.</div>`;
+  leaveUpcomingList.innerHTML = upcomingLeaves.length
+    ? upcomingLeaves.map((leave) => createLeaveOverviewItem(leave, "upcoming")).join("")
+    : `<div class="empty-inline">Yaklaşan izin başlangıcı bulunmuyor.</div>`;
+}
+
+function getDutyEndDate(duty) {
+  return duty.returnDate || new Date().toISOString().slice(0, 10);
+}
+
+function getDutyDayCount(duty) {
+  const startDate = parseDateOnly(duty.start);
+  const endDate = parseDateOnly(getDutyEndDate(duty));
+
+  if (!startDate || !endDate || endDate < startDate) {
+    return 0;
+  }
+
+  return getDayDifference(startDate, endDate) + 1;
+}
+
+function makeDutySearchText(duty) {
+  return [
+    duty.year,
+    duty.person,
+    duty.title,
+    duty.unit,
+    duty.dutyName,
+    duty.dutyPlace,
+    duty.start,
+    duty.returnDate,
+    duty.status,
+    duty.note,
+  ].join(" ");
+}
+
+function getCurrentPersonLeave(personName) {
+  const today = getTodayDateOnly();
+
+  return leaves
+    .filter((leave) => {
+      if (!matchesSelectedRecordYear(leave, dutyYearFilter.value) || leave.status !== "Onaylandı") {
+        return false;
+      }
+
+      const startDate = parseDateOnly(leave.start);
+      const endDate = parseDateOnly(leave.end);
+      return (
+        normalizeText(leave.person) === normalizeText(personName) &&
+        startDate &&
+        endDate &&
+        startDate <= today &&
+        endDate > today
+      );
+    })
+    .sort((a, b) => String(b.start).localeCompare(String(a.start)))[0];
+}
+
+function getCurrentPersonDuty(personName) {
+  const today = getTodayDateOnly();
+
+  return dutyRecords
+    .filter(
+      (duty) => {
+        const startDate = parseDateOnly(duty.start);
+        return (
+          normalizeText(duty.person) === normalizeText(personName) &&
+          matchesSelectedRecordYear(duty, dutyYearFilter.value) &&
+          duty.status === "Görevde" &&
+          startDate &&
+          startDate <= today
+        );
+      },
+    )
+    .sort((a, b) => String(b.start).localeCompare(String(a.start)))[0];
+}
+
+function getDutyHistoryForPerson(personName, year) {
+  return dutyRecords.filter(
+    (duty) =>
+      normalizeText(duty.person) === normalizeText(personName) &&
+      (year === "Tümü" || duty.year === year),
+  );
+}
+
+function getPersonnelStatusRecord(person) {
+  const selectedYear = dutyYearFilter.value;
+  const currentDuty = getCurrentPersonDuty(person.name);
+  const currentLeave = getCurrentPersonLeave(person.name);
+  const yearlyDuties = getDutyHistoryForPerson(person.name, selectedYear);
+  const latestDuty = yearlyDuties
+    .slice()
+    .sort((a, b) => String(b.start).localeCompare(String(a.start)))[0];
+  const yearlyDutyDays = yearlyDuties.reduce((sum, duty) => sum + getDutyDayCount(duty), 0);
+
+  if (currentDuty) {
+    return {
+      person,
+      status: "Görevde",
+      place: currentDuty.dutyPlace || currentDuty.unit || "-",
+      detail: currentDuty.dutyName || "Görev",
+      start: currentDuty.start,
+      end: currentDuty.returnDate || "",
+      dutyCount: yearlyDuties.length,
+      dutyDays: yearlyDutyDays,
+      duty: currentDuty,
+      latestDuty,
+    };
+  }
+
+  if (currentLeave) {
+    const isReport = currentLeave.type === "Rapor";
+    const isDutyLeave = currentLeave.type === "Görev İzni";
+    return {
+      person,
+      status: isReport ? "Raporlu" : isDutyLeave ? "Görev İzninde" : "İzinde",
+      place: currentLeave.type,
+      detail: currentLeave.note || currentLeave.type,
+      start: currentLeave.start,
+      end: currentLeave.end,
+      dutyCount: yearlyDuties.length,
+      dutyDays: yearlyDutyDays,
+      duty: null,
+      latestDuty,
+    };
+  }
+
+  return {
+    person,
+    status: "Birimde",
+    place: person.unit || getPersonnelUnit(person),
+    detail: person.group || "Personel",
+    start: "",
+    end: "",
+    dutyCount: yearlyDuties.length,
+    dutyDays: yearlyDutyDays,
+    duty: null,
+    latestDuty,
+  };
+}
+
+function makePersonnelStatusSearchText(record) {
+  return [
+    record.person.name,
+    record.person.title,
+    record.person.unit,
+    record.status,
+    record.place,
+    record.detail,
+    record.start,
+    record.end,
+    record.dutyCount,
+    record.dutyDays,
+  ].join(" ");
+}
+
+function getVisiblePersonnelStatuses() {
+  const selectedStatus = dutyStatusFilter.value;
+  const query = normalizeText(dutySearchInput.value);
+
+  return getLeavePersonnel()
+    .map(getPersonnelStatusRecord)
+    .filter((record) => {
+      const matchesStatus =
+        selectedStatus === "Tümü" ||
+        record.status === selectedStatus ||
+        (selectedStatus === "Döndü" &&
+          record.dutyCount > 0 &&
+          record.status !== "Görevde");
+      const matchesSearch = normalizeText(makePersonnelStatusSearchText(record)).includes(query);
+      return matchesStatus && matchesSearch;
+    })
+    .sort((a, b) => {
+      const order = { Görevde: 1, "Görev İzninde": 2, İzinde: 3, Raporlu: 4, Birimde: 5 };
+      return (
+        (order[a.status] || 9) - (order[b.status] || 9) ||
+        String(a.person.name).localeCompare(String(b.person.name), "tr")
+      );
+    });
+}
+
+function createDutyRow(record) {
+  const row = document.createElement("tr");
+  const statusClass =
+    record.status === "Birimde"
+      ? "done"
+      : record.status === "Görevde"
+        ? "progress"
+        : record.status === "Görev İzninde"
+          ? "progress"
+          : record.status === "Raporlu"
+            ? "waiting"
+            : "leave";
+  const currentDutyId = record.duty?.id || "";
+  const latestDutyId = record.latestDuty?.id || "";
+
+  row.innerHTML = `
+    <td><strong>${escapeHtml(record.person.name)}</strong></td>
+    <td><span class="type-pill">${escapeHtml(record.person.title || "-")}</span></td>
+    <td><span class="status ${statusClass}">${escapeHtml(record.status)}</span></td>
+    <td>
+      <strong>${escapeHtml(record.place || "-")}</strong>
+      <small class="table-note">${escapeHtml(record.detail || "")}</small>
+    </td>
+    <td>${record.start ? formatDate(record.start) : "-"}</td>
+    <td>${record.end ? formatDate(record.end) : "-"}</td>
+    <td><strong>${escapeHtml(record.dutyDays)}</strong> gün / ${escapeHtml(record.dutyCount)} kayıt</td>
+    <td>
+      <div class="inline-actions">
+        <button class="btn secondary small" data-duty-action="history" data-person="${escapeHtml(record.person.name)}" type="button">Geçmiş</button>
+        ${
+          record.status === "Görevde"
+            ? `<button class="btn secondary small" data-duty-action="edit" data-id="${currentDutyId}" type="button">Düzenle</button>
+               <button class="btn secondary small" data-duty-action="return" data-id="${currentDutyId}" type="button">Döndü</button>`
+            : latestDutyId
+              ? `<button class="btn secondary small" data-duty-action="edit" data-id="${latestDutyId}" type="button">Son Görevi Düzenle</button>`
+            : ""
+        }
+      </div>
+    </td>
+  `;
+
+  return row;
+}
+
+function showDutyHistory(personName) {
+  const selectedYear = dutyYearFilter.value;
+  const history = getDutyHistoryForPerson(personName, selectedYear)
+    .sort((a, b) => String(b.start).localeCompare(String(a.start)));
+
+  if (!history.length) {
+    showToast("Bu personel için seçili yılda görev geçmişi yok.");
+    return;
+  }
+
+  const lines = history.map(
+    (duty, index) =>
+      `${index + 1}. ${duty.dutyName || "Görev"} - ${duty.dutyPlace || "-"} (${formatDate(duty.start)} - ${
+        duty.returnDate ? formatDate(duty.returnDate) : "Devam ediyor"
+      }, ${getDutyDayCount(duty)} gün)`,
+  );
+
+  alert(`${personName} görev geçmişi\n\n${lines.join("\n")}`);
+}
+
+function getUpcomingDutyLeaves() {
+  const today = getTodayDateOnly();
+  const limit = new Date(today);
+  limit.setDate(limit.getDate() + 30);
+  return leaves.filter((leave) => {
+    const start = parseDateOnly(leave.start);
+    return matchesSelectedRecordYear(leave, dutyYearFilter.value) && leave.status === "Onaylandı" && start && start > today && start <= limit;
+  }).sort((a, b) => String(a.start).localeCompare(String(b.start)));
+}
+
+function renderDutyRecords() {
+  const visibleStatuses = getVisiblePersonnelStatuses();
+  const allStatuses = getLeavePersonnel().map(getPersonnelStatusRecord);
+  const activeDuties = dutyRecords.filter((duty) => matchesSelectedRecordYear(duty, dutyYearFilter.value) && duty.status === "Görevde");
+  const unavailablePeople = allStatuses.filter((record) =>
+    ["Görev İzninde", "İzinde", "Raporlu"].includes(record.status),
+  );
+  const officePeople = allStatuses.filter((record) => record.status === "Birimde");
+  const upcoming = getUpcomingDutyLeaves();
+  const people = new Map();
+  upcoming.forEach((leave) => {
+    const key = normalizeText(leave.person);
+    if (!people.has(key)) people.set(key, leave);
+  });
+
+  dutyRows.innerHTML = "";
+  visibleStatuses.forEach((record) => dutyRows.append(createDutyRow(record)));
+  dutyActiveCount.textContent = officePeople.length;
+  dutyRecordCount.textContent = activeDuties.length;
+  dutyTotalDays.textContent = unavailablePeople.length;
+  dutyUpcomingLeaveCount.textContent = people.size;
+  dutyUpcomingLeaveNames.textContent = people.size
+    ? Array.from(people.values()).map((leave) => `${leave.person} · ${formatDate(leave.start)}`).join("; ")
+    : "Yaklaşan onaylı izin yok.";
+  dutyEmptyState.hidden = visibleStatuses.length > 0;
+}
+
 function createLeaveRightRow(right) {
   const row = document.createElement("tr");
+  const person = findPersonnelByName(right.person);
+  const title = right.title || person?.title || "-";
+  const unit = right.unit || person?.unit || "-";
   const used = getUsedAnnualLeave(right.person, right.year);
   const totalRight = Number(right.entitled || 0) + Number(right.carried || 0);
   const remaining = totalRight - used;
 
   row.innerHTML = `
     <td><strong>${escapeHtml(right.person)}</strong></td>
-    <td>${escapeHtml(right.unit)}</td>
+    <td><span class="type-pill">${escapeHtml(title)}</span></td>
+    <td>${escapeHtml(unit)}</td>
     <td>${escapeHtml(right.year)}</td>
     <td><strong>${escapeHtml(totalRight)}</strong></td>
     <td>${escapeHtml(used)}</td>
@@ -3691,13 +4330,14 @@ function createLeaveRightRow(right) {
 }
 
 function renderLeaveRights() {
+  leaveRights = syncLeaveRightsWithPersonnel(leaveRights);
   leaveRightRows.innerHTML = "";
   const selectedYear = leaveYearFilter.value;
-  const query = normalizeText(leaveSearchInput.value);
+  const query = normalizeText(leaveRightSearchInput.value);
   const visibleRights = leaveRights.filter((right) => {
     const matchesYear = selectedYear === "Tümü" || right.year === selectedYear;
     const matchesSearch = normalizeText(
-      [right.person, right.unit, right.year, right.entitled, right.carried, right.note].join(" "),
+      [right.person, right.title, right.unit, right.year, right.entitled, right.carried, right.note].join(" "),
     ).includes(query);
     return matchesYear && matchesSearch;
   });
@@ -3707,10 +4347,31 @@ function renderLeaveRights() {
 }
 
 function renderLeaves() {
+  const showDutyStatus = activeLeaveModule === "Görev Durumu";
+
+  leaveStats.hidden = showDutyStatus;
+  leaveOverview.hidden = showDutyStatus;
+  leaveRightsPanel.hidden = showDutyStatus;
+  leaveFilters.hidden = showDutyStatus;
+  leaveRecordsPanel.hidden = showDutyStatus;
+  leaveEmptyState.hidden = true;
+  dutyStatusPanel.hidden = !showDutyStatus;
+  newDutyBtn.hidden = !showDutyStatus;
+  newLeaveBtn.hidden = showDutyStatus;
+  newLeaveRightBtn.hidden = showDutyStatus;
+
+  if (showDutyStatus) {
+    renderDutyRecords();
+    leaveVisibleCount.textContent = getVisiblePersonnelStatuses().length;
+    leaveSummary.textContent = "Personelin aktif görevleri, dönüş durumları ve yıllık görev geçmişi";
+    return;
+  }
+
   leaveRows.innerHTML = "";
   const visibleLeaves = getVisibleLeaves();
   const totalDays = visibleLeaves.reduce((sum, leave) => sum + Number(leave.days || 0), 0);
 
+  renderLeaveOverview();
   visibleLeaves.forEach((leave) => leaveRows.append(createLeaveRow(leave)));
   leaveVisibleCount.textContent = visibleLeaves.length;
   leaveTotalDays.textContent = totalDays;
@@ -3795,6 +4456,7 @@ function closeApprovalDialog() {
 
 function openLeaveModal(leave = null) {
   leaveForm.reset();
+  renderPersonnelOptions(leavePersonOptions, leave?.person);
   editingLeaveId = leave ? leave.id : null;
   leaveModalMode.textContent = leave ? `${leave.person} izin kaydı` : "Yeni izin kaydı";
   leaveModalTitle.textContent = leave ? "İzin Kaydını Düzenle" : "İzin Ekle";
@@ -3802,6 +4464,7 @@ function openLeaveModal(leave = null) {
 
   if (leave) {
     leaveForm.elements.person.value = leave.person;
+    leaveForm.elements.title.value = leave.title || findPersonnelByName(leave.person)?.title || "";
     leaveForm.elements.unit.value = leave.unit;
     leaveForm.elements.type.value = leave.type;
     leaveForm.elements.status.value = leave.status;
@@ -3811,7 +4474,6 @@ function openLeaveModal(leave = null) {
     leaveForm.elements.remaining.value = leave.remaining;
     leaveForm.elements.note.value = leave.note;
   } else {
-    leaveForm.elements.unit.value = "İç Denetim Başkanlığı";
     leaveForm.elements.start.value = new Date().toISOString().slice(0, 10);
     leaveForm.elements.end.value = new Date().toISOString().slice(0, 10);
   }
@@ -3826,6 +4488,7 @@ function closeLeaveDialog() {
 
 function openLeaveRightModal(right = null) {
   leaveRightForm.reset();
+  renderPersonnelOptions(leaveRightForm.elements.person, right?.person);
   editingLeaveRightId = right ? right.id : null;
   leaveRightModalMode.textContent = right ? `${right.person} izin hakkı` : "Yeni hak tanımı";
   leaveRightModalTitle.textContent = right ? "İzin Hakkını Değiştir" : "İzin Hakkı Tanımla";
@@ -3833,13 +4496,14 @@ function openLeaveRightModal(right = null) {
 
   if (right) {
     leaveRightForm.elements.person.value = right.person;
+    leaveRightForm.elements.title.value = right.title || findPersonnelByName(right.person)?.title || "";
     leaveRightForm.elements.unit.value = right.unit;
     leaveRightForm.elements.year.value = right.year;
     leaveRightForm.elements.entitled.value = right.entitled;
     leaveRightForm.elements.carried.value = right.carried;
     leaveRightForm.elements.note.value = right.note;
   } else {
-    leaveRightForm.elements.unit.value = "İç Denetim Başkanlığı";
+    applySelectedPersonnelToForm(leaveRightForm);
     leaveRightForm.elements.year.value = yearSelect.value;
   }
 
@@ -3849,6 +4513,37 @@ function openLeaveRightModal(right = null) {
 function closeLeaveRightDialog() {
   editingLeaveRightId = null;
   leaveRightModal.close();
+}
+
+function openDutyModal(duty = null) {
+  dutyForm.reset();
+  renderPersonnelOptions(dutyPersonOptions, duty?.person);
+  editingDutyId = duty ? duty.id : null;
+  dutyModalMode.textContent = duty ? `${duty.person} görev kaydı` : "Yeni görev kaydı";
+  dutyModalTitle.textContent = duty ? "Görev Kaydını Düzenle" : "Görev Ekle";
+  saveDutyBtn.textContent = duty ? "Güncelle" : "Kaydet";
+
+  if (duty) {
+    dutyForm.elements.person.value = duty.person;
+    dutyForm.elements.title.value = duty.title || findPersonnelByName(duty.person)?.title || "";
+    dutyForm.elements.unit.value = duty.unit || findPersonnelByName(duty.person)?.unit || "";
+    dutyForm.elements.dutyName.value = duty.dutyName || "";
+    dutyForm.elements.dutyPlace.value = duty.dutyPlace || "";
+    dutyForm.elements.start.value = duty.start || "";
+    dutyForm.elements.returnDate.value = duty.returnDate || "";
+    dutyForm.elements.status.value = duty.status || "Görevde";
+    dutyForm.elements.note.value = duty.note || "";
+  } else {
+    dutyForm.elements.start.value = new Date().toISOString().slice(0, 10);
+    dutyForm.elements.status.value = "Görevde";
+  }
+
+  dutyModal.showModal();
+}
+
+function closeDutyDialog() {
+  editingDutyId = null;
+  dutyModal.close();
 }
 
 function closeActionMenus() {
@@ -3893,17 +4588,16 @@ if (migrateLocalDataBtn) {
 }
 
 yearSelect.addEventListener("change", (event) => {
-  if (
-    !approvalsNav.classList.contains("active") &&
-    !reportsNav.classList.contains("active") &&
-    !monitoringNav.classList.contains("active") &&
-    !leaveMenuToggle.classList.contains("open")
-  ) {
-    document.querySelector("h1").textContent = `${event.target.value} Faaliyet Paneli`;
-  }
-  approvalForm.elements.year.value = event.target.value;
-  approvalForm.elements.no.value = getNextApprovalNo(event.target.value);
+  const year = event.target.value;
+  approvalYearFilter.value = year;
+  leaveYearFilter.value = year;
+  dutyYearFilter.value = year;
+  approvalForm.elements.year.value = year;
+  approvalForm.elements.no.value = getNextApprovalNo(year);
   renderAudits();
+  renderApprovals();
+  renderLeaves();
+  setActiveModule(activeModule);
 });
 
 [reportArchiveSearch, reportArchiveTypeFilter, reportArchiveLinkFilter].forEach((control) => {
@@ -4194,29 +4888,131 @@ personnelModuleButtons.forEach((button) => {
     setActiveModule("personnel");
     activePersonnelModule = button.dataset.personnelModule;
     selectedPersonnelKey = "";
+    creatingPersonnel = false;
     personnelModuleButtons.forEach((item) => item.classList.remove("active"));
     button.classList.add("active");
+    saveActiveView();
+    renderPersonnel();
+  });
+});
+
+newPersonnelBtn.addEventListener("click", () => {
+  if (!currentUser?.owner) {
+    showToast("Personel ekleme yetkisi sadece ana yöneticidedir.");
+    return;
+  }
+
+  creatingPersonnel = true;
+  selectedPersonnelKey = "";
+  setActiveModule("personnelProfile");
+});
+
+personnelSortButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const key = button.dataset.personnelSort;
+
+    if (personnelSort.key === key) {
+      personnelSort.direction = personnelSort.direction === "asc" ? "desc" : "asc";
+    } else {
+      personnelSort = { key, direction: "asc" };
+    }
+
     renderPersonnel();
   });
 });
 
 personnelRows.addEventListener("click", (event) => {
-  const row = event.target.closest("[data-personnel-key]");
+  const deleteButton = event.target.closest("[data-personnel-delete]");
 
-  if (!row) {
+  if (deleteButton) {
+    if (!currentUser?.owner) {
+      showToast("Personel silme yetkisi sadece ana yöneticidedir.");
+      return;
+    }
+
+    const personIndex = personnelRecords.findIndex(
+      (person) => personnelKey(person) === deleteButton.dataset.personnelDelete,
+    );
+
+    if (personIndex === -1) {
+      return;
+    }
+
+    const person = personnelRecords[personIndex];
+    const shouldDelete = confirm(`${person.name} adlı personel kaydı silinsin mi?`);
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    markRecordDeleted("personnelRecords", person);
+    leaveRights
+      .filter((right) => right.person === person.name)
+      .forEach((right) => markRecordDeleted("leaveRights", right));
+    leaveRights = leaveRights.filter((right) => right.person !== person.name);
+    personnelRecords.splice(personIndex, 1);
+    selectedPersonnelKey = "";
+    creatingPersonnel = false;
+    savePersonnelRecords();
+    renderPersonnel();
+    renderLeaves();
+    showToast("Personel kaydı silindi.");
     return;
   }
 
-  selectedPersonnelKey = row.dataset.personnelKey;
+  const openButton = event.target.closest("[data-personnel-open]");
+  const row = event.target.closest("[data-personnel-key]");
+
+  if (!openButton && !row) {
+    return;
+  }
+
+  selectedPersonnelKey = openButton?.dataset.personnelOpen || row.dataset.personnelKey;
+  creatingPersonnel = false;
   setActiveModule("personnelProfile");
 });
 
 backToPersonnelList.addEventListener("click", () => {
+  creatingPersonnel = false;
   setActiveModule("personnel");
 });
 
 personnelProfileForm.addEventListener("submit", (event) => {
   event.preventDefault();
+
+  const formData = new FormData(personnelProfileForm);
+  const name = String(formData.get("name")).trim();
+  const title = String(formData.get("title")).trim();
+  const extension = String(formData.get("extension")).trim();
+  const certificate = String(formData.get("certificate")).trim();
+  const expertise = String(formData.get("expertise")).trim();
+  const status = String(formData.get("status"));
+
+  if (!currentUser?.owner && creatingPersonnel) {
+    showToast("Personel ekleme yetkisi sadece ana yöneticidedir.");
+    return;
+  }
+
+  if (creatingPersonnel) {
+    const newPerson = {
+      no: getNextPersonnelNo(activePersonnelModule),
+      name,
+      title,
+      extension,
+      certificate,
+      expertise,
+      status,
+      group: activePersonnelModule,
+    };
+
+    personnelRecords.push(newPerson);
+    selectedPersonnelKey = personnelKey(newPerson);
+    creatingPersonnel = false;
+    savePersonnelRecords();
+    renderPersonnelProfile();
+    showToast("Personel kaydı eklendi.");
+    return;
+  }
 
   const personIndex = personnelRecords.findIndex(
     (person) => personnelKey(person) === selectedPersonnelKey,
@@ -4226,15 +5022,14 @@ personnelProfileForm.addEventListener("submit", (event) => {
     return;
   }
 
-  const formData = new FormData(personnelProfileForm);
   personnelRecords[personIndex] = {
     ...personnelRecords[personIndex],
-    name: String(formData.get("name")).trim(),
-    title: String(formData.get("title")).trim(),
-    extension: String(formData.get("extension")).trim(),
-    certificate: String(formData.get("certificate")).trim(),
-    expertise: String(formData.get("expertise")).trim(),
-    status: String(formData.get("status")),
+    name,
+    title,
+    extension,
+    certificate,
+    expertise,
+    status,
   };
   savePersonnelRecords();
   renderPersonnelProfile();
@@ -4243,10 +5038,6 @@ personnelProfileForm.addEventListener("submit", (event) => {
 
 leaveMenuToggle.addEventListener("click", () => {
   setActiveModule("leave");
-  const isOpen = leaveMenuToggle.getAttribute("aria-expanded") === "true";
-  leaveMenuToggle.setAttribute("aria-expanded", String(!isOpen));
-  leaveMenuToggle.classList.toggle("open", !isOpen);
-  leaveSubnav.hidden = isOpen;
 });
 
 newAuditBtn.addEventListener("click", () => openAuditModal());
@@ -4260,10 +5051,13 @@ closeApprovalModal.addEventListener("click", closeApprovalDialog);
 cancelApproval.addEventListener("click", closeApprovalDialog);
 newLeaveBtn.addEventListener("click", () => openLeaveModal());
 newLeaveRightBtn.addEventListener("click", () => openLeaveRightModal());
+newDutyBtn.addEventListener("click", () => openDutyModal());
 closeLeaveModal.addEventListener("click", closeLeaveDialog);
 cancelLeave.addEventListener("click", closeLeaveDialog);
 closeLeaveRightModal.addEventListener("click", closeLeaveRightDialog);
 cancelLeaveRight.addEventListener("click", closeLeaveRightDialog);
+closeDutyModal.addEventListener("click", closeDutyDialog);
+cancelDuty.addEventListener("click", closeDutyDialog);
 
 monitoringForm.elements.monitoringResultDocument.addEventListener("change", () => {
   if (!editingMonitoringAudit) {
@@ -4276,6 +5070,22 @@ monitoringForm.elements.monitoringResultDocument.addEventListener("change", () =
 
 approvalForm.elements.year.addEventListener("change", (event) => {
   approvalForm.elements.no.value = getNextApprovalNo(event.target.value);
+});
+
+["input", "change"].forEach((eventName) => {
+  leaveForm.elements.person.addEventListener(eventName, () => {
+    applySelectedPersonnelToForm(leaveForm);
+  });
+});
+
+leaveRightForm.elements.person.addEventListener("change", () => {
+  applySelectedPersonnelToForm(leaveRightForm);
+});
+
+["input", "change"].forEach((eventName) => {
+  dutyForm.elements.person.addEventListener(eventName, () => {
+    applySelectedPersonnelToForm(dutyForm);
+  });
 });
 
 [approvalYearFilter, approvalNoFilter, approvalStatusFilter, approvalSearchInput].forEach(
@@ -4401,6 +5211,53 @@ reportAuditRows.addEventListener("click", (event) => {
   }
 });
 
+dutyRows.addEventListener("click", (event) => {
+  const actionButton = event.target.closest("[data-duty-action]");
+
+  if (!actionButton) {
+    return;
+  }
+
+  if (actionButton.dataset.dutyAction === "history") {
+    showDutyHistory(actionButton.dataset.person);
+    return;
+  }
+
+  const duty = dutyRecords.find((item) => item.id === Number(actionButton.dataset.id));
+
+  if (!duty) {
+    return;
+  }
+
+  if (actionButton.dataset.dutyAction === "edit") {
+    openDutyModal(duty);
+    return;
+  }
+
+  if (actionButton.dataset.dutyAction === "return") {
+    duty.status = "Döndü";
+    duty.returnDate = duty.returnDate || new Date().toISOString().slice(0, 10);
+    saveDutyRecords();
+    renderDutyRecords();
+    showToast("Görev dönüşü kaydedildi.");
+    return;
+  }
+
+  if (actionButton.dataset.dutyAction === "delete") {
+    const shouldDelete = confirm(`${duty.person} adlı personele ait görev kaydı silinsin mi?`);
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    markRecordDeleted("dutyRecords", duty);
+    dutyRecords = dutyRecords.filter((item) => item.id !== duty.id);
+    saveDutyRecords();
+    renderDutyRecords();
+    showToast("Görev kaydı silindi.");
+  }
+});
+
 [leaveYearFilter, leaveTypeFilter, leaveStatusFilter, leaveSearchInput].forEach(
   (control) => {
     control.addEventListener("input", renderLeaves);
@@ -4408,15 +5265,30 @@ reportAuditRows.addEventListener("click", (event) => {
   },
 );
 
+leaveRightSearchInput.addEventListener("input", renderLeaveRights);
+
+[dutyYearFilter, dutyStatusFilter, dutySearchInput].forEach((control) => {
+  control.addEventListener("input", renderDutyRecords);
+  control.addEventListener("change", renderDutyRecords);
+});
+
+clearDutyFilters.addEventListener("click", () => {
+  dutyYearFilter.value = yearSelect.value;
+  dutyStatusFilter.value = "Tümü";
+  dutySearchInput.value = "";
+  renderDutyRecords();
+});
+
 clearLeaveFilters.addEventListener("click", () => {
-  activeLeaveModule = "Tümü";
+  activeLeaveModule = "Personel";
   leaveModuleButtons.forEach((button) => {
-    button.classList.toggle("active", button.dataset.leaveModule === "Tümü");
+    button.classList.toggle("active", button.dataset.leaveModule === "Personel");
   });
   leaveYearFilter.value = yearSelect.value;
   leaveTypeFilter.value = "Tümü";
   leaveStatusFilter.value = "Tümü";
   leaveSearchInput.value = "";
+  leaveRightSearchInput.value = "";
   renderLeaves();
 });
 
@@ -4710,22 +5582,12 @@ typeFilterButtons.forEach((button) => {
 
 leaveModuleButtons.forEach((button) => {
   button.addEventListener("click", () => {
+    activeLeaveModule = getValidLeaveModule(button.dataset.leaveModule);
+    leaveModuleButtons.forEach((item) => {
+      item.classList.toggle("active", item.dataset.leaveModule === activeLeaveModule);
+    });
+    leaveTypeFilter.value = "Tümü";
     setActiveModule("leave");
-    activeLeaveModule = button.dataset.leaveModule;
-    leaveModuleButtons.forEach((item) => item.classList.remove("active"));
-    button.classList.add("active");
-
-    if (
-      activeLeaveModule !== "Tümü" &&
-      activeLeaveModule !== "Personel" &&
-      activeLeaveModule !== "Bakiye"
-    ) {
-      leaveTypeFilter.value = activeLeaveModule;
-    } else {
-      leaveTypeFilter.value = "Tümü";
-    }
-
-    renderLeaves();
   });
 });
 
@@ -4843,11 +5705,19 @@ leaveForm.addEventListener("submit", (event) => {
 
   const formData = new FormData(leaveForm);
   const start = String(formData.get("start"));
+  const selectedPerson = findPersonnelByName(formData.get("person"));
+
+  if (!selectedPerson) {
+    showToast("Lütfen listeden geçerli bir personel seç.");
+    return;
+  }
+
   const leave = {
     id: editingLeaveId || Math.max(...leaves.map((item) => item.id), 0) + 1,
     year: start.slice(0, 4),
     person: String(formData.get("person")).trim(),
-    unit: String(formData.get("unit")).trim(),
+    title: selectedPerson?.title || String(formData.get("title")).trim(),
+    unit: selectedPerson?.unit || String(formData.get("unit")).trim(),
     type: String(formData.get("type")),
     status: String(formData.get("status")),
     start,
@@ -4872,15 +5742,65 @@ leaveForm.addEventListener("submit", (event) => {
   closeLeaveDialog();
 });
 
+dutyForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+
+  const formData = new FormData(dutyForm);
+  const selectedPerson = findPersonnelByName(formData.get("person"));
+  const start = String(formData.get("start"));
+  let returnDate = String(formData.get("returnDate"));
+  const status = String(formData.get("status"));
+
+  if (!selectedPerson) {
+    showToast("Lütfen listeden geçerli bir personel seç.");
+    return;
+  }
+
+  if (status === "Döndü" && !returnDate) {
+    returnDate = new Date().toISOString().slice(0, 10);
+  }
+
+  const duty = {
+    id: editingDutyId || Math.max(...dutyRecords.map((item) => item.id), 0) + 1,
+    year: start.slice(0, 4),
+    person: selectedPerson.name,
+    title: selectedPerson.title || "",
+    unit: selectedPerson.unit || "",
+    dutyName: String(formData.get("dutyName")).trim(),
+    dutyPlace: String(formData.get("dutyPlace")).trim(),
+    start,
+    returnDate,
+    status,
+    note: String(formData.get("note")).trim(),
+  };
+
+  if (editingDutyId) {
+    const index = dutyRecords.findIndex((item) => item.id === editingDutyId);
+
+    if (index > -1) {
+      dutyRecords[index] = duty;
+    }
+  } else {
+    dutyRecords.unshift(duty);
+  }
+
+  saveDutyRecords();
+  renderLeaves();
+  closeDutyDialog();
+});
+
 leaveRightForm.addEventListener("submit", (event) => {
   event.preventDefault();
 
   const formData = new FormData(leaveRightForm);
+  const selectedPerson = findPersonnelByName(formData.get("person"));
   const right = {
     id: editingLeaveRightId || Math.max(...leaveRights.map((item) => item.id), 0) + 1,
     year: String(formData.get("year")),
     person: String(formData.get("person")).trim(),
-    unit: String(formData.get("unit")).trim(),
+    title: selectedPerson?.title || String(formData.get("title")).trim(),
+    unit: selectedPerson?.unit || String(formData.get("unit")).trim(),
+    group: selectedPerson?.group || "",
     entitled: Number(formData.get("entitled")),
     carried: Number(formData.get("carried") || 0),
     note: String(formData.get("note")).trim(),

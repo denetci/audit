@@ -648,6 +648,36 @@
         font-size: 15px;
       }
 
+      .sub-panel-actions {
+        display: flex;
+        align-items: flex-end;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+
+      .compact-search {
+        display: grid;
+        min-width: 260px;
+        gap: 5px;
+        color: #475569;
+        font-size: 11px;
+        font-weight: 850;
+        text-transform: uppercase;
+      }
+
+      .compact-search input {
+        width: 100%;
+        height: 34px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        padding: 0 10px;
+        color: var(--ink);
+        font-size: 12px;
+        outline: 0;
+        text-transform: none;
+      }
+
       .legend {
         display: flex;
         gap: 14px;
@@ -800,6 +830,14 @@
         min-width: 920px;
       }
 
+      .duty-table {
+        min-width: 1180px;
+      }
+
+      #leaveRightsPanel .table-wrap {
+        max-height: 320px;
+      }
+
       .monitoring-table {
         min-width: 1280px;
       }
@@ -816,6 +854,99 @@
         grid-template-columns: repeat(3, minmax(0, 1fr));
         border-bottom: 1px solid #edf2f7;
         padding: 16px;
+      }
+
+      .leave-overview {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        padding: 16px;
+        border-bottom: 1px solid #edf2f7;
+        background: #f8fbff;
+      }
+
+      .leave-overview-card {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+      }
+
+      .compact-head {
+        padding: 14px 16px;
+      }
+
+      .leave-overview-list {
+        display: grid;
+        gap: 10px;
+        max-height: 280px;
+        overflow: auto;
+        padding: 12px 16px 16px;
+      }
+
+      .leave-overview-item {
+        display: grid;
+        gap: 8px;
+        border: 1px solid #e2eaf4;
+        border-left: 4px solid #0b5bb5;
+        border-radius: 8px;
+        background: #fbfdff;
+        padding: 12px;
+      }
+
+      .leave-overview-item.upcoming {
+        border-left-color: #c87900;
+      }
+
+      .leave-person-line,
+      .leave-overview-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .leave-person-line strong {
+        color: var(--ink);
+        font-size: 13px;
+      }
+
+      .leave-overview-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 14px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .leave-overview-foot strong {
+        color: #0f3f7a;
+        font-size: 12px;
+      }
+
+      .duty-panel {
+        display: grid;
+        gap: 0;
+        background: #fff;
+      }
+
+      .duty-stats {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        border-bottom: 1px solid #edf2f7;
+        padding: 16px;
+      }
+
+      .duty-filters {
+        grid-template-columns: 120px 150px minmax(260px, 1fr) auto;
+      }
+
+      .table-note {
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
       }
 
       .leave-filters {
@@ -1172,8 +1303,39 @@
 
       .personnel-table th:last-child,
       .personnel-table td:last-child {
-        width: 130px;
+        width: 190px;
         text-align: center;
+      }
+
+      .sort-header {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        font-weight: 900;
+        text-transform: inherit;
+        cursor: pointer;
+        padding: 0;
+      }
+
+      .sort-header span {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 5px;
+        color: #6b7a90;
+        background: #eaf1f8;
+        font-size: 11px;
+      }
+
+      .sort-header.active span {
+        color: #0b5bb5;
+        background: #dcecff;
       }
 
       .personnel-table tbody tr {
@@ -1462,6 +1624,11 @@
       .status.progress {
         background: #e8f3ff;
         color: #075ea8;
+      }
+
+      .status.leave {
+        background: #edf4ff;
+        color: #184c90;
       }
 
       .status.waiting {
@@ -2517,6 +2684,14 @@
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
+        .duty-stats {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .leave-overview {
+          grid-template-columns: 1fr;
+        }
+
         .personnel-kpis,
         .personnel-sections {
           grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2596,6 +2771,8 @@
         .stats,
         .process,
         .monitoring-stats,
+        .duty-stats,
+        .leave-overview,
         .personnel-kpis,
         .personnel-sections,
         .form-grid,
@@ -2623,9 +2800,15 @@
         }
 
         .profile-toolbar,
-        .profile-section-head {
+        .profile-section-head,
+        .sub-panel-head,
+        .sub-panel-actions {
           align-items: stretch;
           flex-direction: column;
+        }
+
+        .compact-search {
+          min-width: 0;
         }
 
         .personnel-detail-head {
@@ -2679,4 +2862,32 @@
           align-items: stretch;
           flex-direction: column;
         }
+      }
+
+      .leave-module-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 12px;
+      }
+      .leave-module-tabs .subnav-item {
+        width: auto;
+        padding: 10px 18px;
+      }
+
+      .leave-module-tabs .subnav-item {
+        color: #334155;
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
+      }
+      .leave-module-tabs .subnav-item:hover {
+        color: #154e97;
+        background: #eaf3ff;
+      }
+      .leave-module-tabs .subnav-item.active {
+        color: #ffffff;
+        background: #185abd;
+        border-color: #185abd;
       }
