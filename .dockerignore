@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.venv/
+.git/
+.idea/
+ic_denetim.db
+*.db-journal

@@ -1,17 +1,30 @@
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from http import cookies
+from datetime import datetime, timedelta, timezone
+from email.message import EmailMessage
+import hashlib
 import json
+import os
+import secrets
+import smtplib
 import sqlite3
 from pathlib import Path
 from urllib.parse import urlparse
 import webbrowser
 
 
-HOST = "127.0.0.1"
-PORT = 8000
+HOST = os.environ.get("IDB_HOST", "127.0.0.1")
+PORT = int(os.environ.get("IDB_PORT", "8000"))
 PROJECT_DIR = Path(__file__).resolve().parent
 STATIC_DIR = PROJECT_DIR / "static"
-DB_PATH = PROJECT_DIR / "ic_denetim.db"
+DB_PATH = Path(os.environ.get("IDB_DB_PATH", PROJECT_DIR / "ic_denetim.db"))
 STATE_KEY = "main"
+OPEN_BROWSER = os.environ.get("IDB_OPEN_BROWSER", "1") != "0"
+SESSION_COOKIE = "idb_session"
+SESSION_DAYS = 7
+OWNER_USERNAME = os.environ.get("IDB_OWNER_USERNAME", "ramazan.orman")
+OWNER_DISPLAY_NAME = os.environ.get("IDB_OWNER_DISPLAY_NAME", "Ramazan ORMAN")
+OWNER_EMAIL = os.environ.get("IDB_OWNER_EMAIL", "ramazan.orman@tarimorman.gov.tr")
 
 COLLECTIONS = (
     "audits",
@@ -57,7 +70,9 @@ def record_key(collection, record):
 
 
 def get_connection():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DB_PATH)
+    connection.row_factory = sqlite3.Row
     connection.execute(
         """
         CREATE TABLE IF NOT EXISTS app_state (
@@ -78,8 +93,199 @@ def get_connection():
         )
         """,
     )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            email TEXT NOT NULL DEFAULT '',
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'user',
+            display_name TEXT NOT NULL,
+            active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS sessions (
+            token TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            expires_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+        """,
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            action TEXT NOT NULL,
+            detail TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+    )
+    ensure_user_schema(connection)
+    ensure_default_admin(connection)
     migrate_legacy_state(connection)
     return connection
+
+
+def utc_now():
+    return datetime.now(timezone.utc)
+
+
+def hash_password(password):
+    salt = secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        120_000,
+    ).hex()
+    return f"pbkdf2_sha256${salt}${digest}"
+
+
+def verify_password(password, stored_hash):
+    try:
+        algorithm, salt, expected = stored_hash.split("$", 2)
+    except ValueError:
+        return False
+
+    if algorithm != "pbkdf2_sha256":
+        return False
+
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        120_000,
+    ).hex()
+    return secrets.compare_digest(digest, expected)
+
+
+def public_user(row):
+    return {
+        "id": row["id"],
+        "username": row["username"],
+        "displayName": row["display_name"],
+        "email": row["email"],
+        "role": row["role"],
+        "owner": row["username"] == OWNER_USERNAME,
+        "active": bool(row["active"]),
+        "createdAt": row["created_at"],
+    }
+
+
+def ensure_user_schema(connection):
+    columns = {
+        row["name"]
+        for row in connection.execute("PRAGMA table_info(users)").fetchall()
+    }
+
+    if "email" not in columns:
+        connection.execute("ALTER TABLE users ADD COLUMN email TEXT NOT NULL DEFAULT ''")
+
+
+def ensure_default_admin(connection):
+    existing_count = connection.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+
+    if existing_count:
+        first_admin = connection.execute(
+            "SELECT id, username FROM users WHERE role = 'admin' ORDER BY id LIMIT 1",
+        ).fetchone()
+
+        if first_admin and first_admin["username"] == "admin":
+            try:
+                connection.execute(
+                    """
+                    UPDATE users
+                    SET username = ?, email = ?, display_name = ?, role = 'admin', active = 1
+                    WHERE id = ?
+                    """,
+                    (OWNER_USERNAME, OWNER_EMAIL, OWNER_DISPLAY_NAME, first_admin["id"]),
+                )
+            except sqlite3.IntegrityError:
+                connection.execute(
+                    "UPDATE users SET email = ?, display_name = ?, role = 'admin', active = 1 WHERE id = ?",
+                    (OWNER_EMAIL, OWNER_DISPLAY_NAME, first_admin["id"]),
+                )
+
+        owner = connection.execute(
+            "SELECT id, email FROM users WHERE username = ?",
+            (OWNER_USERNAME,),
+        ).fetchone()
+
+        if owner and not owner["email"]:
+            connection.execute(
+                "UPDATE users SET email = ?, display_name = ?, role = 'admin', active = 1 WHERE id = ?",
+                (OWNER_EMAIL, OWNER_DISPLAY_NAME, owner["id"]),
+            )
+
+        return
+
+    password = os.environ.get("IDB_ADMIN_PASSWORD", "admin123")
+    connection.execute(
+        """
+        INSERT INTO users (username, email, password_hash, role, display_name, active)
+        VALUES (?, ?, ?, ?, ?, 1)
+        """,
+        (OWNER_USERNAME, OWNER_EMAIL, hash_password(password), "admin", OWNER_DISPLAY_NAME),
+    )
+
+
+def log_action(connection, user, action, detail):
+    username = user["username"] if user else "sistem"
+    connection.execute(
+        "INSERT INTO audit_log (username, action, detail) VALUES (?, ?, ?)",
+        (username, action, detail),
+    )
+
+
+def is_valid_email(value):
+    return "@" in value and "." in value.rsplit("@", 1)[-1]
+
+
+def send_password_reset_email(request_email, user_row):
+    smtp_host = os.environ.get("IDB_SMTP_HOST", "").strip()
+
+    if not smtp_host:
+        return False
+
+    smtp_port = int(os.environ.get("IDB_SMTP_PORT", "587"))
+    smtp_user = os.environ.get("IDB_SMTP_USER", "").strip()
+    smtp_password = os.environ.get("IDB_SMTP_PASSWORD", "")
+    sender = os.environ.get("IDB_MAIL_FROM", smtp_user or OWNER_EMAIL)
+
+    message = EmailMessage()
+    message["Subject"] = "İç Denetim Paneli Parola Yenileme Talebi"
+    message["From"] = sender
+    message["To"] = OWNER_EMAIL
+    message.set_content(
+        "\n".join(
+            [
+                "İç Denetim Başkanlığı panelinden parola yenileme talebi alındı.",
+                "",
+                f"Talep edilen e-posta: {request_email}",
+                f"Kullanıcı adı: {user_row['username'] if user_row else 'Kayıt bulunamadı'}",
+                f"Ad soyad: {user_row['display_name'] if user_row else 'Kayıt bulunamadı'}",
+                "",
+                "Yönetim panelinden kullanıcıya yeni parola tanımlayabilirsiniz.",
+            ],
+        ),
+    )
+
+    with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as smtp:
+        smtp.starttls()
+        if smtp_user:
+            smtp.login(smtp_user, smtp_password)
+        smtp.send_message(message)
+
+    return True
 
 
 def migrate_legacy_state(connection):
@@ -179,15 +385,116 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(STATIC_DIR), **kwargs)
 
     def do_GET(self):
-        if urlparse(self.path).path == "/api/state":
+        path = urlparse(self.path).path
+
+        if path == "/health":
+            self.send_json({"ok": True})
+            return
+
+        if path == "/api/me":
+            self.handle_me()
+            return
+
+        if path == "/api/state":
+            user = self.require_auth()
+
+            if not user:
+                return
+
             self.send_json(self.read_state())
+            return
+
+        if path == "/api/admin/users":
+            user = self.require_owner()
+
+            if not user:
+                return
+
+            self.handle_admin_users()
+            return
+
+        if path == "/api/admin/audit-log":
+            user = self.require_admin()
+
+            if not user:
+                return
+
+            self.handle_admin_audit_log()
+            return
+
+        if path == "/api/admin/db/backup":
+            user = self.require_admin()
+
+            if not user:
+                return
+
+            self.handle_database_backup(user)
             return
 
         super().do_GET()
 
     def do_POST(self):
-        if urlparse(self.path).path == "/api/state":
-            self.write_state()
+        path = urlparse(self.path).path
+
+        if path == "/api/login":
+            self.handle_login()
+            return
+
+        if path == "/api/logout":
+            self.handle_logout()
+            return
+
+        if path == "/api/forgot-password":
+            self.handle_forgot_password()
+            return
+
+        if path == "/api/change-password":
+            user = self.require_auth()
+
+            if not user:
+                return
+
+            self.handle_change_password(user)
+            return
+
+        if path == "/api/state":
+            user = self.require_auth()
+
+            if not user:
+                return
+
+            if user["role"] == "viewer":
+                self.send_json({"ok": False, "error": "Bu kullanıcı sadece görüntüleyebilir."}, status=403)
+                return
+
+            self.write_state(user)
+            return
+
+        if path == "/api/admin/users":
+            user = self.require_admin()
+
+            if not user:
+                return
+
+            self.handle_create_user(user)
+            return
+
+        if path == "/api/admin/users/update":
+            user = self.require_owner()
+
+            if not user:
+                return
+
+            self.handle_update_user(user)
+            return
+
+        if path == "/api/admin/users/delete":
+            user = self.require_owner()
+
+            if not user:
+                return
+
+            self.handle_delete_user(user)
             return
 
         self.send_error(404, "Not found")
@@ -204,16 +511,431 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def read_json_body(self):
+        content_length = int(self.headers.get("Content-Length", "0"))
+        raw_body = self.rfile.read(content_length)
+
+        if not raw_body:
+            return {}
+
+        return json.loads(raw_body.decode("utf-8"))
+
+    def get_session_token(self):
+        raw_cookie = self.headers.get("Cookie", "")
+
+        if not raw_cookie:
+            return ""
+
+        cookie = cookies.SimpleCookie()
+        cookie.load(raw_cookie)
+        morsel = cookie.get(SESSION_COOKIE)
+        return morsel.value if morsel else ""
+
+    def get_current_user(self):
+        token = self.get_session_token()
+
+        if not token:
+            return None
+
+        now = utc_now().isoformat()
+        with get_connection() as connection:
+            row = connection.execute(
+                """
+                SELECT users.*
+                FROM sessions
+                JOIN users ON users.id = sessions.user_id
+                WHERE sessions.token = ?
+                    AND sessions.expires_at > ?
+                    AND users.active = 1
+                """,
+                (token, now),
+            ).fetchone()
+
+        return public_user(row) if row else None
+
+    def require_auth(self):
+        user = self.get_current_user()
+
+        if not user:
+            self.send_json({"ok": False, "error": "Oturum gerekli."}, status=401)
+            return None
+
+        return user
+
+    def require_admin(self):
+        user = self.require_auth()
+
+        if not user:
+            return None
+
+        if user["role"] != "admin":
+            self.send_json({"ok": False, "error": "Yönetici yetkisi gerekli."}, status=403)
+            return None
+
+        return user
+
+    def require_owner(self):
+        user = self.require_admin()
+
+        if not user:
+            return None
+
+        if not user.get("owner"):
+            self.send_json({"ok": False, "error": "Kullanıcı yetkilerini sadece ana yönetici değiştirebilir."}, status=403)
+            return None
+
+        return user
+
+    def set_session_cookie(self, token, expires_at):
+        self.send_header(
+            "Set-Cookie",
+            (
+                f"{SESSION_COOKIE}={token}; Path=/; HttpOnly; SameSite=Lax; "
+                f"Expires={expires_at.strftime('%a, %d %b %Y %H:%M:%S GMT')}"
+            ),
+        )
+
+    def clear_session_cookie(self):
+        self.send_header(
+            "Set-Cookie",
+            f"{SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
+        )
+
+    def send_login_json(self, payload, token="", expires_at=None, status=200):
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+
+        if token and expires_at:
+            self.set_session_cookie(token, expires_at)
+
+        self.end_headers()
+        self.wfile.write(body)
+
+    def send_logout_json(self):
+        body = json.dumps({"ok": True}, ensure_ascii=False).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.clear_session_cookie()
+        self.end_headers()
+        self.wfile.write(body)
+
+    def handle_me(self):
+        user = self.get_current_user()
+        self.send_json({"ok": True, "user": user})
+
+    def handle_login(self):
+        try:
+            payload = self.read_json_body()
+        except json.JSONDecodeError:
+            self.send_json({"ok": False, "error": "Geçersiz giriş bilgisi."}, status=400)
+            return
+
+        username = str(payload.get("username", "")).strip()
+        password = str(payload.get("password", ""))
+
+        if not username or not password:
+            self.send_json({"ok": False, "error": "Kullanıcı adı ve parola gerekli."}, status=400)
+            return
+
+        with get_connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM users WHERE username = ? AND active = 1",
+                (username,),
+            ).fetchone()
+
+            if not row or not verify_password(password, row["password_hash"]):
+                self.send_json({"ok": False, "error": "Kullanıcı adı veya parola hatalı."}, status=401)
+                return
+
+            token = secrets.token_urlsafe(32)
+            expires_at = utc_now() + timedelta(days=SESSION_DAYS)
+            connection.execute(
+                "INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)",
+                (token, row["id"], expires_at.isoformat()),
+            )
+            user = public_user(row)
+            log_action(connection, user, "login", "Oturum açıldı")
+
+        self.send_login_json({"ok": True, "user": user}, token=token, expires_at=expires_at)
+
+    def handle_logout(self):
+        token = self.get_session_token()
+
+        with get_connection() as connection:
+            if token:
+                connection.execute("DELETE FROM sessions WHERE token = ?", (token,))
+
+        self.send_logout_json()
+
+    def handle_forgot_password(self):
+        try:
+            payload = self.read_json_body()
+        except json.JSONDecodeError:
+            self.send_json({"ok": False, "error": "Geçersiz e-posta bilgisi."}, status=400)
+            return
+
+        request_email = str(payload.get("email", "")).strip().lower()
+
+        if not is_valid_email(request_email):
+            self.send_json({"ok": False, "error": "Geçerli bir e-posta adresi yazılmalı."}, status=400)
+            return
+
+        mail_sent = False
+        with get_connection() as connection:
+            user_row = connection.execute(
+                "SELECT * FROM users WHERE lower(email) = ?",
+                (request_email,),
+            ).fetchone()
+            log_action(
+                connection,
+                None,
+                "password_reset_request",
+                f"{request_email} için parola yenileme talebi alındı",
+            )
+
+        try:
+            mail_sent = send_password_reset_email(request_email, user_row)
+        except Exception:
+            mail_sent = False
+
+        message = (
+            "Parola yenileme talebi ana yönetici mailine gönderildi."
+            if mail_sent
+            else "Parola yenileme talebi alındı. Mail sunucusu tanımlı değilse ana yönetici Yönetim panelinden yeni parola verebilir."
+        )
+        self.send_json({"ok": True, "message": message})
+
+    def handle_admin_users(self):
+        with get_connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, username, email, display_name, role, active, created_at
+                FROM users
+                ORDER BY created_at, id
+                """,
+            ).fetchall()
+
+        self.send_json({"ok": True, "users": [public_user(row) for row in rows]})
+
+    def handle_create_user(self, current_user):
+        try:
+            payload = self.read_json_body()
+        except json.JSONDecodeError:
+            self.send_json({"ok": False, "error": "Geçersiz kullanıcı bilgisi."}, status=400)
+            return
+
+        username = str(payload.get("username", "")).strip()
+        email = str(payload.get("email", "")).strip().lower()
+        display_name = str(payload.get("displayName", "")).strip() or username
+        password = str(payload.get("password", ""))
+        role = str(payload.get("role", "user")).strip()
+
+        if role not in ("admin", "user", "viewer"):
+            role = "user"
+
+        if not username or not email or not password:
+            self.send_json({"ok": False, "error": "Kullanıcı adı, e-posta ve parola gerekli."}, status=400)
+            return
+
+        if not is_valid_email(email):
+            self.send_json({"ok": False, "error": "Geçerli bir e-posta adresi yazılmalı."}, status=400)
+            return
+
+        if len(password) < 6:
+            self.send_json({"ok": False, "error": "Parola en az 6 karakter olmalı."}, status=400)
+            return
+
+        try:
+            with get_connection() as connection:
+                connection.execute(
+                    """
+                    INSERT INTO users (username, email, password_hash, role, display_name, active)
+                    VALUES (?, ?, ?, ?, ?, 1)
+                    """,
+                    (username, email, hash_password(password), role, display_name),
+                )
+                log_action(connection, current_user, "user_create", f"{username} kullanıcısı oluşturuldu")
+        except sqlite3.IntegrityError:
+            self.send_json({"ok": False, "error": "Bu kullanıcı adı zaten var."}, status=409)
+            return
+
+        self.send_json({"ok": True})
+
+    def get_target_user(self, connection, payload):
+        user_id = payload.get("id")
+
+        try:
+            user_id = int(user_id)
+        except (TypeError, ValueError):
+            return None
+
+        return connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+
+    def handle_update_user(self, current_user):
+        try:
+            payload = self.read_json_body()
+        except json.JSONDecodeError:
+            self.send_json({"ok": False, "error": "Geçersiz kullanıcı bilgisi."}, status=400)
+            return
+
+        display_name = str(payload.get("displayName", "")).strip()
+        email = str(payload.get("email", "")).strip().lower()
+        role = str(payload.get("role", "user")).strip()
+        active = 1 if payload.get("active", True) else 0
+        password = str(payload.get("password", ""))
+
+        if role not in ("admin", "user", "viewer"):
+            role = "user"
+
+        with get_connection() as connection:
+            target = self.get_target_user(connection, payload)
+
+            if not target:
+                self.send_json({"ok": False, "error": "Kullanıcı bulunamadı."}, status=404)
+                return
+
+            if target["username"] == OWNER_USERNAME:
+                role = "admin"
+                active = 1
+                email = email or OWNER_EMAIL
+                display_name = display_name or OWNER_DISPLAY_NAME
+
+            display_name = display_name or target["display_name"]
+            email = email or target["email"]
+
+            if not is_valid_email(email):
+                self.send_json({"ok": False, "error": "Geçerli bir e-posta adresi yazılmalı."}, status=400)
+                return
+
+            connection.execute(
+                "UPDATE users SET display_name = ?, email = ?, role = ?, active = ? WHERE id = ?",
+                (display_name, email, role, active, target["id"]),
+            )
+
+            if password:
+                if len(password) < 6:
+                    self.send_json({"ok": False, "error": "Parola en az 6 karakter olmalı."}, status=400)
+                    return
+
+                connection.execute(
+                    "UPDATE users SET password_hash = ? WHERE id = ?",
+                    (hash_password(password), target["id"]),
+                )
+
+            if not active:
+                connection.execute("DELETE FROM sessions WHERE user_id = ?", (target["id"],))
+
+            log_action(connection, current_user, "user_update", f"{target['username']} kullanıcısı güncellendi")
+
+        self.send_json({"ok": True})
+
+    def handle_delete_user(self, current_user):
+        try:
+            payload = self.read_json_body()
+        except json.JSONDecodeError:
+            self.send_json({"ok": False, "error": "Geçersiz kullanıcı bilgisi."}, status=400)
+            return
+
+        with get_connection() as connection:
+            target = self.get_target_user(connection, payload)
+
+            if not target:
+                self.send_json({"ok": False, "error": "Kullanıcı bulunamadı."}, status=404)
+                return
+
+            if target["username"] == OWNER_USERNAME:
+                self.send_json({"ok": False, "error": "Ana yönetici hesabı silinemez."}, status=403)
+                return
+
+            connection.execute("DELETE FROM sessions WHERE user_id = ?", (target["id"],))
+            connection.execute("DELETE FROM users WHERE id = ?", (target["id"],))
+            log_action(connection, current_user, "user_delete", f"{target['username']} kullanıcısı silindi")
+
+        self.send_json({"ok": True})
+
+    def handle_change_password(self, current_user):
+        try:
+            payload = self.read_json_body()
+        except json.JSONDecodeError:
+            self.send_json({"ok": False, "error": "Geçersiz parola bilgisi."}, status=400)
+            return
+
+        current_password = str(payload.get("currentPassword", ""))
+        new_password = str(payload.get("newPassword", ""))
+
+        if len(new_password) < 6:
+            self.send_json({"ok": False, "error": "Yeni parola en az 6 karakter olmalı."}, status=400)
+            return
+
+        with get_connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM users WHERE id = ? AND active = 1",
+                (current_user["id"],),
+            ).fetchone()
+
+            if not row or not verify_password(current_password, row["password_hash"]):
+                self.send_json({"ok": False, "error": "Mevcut parola hatalı."}, status=401)
+                return
+
+            connection.execute(
+                "UPDATE users SET password_hash = ? WHERE id = ?",
+                (hash_password(new_password), current_user["id"]),
+            )
+            log_action(connection, current_user, "password_change", "Parola değiştirildi")
+
+        self.send_json({"ok": True})
+
+    def handle_admin_audit_log(self):
+        with get_connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT username, action, detail, created_at
+                FROM audit_log
+                ORDER BY id DESC
+                LIMIT 120
+                """,
+            ).fetchall()
+
+        self.send_json(
+            {
+                "ok": True,
+                "items": [
+                    {
+                        "username": row["username"],
+                        "action": row["action"],
+                        "detail": row["detail"],
+                        "createdAt": row["created_at"],
+                    }
+                    for row in rows
+                ],
+            },
+        )
+
+    def handle_database_backup(self, user):
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"ic_denetim_backup_{timestamp}.db"
+
+        with get_connection() as connection:
+            log_action(connection, user, "database_backup", filename)
+
+        body = DB_PATH.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def read_state(self):
         with get_connection() as connection:
             return build_state_from_records(connection)
 
-    def write_state(self):
-        content_length = int(self.headers.get("Content-Length", "0"))
-        raw_body = self.rfile.read(content_length)
-
+    def write_state(self, user):
         try:
-            payload = json.loads(raw_body.decode("utf-8"))
+            payload = self.read_json_body()
         except json.JSONDecodeError:
             self.send_json({"ok": False, "error": "Invalid JSON"}, status=400)
             return
@@ -221,21 +943,32 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         with get_connection() as connection:
             delete_records(connection, payload)
             upsert_records(connection, payload)
+            collections = [
+                collection
+                for collection in COLLECTIONS
+                if isinstance(payload.get(collection), (list, dict))
+            ]
+            detail = ", ".join(collections) if collections else "Kayıt güncellendi"
+            log_action(connection, user, "state_save", detail)
 
         self.send_json({"ok": True})
 
 
 def main():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     get_connection().close()
     address = (HOST, PORT)
     server = ThreadingHTTPServer(address, DashboardHandler)
-    url = f"http://{HOST}:{PORT}/"
+    display_host = "127.0.0.1" if HOST == "0.0.0.0" else HOST
+    url = f"http://{display_host}:{PORT}/"
 
     print("Ic Denetim Baskanligi paneli calisiyor..", flush=True)
     print(f"Tarayicida ac: {url}", flush=True)
+    print(f"SQLite veritabani: {DB_PATH}", flush=True)
     print("Durdurmak icin PyCharm terminalinde Ctrl+C kullan.", flush=True)
 
-    webbrowser.open(url)
+    if OPEN_BROWSER:
+        webbrowser.open(url)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

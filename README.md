@@ -19,6 +19,7 @@ Bu klasor PyCharm ile acilabilecek basit bir web arayuzu projesidir..
 - `static/index.html`: Ic denetim panelinin HTML iskeleti.
 - `static/style.css`: Renkler, yerlesim ve tum gorsel tasarim.
 - `static/script.js`: Arama, yil secimi, denetim islemleri ve olurlar arsivi.
+- `SUNUCU_KURULUM.md`: Coolify, webhook ve canli SQLite kurulumu notlari.
 
 ## Denetim programlari
 
@@ -37,9 +38,8 @@ Bu klasor PyCharm ile acilabilecek basit bir web arayuzu projesidir..
 
 - Arsiv, ust bardaki secili yila gore tum denetimleri listeler.
 - Iptal edilen denetimler arsivde gorunur, farkli renkle isaretlenir.
-- Secilen denetime su belge turleri yuklenebilir: Olur, Idareye Bildirim Yazisi, Denetim Ekibi Bildirim Yazisi, Rapor, Raporun Onay Oluru, Raporun Idareye Bildirim Yazisi.
-- Belgeler icin dosya yuklenebilir veya `bulut.tarimorman.gov.tr` baglantisi kaydedilebilir.
-- Ek belgeler desteklenir.
+- Her denetim icin tek bir `bulut.tarimorman.gov.tr` klasor linki kaydedilir.
+- Kullanici bu linkten ilgili denetimin olur, yazi, rapor ve eklerini bulutta gorur veya indirir.
 
 ## Izleme faaliyetleri
 
@@ -70,13 +70,30 @@ Ek paket kurulumu gerekmez. Standart Python yeterlidir.
 ## Ortak veri / SQLite
 
 - Uygulama calistiginda `ic_denetim.db` adinda SQLite veritabani olusturulur.
+- Ilk acilista Ramazan ORMAN icin otomatik ana yonetici hesabi olusur: kullanici adi `ramazan.orman`.
+- Canli sunucuda ilk calistirmadan once `IDB_ADMIN_PASSWORD` degeri verilerek admin parolasi belirlenmelidir.
 - Denetimler, olurlar, izleme kayitlari, izinler, personel bilgileri ve belge/link kayitlari bu veritabanina ayri kayitlar halinde yazilir.
+- Canli sunucuda `IDB_DB_PATH` ile veritabani yolu kalici volume'a alinabilir.
 - Canli sunucuda tum kullanicilar ayni `ic_denetim.db` dosyasini kullandigi icin ayni verileri gorur.
 - Farkli kullanicilar farkli modullerde islem yaptiginda tum veri paketi ezilmez; tarayici sadece degisen kayitlari sunucuya gonderir.
 - Silinen kayitlar da veritabanina ayrica bildirilir, bu nedenle baska kullanicinin yeni ekledigi kayitlar toplu kayit sirasinda kaybolmaz.
 - Ayni kaydi iki kullanici ayni anda degistirirse son kaydeden kullanicinin degisikligi gecerli olur.
 - `ic_denetim.db` GitHub'a gonderilmez; her ortam kendi veritabani dosyasini kullanir.
 - Canli sunucuda bu dosyanin yedegi duzenli alinmalidir.
+
+## Yonetim paneli
+
+- Ana yonetici sol menudeki `Yonetim` ekranindan kullanici olusturabilir.
+- Ana yonetici hesabi Ramazan ORMAN'a aittir; silinemez, pasife alinamaz ve yetkisi dusurulemez.
+- `Yonetici` yetkisi yedek alabilir ve yonetim ekranini gorebilir; kullanici rol/durum/parola/silme islemleri sadece ana yonetici tarafindan yapilir.
+- Normal `Kullanici` yetkisi uygulamada kayit ekleyebilir ve duzenleyebilir.
+- `Sadece Goruntuleme` yetkisi kayitlari gorebilir ama veritabanina degisiklik kaydedemez.
+- Kullanici olustururken e-posta zorunludur.
+- Giris ekranindaki `Parolami unuttum` alani e-posta ile talep alir; SMTP ayari varsa talep ana yonetici mailine gonderilir.
+- `Veritabani Yedegi Indir` dugmesi mevcut SQLite dosyasinin anlik kopyasini indirir.
+- Yonetici kendi parolasini `Parola Degistir` alanindan guncelleyebilir.
+- Oturum acma, kullanici olusturma, veri kaydetme ve yedek alma islemleri islem gecmisine yazilir.
+- Yerel gelistirme icin `ramazan.orman` hesabinin varsayilan parolasi `admin123` olur; canlida bu parola kullanilmamali, `IDB_ADMIN_PASSWORD` ile degistirilmelidir.
 
 ## Mevcut tarayici verilerini SQLite'a aktarma
 

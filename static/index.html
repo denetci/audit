@@ -4,9 +4,50 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>İç Denetim Başkanlığı Faaliyet Paneli</title>
+    <link rel="icon" type="image/png" href="tarim-orman-logo.png" />
+    <link rel="apple-touch-icon" href="tarim-orman-logo.png" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
+    <section class="auth-screen" id="authScreen">
+      <div class="auth-card">
+        <div class="auth-brand">
+          <img class="ministry-logo" src="tarim-orman-logo.png" alt="T.C. Tarım ve Orman Bakanlığı logosu" />
+          <div>
+            <strong>T.C. Tarım ve Orman Bakanlığı</strong>
+            <h1>İç Denetim Başkanlığı</h1>
+            <p>Değer katar, güvence verir, gelişimi destekler.</p>
+          </div>
+        </div>
+
+        <form class="auth-form" id="loginForm">
+          <p class="auth-copy">Faaliyet paneline devam etmek için kullanıcı hesabınızla giriş yapın.</p>
+          <label>
+            Kullanıcı adı
+            <input name="username" autocomplete="username" required />
+          </label>
+          <label>
+            Parola
+            <input name="password" type="password" autocomplete="current-password" required />
+          </label>
+          <p class="form-error" id="loginError" hidden></p>
+          <button class="btn primary" type="submit">Giriş Yap</button>
+          <button class="link-btn" id="forgotPasswordToggle" type="button">Parolamı unuttum</button>
+        </form>
+
+        <form class="auth-form" id="forgotPasswordForm" hidden>
+          <p class="auth-copy">Parola yenileme talebi ana yöneticiye iletilir.</p>
+          <label>
+            E-posta
+            <input name="email" type="email" autocomplete="email" required />
+          </label>
+          <p class="form-error" id="forgotPasswordError" hidden></p>
+          <button class="btn primary" type="submit">Talep Gönder</button>
+          <button class="link-btn" id="backToLogin" type="button">Giriş ekranına dön</button>
+        </form>
+      </div>
+    </section>
+
     <div class="app">
       <aside class="sidebar">
         <div class="brand">
@@ -69,10 +110,10 @@
           <a href="#"><span class="nav-icon">◇</span>Eğitimler</a>
           <a id="monitoringNav" href="#izleme-faaliyetleri-panel"><span class="nav-icon">◎</span>İzleme Faaliyetleri</a>
           <a id="reportsNav" href="#rapor-arsivi-panel"><span class="nav-icon">▢</span>Rapor Arşivi</a>
+          <a id="adminNav" href="#yonetim-panel" hidden><span class="nav-icon">⚙</span>Yönetim</a>
           <a href="#"><span class="nav-icon">≡</span>Belgelerim</a>
           <a href="#"><span class="nav-icon">□</span>Takvim</a>
           <a href="#"><span class="nav-icon">!</span>Bildirimler <span class="badge-count">8</span></a>
-          <a href="#"><span class="nav-icon">⚙</span>Ayarlar</a>
         </nav>
 
         <div class="period">
@@ -102,6 +143,10 @@
               <input id="searchInput" placeholder="Rapor, olur, denetim ara..." />
             </label>
             <button class="btn secondary" id="newAuditBtn" data-view="dashboard" type="button">＋ Yeni Denetim</button>
+            <div class="user-pill" id="currentUserBox" hidden>
+              <span id="currentUserLabel"></span>
+              <button class="btn small secondary" id="logoutBtn" type="button">Çıkış</button>
+            </div>
           </div>
         </header>
 
@@ -688,6 +733,106 @@
                   <tbody id="deletedAuditRows"></tbody>
                 </table>
               </div>
+            </section>
+
+            <section class="panel admin-panel" id="yonetim-panel" data-view="admin" hidden>
+              <div class="panel-head">
+                <div>
+                  <h2>Yönetim Paneli</h2>
+                  <p class="eyebrow">Ramazan ORMAN ana yönetici alanı</p>
+                </div>
+                <button class="btn secondary" id="downloadDbBackup" type="button">Veritabanı Yedeği İndir</button>
+              </div>
+
+              <div class="admin-grid">
+                <section class="admin-block owner-block">
+                  <span class="owner-kicker">Ana Yönetici</span>
+                  <strong id="ownerPanelName">Ramazan ORMAN</strong>
+                  <small id="ownerPanelMeta">Sistem yönetimi, kullanıcı yetkileri ve veritabanı yedekleri</small>
+                </section>
+
+                <section class="admin-block role-guide">
+                  <h3>Rol Yetkileri</h3>
+                  <div>
+                    <strong>Ana Yönetici</strong>
+                    <small>Senin hesabın; silinemez, pasife alınamaz, tüm yönetim alanlarını kullanır.</small>
+                  </div>
+                  <div>
+                    <strong>Yönetici</strong>
+                    <small>Kullanıcıları yönetir, yedek alır, uygulama verilerini düzenler.</small>
+                  </div>
+                  <div>
+                    <strong>Kullanıcı</strong>
+                    <small>Denetim, olur, izin, personel ve izleme kayıtlarında ekleme/düzenleme yapar.</small>
+                  </div>
+                  <div>
+                    <strong>Sadece Görüntüleme</strong>
+                    <small>Kayıtları görür; veritabanına değişiklik kaydedemez.</small>
+                  </div>
+                </section>
+
+                <section class="admin-block">
+                  <h3>Kullanıcı Ekle</h3>
+                  <form class="admin-user-form" id="adminUserForm">
+                    <label>
+                      Ad Soyad
+                      <input name="displayName" placeholder="Örn. Ramazan ORMAN" required />
+                    </label>
+                    <label>
+                      Kullanıcı Adı
+                      <input name="username" autocomplete="off" placeholder="Örn. rorman" required />
+                    </label>
+                    <label>
+                      E-posta
+                      <input name="email" type="email" autocomplete="off" placeholder="ad.soyad@tarimorman.gov.tr" required />
+                    </label>
+                    <label>
+                      Yetki
+                      <select name="role">
+                        <option value="user">Kullanıcı</option>
+                        <option value="viewer">Sadece Görüntüleme</option>
+                        <option value="admin">Yönetici</option>
+                      </select>
+                    </label>
+                    <label>
+                      Geçici Parola
+                      <input name="password" type="password" autocomplete="new-password" minlength="6" required />
+                    </label>
+                    <button class="btn primary" type="submit">Kullanıcı Oluştur</button>
+                  </form>
+                </section>
+
+                <section class="admin-block">
+                  <div class="admin-block-head">
+                    <h3>Kullanıcılar</h3>
+                    <span id="adminUserCount">0 kayıt</span>
+                  </div>
+                  <div class="admin-list" id="adminUsersRows"></div>
+                </section>
+
+                <section class="admin-block">
+                  <h3>Parola Değiştir</h3>
+                  <form class="admin-user-form" id="adminPasswordForm">
+                    <label>
+                      Mevcut Parola
+                      <input name="currentPassword" type="password" autocomplete="current-password" required />
+                    </label>
+                    <label>
+                      Yeni Parola
+                      <input name="newPassword" type="password" autocomplete="new-password" minlength="6" required />
+                    </label>
+                    <button class="btn secondary" type="submit">Parolayı Güncelle</button>
+                  </form>
+                </section>
+              </div>
+
+              <section class="admin-block admin-log-block">
+                <div class="admin-block-head">
+                  <h3>İşlem Geçmişi</h3>
+                  <span>Son 120 işlem</span>
+                </div>
+                <div class="admin-log-list" id="adminLogRows"></div>
+              </section>
             </section>
           </section>
 

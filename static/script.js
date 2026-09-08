@@ -1245,6 +1245,7 @@ const dashboardNav = document.querySelector("#dashboardNav");
 const approvalsNav = document.querySelector("#approvalsNav");
 const reportsNav = document.querySelector("#reportsNav");
 const monitoringNav = document.querySelector("#monitoringNav");
+const adminNav = document.querySelector("#adminNav");
 const personnelMenuToggle = document.querySelector("#personnelMenuToggle");
 const personnelSubnav = document.querySelector("#personnelSubnav");
 const personnelModuleButtons = Array.from(document.querySelectorAll("[data-personnel-module]"));
@@ -1254,6 +1255,16 @@ const leaveModuleButtons = Array.from(document.querySelectorAll("[data-leave-mod
 const topbarSubtitle = document.querySelector("#topbarSubtitle");
 const layout = document.querySelector(".layout");
 const toast = document.querySelector("#toast");
+const authScreen = document.querySelector("#authScreen");
+const loginForm = document.querySelector("#loginForm");
+const loginError = document.querySelector("#loginError");
+const forgotPasswordToggle = document.querySelector("#forgotPasswordToggle");
+const forgotPasswordForm = document.querySelector("#forgotPasswordForm");
+const forgotPasswordError = document.querySelector("#forgotPasswordError");
+const backToLogin = document.querySelector("#backToLogin");
+const currentUserBox = document.querySelector("#currentUserBox");
+const currentUserLabel = document.querySelector("#currentUserLabel");
+const logoutBtn = document.querySelector("#logoutBtn");
 const dashboardSections = Array.from(document.querySelectorAll('[data-view="dashboard"]'));
 const approvalSections = Array.from(document.querySelectorAll('[data-view="approvals"]'));
 const leaveSections = Array.from(document.querySelectorAll('[data-view="leave"]'));
@@ -1261,6 +1272,7 @@ const personnelSections = Array.from(document.querySelectorAll('[data-view="pers
 const personnelProfileSections = Array.from(document.querySelectorAll('[data-view="personnelProfile"]'));
 const reportSections = Array.from(document.querySelectorAll('[data-view="reports"]'));
 const monitoringSections = Array.from(document.querySelectorAll('[data-view="monitoring"]'));
+const adminSections = Array.from(document.querySelectorAll('[data-view="admin"]'));
 const approvalRows = document.querySelector("#approvalRows");
 const approvalModal = document.querySelector("#approvalModal");
 const approvalForm = document.querySelector("#approvalForm");
@@ -1373,6 +1385,14 @@ const sideUpcomingCount = document.querySelector("#sideUpcomingCount");
 const sideUpcomingAudits = document.querySelector("#sideUpcomingAudits");
 const sideAuditorLoad = document.querySelector("#sideAuditorLoad");
 const sideAuditorLoadCount = document.querySelector("#sideAuditorLoadCount");
+const downloadDbBackup = document.querySelector("#downloadDbBackup");
+const adminUserForm = document.querySelector("#adminUserForm");
+const adminPasswordForm = document.querySelector("#adminPasswordForm");
+const adminUsersRows = document.querySelector("#adminUsersRows");
+const adminUserCount = document.querySelector("#adminUserCount");
+const adminLogRows = document.querySelector("#adminLogRows");
+const ownerPanelName = document.querySelector("#ownerPanelName");
+const ownerPanelMeta = document.querySelector("#ownerPanelMeta");
 let activeTypeFilter = "Tümü";
 let activeLeaveModule = "Tümü";
 let activePersonnelModule = "Denetçiler";
@@ -1389,6 +1409,7 @@ let sharedStateLoaded = false;
 let sharedStateSaveTimer = null;
 let deletedRecords = [];
 let lastSharedRecordJson = {};
+let currentUser = null;
 
 const sharedCollections = [
   "audits",
@@ -1887,6 +1908,219 @@ function applySharedState(payload) {
   }
 }
 
+async function apiFetch(url, options = {}) {
+  const requestOptions = {
+    credentials: "same-origin",
+    ...options,
+  };
+
+  if (requestOptions.body && typeof requestOptions.body !== "string") {
+    requestOptions.body = JSON.stringify(requestOptions.body);
+    requestOptions.headers = {
+      "Content-Type": "application/json",
+      ...(requestOptions.headers || {}),
+    };
+  }
+
+  return fetch(url, requestOptions);
+}
+
+async function readApiJson(response, fallbackMessage) {
+  const text = await response.text();
+
+  if (!text) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(fallbackMessage || "Sunucudan beklenmeyen cevap alındı.");
+  }
+}
+
+function renderAuthState() {
+  const isLoggedIn = Boolean(currentUser);
+
+  authScreen.hidden = isLoggedIn;
+  currentUserBox.hidden = !isLoggedIn;
+  adminNav.hidden = currentUser?.role !== "admin";
+
+  if (isLoggedIn) {
+    const currentRoleLabel = currentUser.owner ? "Ana Yönetici" : roleLabel(currentUser.role);
+    currentUserLabel.textContent = `${currentUser.displayName || currentUser.username} · ${currentRoleLabel}`;
+  }
+}
+
+function showLoginError(message) {
+  loginError.textContent = message;
+  loginError.hidden = false;
+}
+
+function showForgotPasswordError(message) {
+  forgotPasswordError.textContent = message;
+  forgotPasswordError.hidden = false;
+}
+
+async function initAuth() {
+  try {
+    const response = await apiFetch("/api/me");
+    const payload = await response.json();
+    currentUser = payload.user || null;
+  } catch {
+    currentUser = null;
+  }
+
+  renderAuthState();
+
+  if (currentUser) {
+    renderAudits();
+    renderApprovals();
+    renderLeaves();
+    await loadSharedState();
+  }
+}
+
+async function login(username, password) {
+  const response = await apiFetch("/api/login", {
+    method: "POST",
+    body: { username, password },
+  });
+  const payload = await readApiJson(response, "Giriş yapılamadı.");
+
+  if (!response.ok) {
+    throw new Error(payload.error || "Giriş yapılamadı.");
+  }
+
+  currentUser = payload.user;
+  renderAuthState();
+  sharedStateLoaded = false;
+  await loadSharedState();
+  renderEverything();
+}
+
+async function logout() {
+  await apiFetch("/api/logout", { method: "POST" });
+  currentUser = null;
+  sharedStateLoaded = false;
+  renderAuthState();
+}
+
+async function requestPasswordReset(email) {
+  const response = await apiFetch("/api/forgot-password", {
+    method: "POST",
+    body: { email },
+  });
+  const payload = await readApiJson(response, "Parola yenileme talebi gönderilemedi.");
+
+  if (!response.ok) {
+    throw new Error(payload.error || "Parola yenileme talebi gönderilemedi.");
+  }
+
+  return payload.message || "Parola yenileme talebi alındı.";
+}
+
+function roleLabel(role) {
+  if (role === "admin") {
+    return "Yönetici";
+  }
+
+  if (role === "viewer") {
+    return "Sadece görüntüleme";
+  }
+
+  return "Kullanıcı";
+}
+
+function canManageUsers() {
+  return Boolean(currentUser?.owner);
+}
+
+function renderRoleOptions(selectedRole, isOwner) {
+  const roles = [
+    ["user", "Kullanıcı"],
+    ["viewer", "Sadece görüntüleme"],
+    ["admin", "Yönetici"],
+  ];
+
+  return roles
+    .map(
+      ([value, label]) =>
+        `<option value="${value}" ${selectedRole === value ? "selected" : ""} ${isOwner && value !== "admin" ? "disabled" : ""}>${label}</option>`,
+    )
+    .join("");
+}
+
+async function loadAdminDashboard() {
+  if (currentUser?.role !== "admin") {
+    return;
+  }
+
+  const [usersResponse, logResponse] = await Promise.all([
+    apiFetch("/api/admin/users"),
+    apiFetch("/api/admin/audit-log"),
+  ]);
+  const usersPayload = await readApiJson(usersResponse, "Kullanıcı listesi okunamadı.");
+  const logPayload = await readApiJson(logResponse, "İşlem geçmişi okunamadı.");
+  const users = Array.isArray(usersPayload.users) ? usersPayload.users : [];
+  const logs = Array.isArray(logPayload.items) ? logPayload.items : [];
+  const ownerUser = users.find((user) => user.owner) || currentUser;
+  const userManagementDisabled = !canManageUsers();
+
+  if (ownerUser) {
+    ownerPanelName.textContent = ownerUser.displayName || ownerUser.username;
+    ownerPanelMeta.textContent = `${ownerUser.username} · Sistem yönetimi ve veritabanı yedekleri`;
+  }
+
+  adminUserForm
+    ?.querySelectorAll("input, select, button")
+    .forEach((control) => {
+      control.disabled = userManagementDisabled;
+    });
+
+  adminUserCount.textContent = `${users.length} kayıt`;
+  adminUsersRows.innerHTML = users
+    .map(
+      (user) => `
+        <div class="admin-user-row" data-admin-user-id="${user.id}">
+          <div class="user-edit-grid">
+            <div class="user-main">
+            <strong>${escapeHtml(user.displayName || user.username)}</strong>
+            <small>${escapeHtml(user.username)} · ${escapeHtml(user.email || "E-posta yok")} · ${user.active ? "Aktif" : "Pasif"}</small>
+          </div>
+            <input data-user-field="displayName" value="${escapeHtml(user.displayName || "")}" aria-label="Ad soyad" ${userManagementDisabled ? "disabled" : ""} />
+            <input data-user-field="email" type="email" value="${escapeHtml(user.email || "")}" aria-label="E-posta" ${userManagementDisabled ? "disabled" : ""} />
+            <select data-user-field="role" aria-label="Yetki" ${user.owner || userManagementDisabled ? "disabled" : ""}>
+              ${renderRoleOptions(user.role, user.owner)}
+            </select>
+            <select data-user-field="active" aria-label="Durum" ${user.owner || userManagementDisabled ? "disabled" : ""}>
+              <option value="1" ${user.active ? "selected" : ""}>Aktif</option>
+              <option value="0" ${!user.active ? "selected" : ""}>Pasif</option>
+            </select>
+            <input data-user-field="password" type="password" placeholder="Yeni parola" aria-label="Yeni parola" ${userManagementDisabled ? "disabled" : ""} />
+            <button class="btn small secondary" data-user-action="save" type="button" ${userManagementDisabled ? "disabled" : ""}>Kaydet</button>
+            <button class="btn small secondary danger-soft" data-user-action="delete" type="button" ${user.owner || userManagementDisabled ? "disabled" : ""}>Sil</button>
+          </div>
+          <span class="role-pill ${escapeHtml(user.owner ? "admin" : user.role)}">${user.owner ? "Ana Yönetici" : roleLabel(user.role)}</span>
+        </div>
+      `,
+    )
+    .join("");
+
+  adminLogRows.innerHTML = logs.length
+    ? logs
+        .map(
+          (item) => `
+            <div class="admin-log-row">
+              <strong>${escapeHtml(item.detail)}</strong>
+              <small>${escapeHtml(item.username)} · ${escapeHtml(item.action)} · ${escapeHtml(item.createdAt)}</small>
+            </div>
+          `,
+        )
+        .join("")
+    : `<div class="side-empty">Henüz işlem kaydı yok.</div>`;
+}
+
 function renderEverything() {
   renderAudits();
   renderApprovals();
@@ -1898,6 +2132,10 @@ function renderEverything() {
 
   if (activeModule === "personnelProfile") {
     renderPersonnelProfile();
+  }
+
+  if (activeModule === "admin") {
+    loadAdminDashboard();
   }
 }
 
@@ -1916,20 +2154,20 @@ async function saveSharedStateNow() {
     await writeSharedState(payload);
     deletedRecords = [];
     captureCurrentSharedSnapshot();
-  } catch {
-    showToast("Sunucu veritabanına kaydedilemedi. Bağlantıyı kontrol et.");
+  } catch (error) {
+    showToast(error.message || "Sunucu veritabanına kaydedilemedi. Bağlantıyı kontrol et.");
   }
 }
 
 async function writeSharedState(payload) {
-  const response = await fetch(API_STATE_URL, {
+  const response = await apiFetch(API_STATE_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: payload,
   });
 
   if (!response.ok) {
-    throw new Error("SQLite kaydı tamamlanamadı");
+    const errorPayload = await response.json().catch(() => ({}));
+    throw new Error(errorPayload.error || "SQLite kaydı tamamlanamadı");
   }
 }
 
@@ -1967,9 +2205,15 @@ function scheduleSharedStateSave() {
 
 async function loadSharedState() {
   try {
-    const response = await fetch(API_STATE_URL);
+    const response = await apiFetch(API_STATE_URL);
 
     if (!response.ok) {
+      if (response.status === 401) {
+        currentUser = null;
+        renderAuthState();
+        return;
+      }
+
       throw new Error("Ortak veri okunamadı");
     }
 
@@ -2980,6 +3224,11 @@ function setActiveTypeFilter(filterName) {
 }
 
 function setActiveModule(moduleName) {
+  if (moduleName === "admin" && currentUser?.role !== "admin") {
+    showToast("Yönetim paneli için yönetici yetkisi gerekli.");
+    return;
+  }
+
   activeModule = moduleName;
   const showApprovals = moduleName === "approvals";
   const showLeave = moduleName === "leave";
@@ -2987,6 +3236,7 @@ function setActiveModule(moduleName) {
   const showPersonnelProfile = moduleName === "personnelProfile";
   const showReports = moduleName === "reports";
   const showMonitoring = moduleName === "monitoring";
+  const showAdmin = moduleName === "admin";
   const showDashboard = moduleName === "dashboard";
 
   dashboardSections.forEach((section) => {
@@ -3010,17 +3260,21 @@ function setActiveModule(moduleName) {
   monitoringSections.forEach((section) => {
     section.hidden = !showMonitoring;
   });
+  adminSections.forEach((section) => {
+    section.hidden = !showAdmin;
+  });
 
   dashboardNav.classList.toggle("active", showDashboard);
   approvalsNav.classList.toggle("active", showApprovals);
   reportsNav.classList.toggle("active", showReports);
   monitoringNav.classList.toggle("active", showMonitoring);
+  adminNav?.classList.toggle("active", showAdmin);
   leaveMenuToggle.classList.toggle("open", showLeave);
   personnelMenuToggle.classList.toggle("open", showPersonnel || showPersonnelProfile);
   layout.classList.toggle("approvals-mode", showApprovals);
   layout.classList.toggle(
     "focus-mode",
-    showApprovals || showLeave || showPersonnel || showPersonnelProfile || showReports || showMonitoring,
+    showApprovals || showLeave || showPersonnel || showPersonnelProfile || showReports || showMonitoring || showAdmin,
   );
 
   if (!showLeave) {
@@ -3078,6 +3332,13 @@ function setActiveModule(moduleName) {
     document.querySelector("h1").textContent = "İzleme Faaliyetleri";
     topbarSubtitle.textContent = "İzleme sürecine alınan denetimler ve takip kayıtları";
     renderMonitoringAudits();
+    return;
+  }
+
+  if (showAdmin) {
+    document.querySelector("h1").textContent = "Yönetim Paneli";
+    topbarSubtitle.textContent = "Kullanıcı yetkileri, veri güvenliği ve işlem geçmişi";
+    loadAdminDashboard();
     return;
   }
 
@@ -3726,6 +3987,198 @@ reportsNav.addEventListener("click", (event) => {
 monitoringNav.addEventListener("click", (event) => {
   event.preventDefault();
   setActiveModule("monitoring");
+});
+
+adminNav?.addEventListener("click", (event) => {
+  event.preventDefault();
+  setActiveModule("admin");
+});
+
+loginForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  loginError.hidden = true;
+  const formData = new FormData(loginForm);
+
+  try {
+    await login(formData.get("username"), formData.get("password"));
+    loginForm.reset();
+    showToast("Oturum açıldı.");
+  } catch (error) {
+    showLoginError(error.message || "Giriş yapılamadı.");
+  }
+});
+
+forgotPasswordToggle?.addEventListener("click", () => {
+  loginForm.hidden = true;
+  forgotPasswordForm.hidden = false;
+  forgotPasswordError.hidden = true;
+});
+
+backToLogin?.addEventListener("click", () => {
+  forgotPasswordForm.hidden = true;
+  loginForm.hidden = false;
+  loginError.hidden = true;
+});
+
+forgotPasswordForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  forgotPasswordError.hidden = true;
+  const formData = new FormData(forgotPasswordForm);
+
+  try {
+    const message = await requestPasswordReset(formData.get("email"));
+    forgotPasswordForm.reset();
+    forgotPasswordForm.hidden = true;
+    loginForm.hidden = false;
+    showToast(message);
+  } catch (error) {
+    showForgotPasswordError(error.message || "Parola yenileme talebi gönderilemedi.");
+  }
+});
+
+logoutBtn.addEventListener("click", async () => {
+  await logout();
+  showToast("Oturum kapatıldı.");
+});
+
+downloadDbBackup?.addEventListener("click", () => {
+  window.location.href = "/api/admin/db/backup";
+});
+
+adminUserForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  if (!canManageUsers()) {
+    showToast("Kullanıcı yetkilerini sadece ana yönetici değiştirebilir.");
+    return;
+  }
+
+  const formData = new FormData(adminUserForm);
+
+  try {
+    const response = await apiFetch("/api/admin/users", {
+      method: "POST",
+      body: {
+        displayName: formData.get("displayName"),
+        username: formData.get("username"),
+        email: formData.get("email"),
+        role: formData.get("role"),
+        password: formData.get("password"),
+      },
+    });
+    const payload = await readApiJson(response, "Kullanıcı oluşturulamadı.");
+
+    if (!response.ok) {
+      throw new Error(payload.error || "Kullanıcı oluşturulamadı.");
+    }
+
+    adminUserForm.reset();
+    await loadAdminDashboard();
+    showToast("Kullanıcı oluşturuldu.");
+  } catch (error) {
+    showToast(error.message || "Kullanıcı oluşturulamadı.");
+  }
+});
+
+adminUsersRows?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-user-action]");
+
+  if (!button) {
+    return;
+  }
+
+  const row = button.closest("[data-admin-user-id]");
+  const userId = Number(row?.dataset.adminUserId);
+  const action = button.dataset.userAction;
+
+  if (!userId) {
+    return;
+  }
+
+  if (!canManageUsers()) {
+    showToast("Kullanıcı yetkilerini sadece ana yönetici değiştirebilir.");
+    return;
+  }
+
+  if (action === "delete") {
+    const confirmed = confirm("Bu kullanıcı silinsin mi? Kullanıcı oturumları da kapatılır.");
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const response = await apiFetch("/api/admin/users/delete", {
+        method: "POST",
+        body: { id: userId },
+      });
+      const payload = await readApiJson(response, "Kullanıcı silinemedi.");
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Kullanıcı silinemedi.");
+      }
+
+      await loadAdminDashboard();
+      showToast("Kullanıcı silindi.");
+    } catch (error) {
+      showToast(error.message || "Kullanıcı silinemedi.");
+    }
+    return;
+  }
+
+  if (action === "save") {
+    const getField = (name) => row.querySelector(`[data-user-field="${name}"]`);
+
+    try {
+      const response = await apiFetch("/api/admin/users/update", {
+        method: "POST",
+        body: {
+          id: userId,
+          displayName: getField("displayName")?.value,
+          email: getField("email")?.value,
+          role: getField("role")?.value,
+          active: getField("active")?.value === "1",
+          password: getField("password")?.value,
+        },
+      });
+      const payload = await readApiJson(response, "Kullanıcı güncellenemedi.");
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Kullanıcı güncellenemedi.");
+      }
+
+      await loadAdminDashboard();
+      showToast("Kullanıcı güncellendi.");
+    } catch (error) {
+      showToast(error.message || "Kullanıcı güncellenemedi.");
+    }
+  }
+});
+
+adminPasswordForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(adminPasswordForm);
+
+  try {
+    const response = await apiFetch("/api/change-password", {
+      method: "POST",
+      body: {
+        currentPassword: formData.get("currentPassword"),
+        newPassword: formData.get("newPassword"),
+      },
+    });
+    const payload = await readApiJson(response, "Parola güncellenemedi.");
+
+    if (!response.ok) {
+      throw new Error(payload.error || "Parola güncellenemedi.");
+    }
+
+    adminPasswordForm.reset();
+    await loadAdminDashboard();
+    showToast("Parola güncellendi.");
+  } catch (error) {
+    showToast(error.message || "Parola güncellenemedi.");
+  }
 });
 
 personnelMenuToggle.addEventListener("click", () => {
@@ -4460,7 +4913,4 @@ leaveRightForm.addEventListener("submit", (event) => {
   closeLeaveRightDialog();
 });
 
-renderAudits();
-renderApprovals();
-renderLeaves();
-loadSharedState();
+initAuth();
