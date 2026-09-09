@@ -43,7 +43,7 @@ function applyModulePermissions() {
       const formYear = Number(el.elements.year?.value);
       lockedRecord ||= formYear > 0 && formYear < new Date().getFullYear();
     }
-    const disabled=!canEditModule(module) || lockedRecord;
+    const disabled=!canEditModule(module) || lockedRecord || el.dataset.saving === "true" || (el.id === "saveDutyBtn" && dutyForm.dataset.saving === "true");
     if(el.tagName === "FORM") el.querySelectorAll("input,select,textarea,button[type=submit]").forEach(input => {input.disabled=disabled;});
     else el.disabled=disabled;
   });
@@ -1147,21 +1147,54 @@ async function saveSharedStateNow() {
   }
 
   try {
-    const payload = buildChangedSharedState();
+    const payload = JSON.parse(JSON.stringify(buildChangedSharedState()));
 
     if (!hasPendingSharedChanges(payload)) {
       return;
     }
 
     await writeSharedState(payload);
-    deletedRecords = [];
-    captureCurrentSharedSnapshot();
+    acknowledgeSavedState(payload);
   } catch (error) {
     showToast(error.message || "Sunucu veritabanına kaydedilemedi. Bağlantıyı kontrol et.");
   }
 }
 
-async function writeSharedState(payload) {
+function acknowledgeSavedState(payload) {
+  sharedCollections.forEach(collection => {
+    for (const record of payload[collection] || []) {
+      (lastSharedRecordJson[collection] ||= {})[recordKeyForCollection(collection, record)] = JSON.stringify(record);
+    }
+  });
+  for (const item of payload.deletedRecords || []) {
+    delete (lastSharedRecordJson[item.collection] ||= {})[item.key];
+    const index = deletedRecords.findIndex(pending => pending.collection === item.collection && pending.key === item.key);
+    if (index >= 0) deletedRecords.splice(index, 1);
+  }
+}
+
+async function persistDutyChange(duty, deleting = false) {
+  if (!sharedStateLoaded) throw new Error("Sunucu bağlantısı hazır değil. Formu kapatmadan bağlantınızı kontrol edin.");
+  const payload = deleting ? {deletedRecords:[{collection:"dutyRecords",key:String(duty.id)}]} : {dutyRecords:[duty]};
+  await writeSharedState(payload);
+  acknowledgeSavedState(payload);
+  if (deleting) dutyRecords = dutyRecords.filter(item => item.id !== duty.id);
+  else {
+    const index = dutyRecords.findIndex(item => item.id === duty.id);
+    if (index >= 0) dutyRecords[index] = duty;
+    else dutyRecords.unshift(duty);
+  }
+  localStorage.setItem("ic-denetim-duties", JSON.stringify({dutyRecords}));
+}
+
+let sharedWriteQueue = Promise.resolve();
+function writeSharedState(payload) {
+  const snapshot = JSON.parse(JSON.stringify(payload));
+  const request = sharedWriteQueue.then(() => postSharedState(snapshot));
+  sharedWriteQueue = request.catch(() => {});
+  return request;
+}
+async function postSharedState(payload) {
   const response = await apiFetch(API_STATE_URL, {
     method: "POST",
     body: payload,
@@ -3473,6 +3506,7 @@ function closeLeaveRightDialog() {
 }
 
 function openDutyModal(duty = null) {
+  document.querySelector("#dutySaveError").hidden = true;
   dutyForm.reset();
   renderPersonnelOptions(dutyPersonOptions, duty?.person);
   editingDutyId = duty ? duty.id : null;
@@ -4165,7 +4199,7 @@ reportAuditRows.addEventListener("click", (event) => {
   }
 });
 
-dutyRows.addEventListener("click", (event) => {
+dutyRows.addEventListener("click", async (event) => {
   const actionButton = event.target.closest("[data-duty-action]");
 
   if (!actionButton) {
@@ -4188,27 +4222,21 @@ dutyRows.addEventListener("click", (event) => {
     return;
   }
 
-  if (actionButton.dataset.dutyAction === "return") {
-    duty.status = "Döndü";
-    duty.returnDate = duty.returnDate || new Date().toISOString().slice(0, 10);
-    saveDutyRecords();
+  const action = actionButton.dataset.dutyAction;
+  if (!["return", "delete"].includes(action) || actionButton.dataset.saving) return;
+  if (action === "delete" && !confirm(`${duty.person} adlı personele ait görev kaydı silinsin mi?`)) return;
+  actionButton.dataset.saving = "true";
+  actionButton.disabled = true;
+  try {
+    const updated = action === "return" ? {...duty, status:"Döndü", returnDate:duty.returnDate || new Date().toISOString().slice(0,10)} : duty;
+    await persistDutyChange(updated, action === "delete");
     renderDutyRecords();
-    showToast("Görev dönüşü kaydedildi.");
-    return;
-  }
-
-  if (actionButton.dataset.dutyAction === "delete") {
-    const shouldDelete = confirm(`${duty.person} adlı personele ait görev kaydı silinsin mi?`);
-
-    if (!shouldDelete) {
-      return;
-    }
-
-    markRecordDeleted("dutyRecords", duty);
-    dutyRecords = dutyRecords.filter((item) => item.id !== duty.id);
-    saveDutyRecords();
-    renderDutyRecords();
-    showToast("Görev kaydı silindi.");
+    showToast(action === "delete" ? "Görev kaydı sunucudan silindi." : "Görev dönüşü sunucuya kaydedildi.");
+  } catch (error) {
+    showToast(error.message || "İşlem kaydedilemedi.");
+  } finally {
+    delete actionButton.dataset.saving;
+    actionButton.disabled = false;
   }
 });
 
@@ -4696,7 +4724,7 @@ leaveForm.addEventListener("submit", (event) => {
   closeLeaveDialog();
 });
 
-dutyForm.addEventListener("submit", (event) => {
+dutyForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const formData = new FormData(dutyForm);
@@ -4728,19 +4756,25 @@ dutyForm.addEventListener("submit", (event) => {
     note: String(formData.get("note")).trim(),
   };
 
-  if (editingDutyId) {
-    const index = dutyRecords.findIndex((item) => item.id === editingDutyId);
-
-    if (index > -1) {
-      dutyRecords[index] = duty;
-    }
-  } else {
-    dutyRecords.unshift(duty);
+  const errorBox = document.querySelector("#dutySaveError");
+  errorBox.hidden = true;
+  if (dutyForm.dataset.saving === "true") return;
+  dutyForm.dataset.saving = "true";
+  saveDutyBtn.disabled = true;
+  saveDutyBtn.textContent = "Kaydediliyor…";
+  try {
+    await persistDutyChange(duty);
+    renderLeaves();
+    closeDutyDialog();
+    showToast("Görev sunucuya kaydedildi.");
+  } catch (error) {
+    errorBox.textContent = error.message || "Görev kaydedilemedi. Formdaki bilgiler korunuyor.";
+    errorBox.hidden = false;
+  } finally {
+    delete dutyForm.dataset.saving;
+    saveDutyBtn.disabled = false;
+    saveDutyBtn.textContent = editingDutyId ? "Güncelle" : "Kaydet";
   }
-
-  saveDutyRecords();
-  renderLeaves();
-  closeDutyDialog();
 });
 
 leaveRightForm.addEventListener("submit", (event) => {
