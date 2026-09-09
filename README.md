@@ -51,6 +51,7 @@ Bu klasor PyCharm ile acilabilecek basit bir web arayuzu projesidir..
 ## Personel modulu
 
 - Sol menude Personel basligi altinda Denetciler ve Idari Personel alt modulleri vardir.
+- Ana yonetici Personel ekranindan yeni kayit ekleyebilir, kayit silebilir ve tablo basliklarindan siralama yapabilir.
 - Personel profil sayfasinda bilgiler duzenlenebilir ve kaydedilir.
 - Denetciler icin aktif denetim, aktif izleme, egitim ve sertifika alanlari bulunur.
 - Idari personel icin gorev ve gorev yaptigi alan bilgileri tutulur.
@@ -58,7 +59,11 @@ Bu klasor PyCharm ile acilabilecek basit bir web arayuzu projesidir..
 ## Izin Takip modulu
 
 - Sol menude ayri bir Izin Takip modulu olarak acilir.
-- Tum izinler, personel izinleri, yillik izin, mazeret izni, rapor, ucretsiz izin, gorev izni ve izin bakiyeleri alt basliklari vardir.
+- Personel izinleri ve gorev durumu alt basliklari vardir; izin turleri kayit satirinda ayrica gosterilir.
+- Gorev Durumu ekraninda personelin gorev yeri, goreve baslama tarihi, donus durumu ve yillik gorev gecmisi tutulur.
+- Izin personel listesi Personel modulundeki Denetciler ve Idari Personel kayitlarindan otomatik olusur.
+- Izin kaydi ve izin hakki ekranlarinda personel secilince unvan ve birim bilgisi otomatik gelir.
+- Izin ekraninda bugun izinde olan personel ve baslama tarihi yaklasan izinler ozet kartlarda gosterilir.
 - Izin kayitlari yil, izin turu, durum ve arama metniyle filtrelenebilir.
 - Personele yil bazinda izin hakki ve devreden izin tanimlanabilir.
 - Kullanilan yillik izin ve kalan izin bakiyesi otomatik hesaplanir.
@@ -105,3 +110,29 @@ Canliya gecmeden once veriler eski tarayici hafizasinda kaldiysa:
 4. Sayfayi yenile ve kayitlarin gorundugunu kontrol et.
 
 Bu islem o tarayicidaki denetim, olur, izleme, izin, personel ve belge/link kayitlarini ortak SQLite veritabanina yazar.
+
+
+## Modül yetkileri
+
+Ana yönetici, Yönetim > Kullanıcılar > Modül Yetkileri bölümünden her kullanıcı için
+Erişim yok / Görüntüleme / Görüntüleme ve değişiklik seçip kullanıcının Kaydet düğmesine basar.
+Personel İzinleri ve Görev Durumu birbirinden bağımsızdır. Yeni hesaplar erişimsiz oluşturulur;
+mevcut hesaplar ilk geçişte önceki rollerine göre görüntüleme/değişiklik varsayılanlarını korur.
+Yetki değişiklikleri işlem geçmişine yazılır. Kullanıcı ve yedek yönetimi ana yöneticiye özeldir.
+
+Yetkiler hem arayüzde hem API'de denetlenir. Görev/izin seçicileri için yalnızca temel personel
+rehberi (ad, unvan, grup, birim) paylaşılır; personel profil ayrıntıları gönderilmez.
+İzin yetkisi bulunmayan görev kullanıcısı izin/rapor bilgilerini göremez. Rapor ve izleme
+modülleri ihtiyaç duydukları temel denetim başlıklarını alır; kayıtları değiştirmek ayrı yetki ister.
+Henüz uygulanmamış Eğitimler, Belgelerim, Takvim ve Bildirimler bağlantıları gizlidir;
+bu alanlar işlev kazandığında izin listesine ve API denetimine eklenmelidir.
+
+Geçmiş yıl izin, izin hakkı ve görev kayıtları sunucuda salt okunurdur (ana yönetici dahil).
+Diğer koleksiyonların geçmiş yılları, modül düzenleme yetkisi varsa değiştirilebilir.
+Mevcut SQLite veritabanına permissions sütunu otomatik eklenir; kayıtlar silinmez.
+Dağıtımda app.py, authorization.py, seed_records.json ve static/ dosyaları birlikte gönderilmeli, Python
+sunucusu yeniden başlatılmalıdır. Yalnızca arayüz dosyalarını göndermek yeterli değildir.
+
+Test: `python -m unittest discover -s tests -v` (geçici, bağımsız SQLite veritabanı kullanır).
+
+Başlangıç denetim ve personel verileri artık herkese açık JavaScript içinde değildir; seed_records.json yalnızca ilk veritabanı kurulumunda sunucu tarafından okunur.

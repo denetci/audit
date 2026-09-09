@@ -11,6 +11,9 @@ import sqlite3
 from pathlib import Path
 from urllib.parse import urlparse
 import webbrowser
+import tempfile
+from database_restore import restore_database, snapshot_database
+from authorization import MODULES, normalize_permissions, filter_state, authorize_record
 
 
 HOST = os.environ.get("IDB_HOST", "127.0.0.1")
@@ -31,6 +34,7 @@ COLLECTIONS = (
     "approvals",
     "leaves",
     "leaveRights",
+    "dutyRecords",
     "reportDocuments",
     "personnelRecords",
 )
@@ -44,7 +48,7 @@ def record_key(collection, record):
             return ""
         return f"{year}-{number}"
 
-    if collection in ("leaves", "leaveRights"):
+    if collection in ("leaves", "leaveRights", "dutyRecords"):
         record_id = record.get("id")
         if record_id is None:
             return ""
@@ -69,9 +73,17 @@ def record_key(collection, record):
     return ""
 
 
+class ClosingConnection(sqlite3.Connection):
+    def __exit__(self, *args):
+        try:
+            return super().__exit__(*args)
+        finally:
+            self.close()
+
+
 def get_connection():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(DB_PATH)
+    connection = sqlite3.connect(DB_PATH, factory=ClosingConnection)
     connection.row_factory = sqlite3.Row
     connection.execute(
         """
@@ -132,6 +144,12 @@ def get_connection():
     ensure_user_schema(connection)
     ensure_default_admin(connection)
     migrate_legacy_state(connection)
+    if not connection.execute("SELECT 1 FROM app_state WHERE key='bootstrap_done'").fetchone():
+        if not connection.execute("SELECT 1 FROM records LIMIT 1").fetchone():
+            seed = PROJECT_DIR / "seed_records.json"
+            if seed.exists():
+                upsert_records(connection, json.loads(seed.read_text(encoding="utf-8")))
+        connection.execute("INSERT INTO app_state(key,value) VALUES('bootstrap_done','true')")
     return connection
 
 
@@ -169,7 +187,10 @@ def verify_password(password, stored_hash):
 
 
 def public_user(row):
+    saved = row["permissions"]
+    permissions = normalize_permissions(json.loads(saved)) if saved else {k: ("view" if row["role"] == "viewer" else "edit") for k in MODULES}
     return {
+        "permissions": permissions,
         "id": row["id"],
         "username": row["username"],
         "displayName": row["display_name"],
@@ -182,6 +203,8 @@ def public_user(row):
 
 
 def ensure_user_schema(connection):
+    if "permissions" not in {r["name"] for r in connection.execute("PRAGMA table_info(users)")}:
+        connection.execute("ALTER TABLE users ADD COLUMN permissions TEXT")
     columns = {
         row["name"]
         for row in connection.execute("PRAGMA table_info(users)").fetchall()
@@ -401,7 +424,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             if not user:
                 return
 
-            self.send_json(self.read_state())
+            self.send_json(filter_state(user, self.read_state(), COLLECTIONS))
             return
 
         if path == "/api/admin/users":
@@ -414,7 +437,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             return
 
         if path == "/api/admin/audit-log":
-            user = self.require_admin()
+            user = self.require_owner()
 
             if not user:
                 return
@@ -423,7 +446,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             return
 
         if path == "/api/admin/db/backup":
-            user = self.require_admin()
+            user = self.require_owner()
 
             if not user:
                 return
@@ -463,15 +486,11 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             if not user:
                 return
 
-            if user["role"] == "viewer":
-                self.send_json({"ok": False, "error": "Bu kullanıcı sadece görüntüleyebilir."}, status=403)
-                return
-
             self.write_state(user)
             return
 
         if path == "/api/admin/users":
-            user = self.require_admin()
+            user = self.require_owner()
 
             if not user:
                 return
@@ -486,6 +505,12 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 return
 
             self.handle_update_user(user)
+            return
+
+        if path == "/api/admin/db/restore":
+            user = self.require_owner()
+            if user:
+                self.handle_database_restore(user)
             return
 
         if path == "/api/admin/users/delete":
@@ -712,7 +737,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         with get_connection() as connection:
             rows = connection.execute(
                 """
-                SELECT id, username, email, display_name, role, active, created_at
+                SELECT id, username, email, display_name, role, active, created_at, permissions
                 FROM users
                 ORDER BY created_at, id
                 """,
@@ -757,6 +782,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                     """,
                     (username, email, hash_password(password), role, display_name),
                 )
+                connection.execute("UPDATE users SET permissions = ? WHERE username = ?", (json.dumps(normalize_permissions({})), username))
                 log_action(connection, current_user, "user_create", f"{username} kullanıcısı oluşturuldu")
         except sqlite3.IntegrityError:
             self.send_json({"ok": False, "error": "Bu kullanıcı adı zaten var."}, status=409)
@@ -814,6 +840,16 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 "UPDATE users SET display_name = ?, email = ?, role = ?, active = ? WHERE id = ?",
                 (display_name, email, role, active, target["id"]),
             )
+
+            if "permissions" in payload and target["username"] != OWNER_USERNAME:
+                try:
+                    permissions = normalize_permissions(payload["permissions"])
+                except ValueError as error:
+                    connection.rollback()
+                    self.send_json({"ok": False, "error": str(error)}, status=400)
+                    return
+                connection.execute("UPDATE users SET permissions = ? WHERE id = ?", (json.dumps(permissions), target["id"]))
+                log_action(connection, current_user, "permissions_update", f"{target['username']}: {json.dumps(permissions, ensure_ascii=False)}")
 
             if password:
                 if len(password) < 6:
@@ -921,13 +957,36 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         with get_connection() as connection:
             log_action(connection, user, "database_backup", filename)
 
-        body = DB_PATH.read_bytes()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            snapshot = Path(temp_dir) / "backup.db"
+            snapshot_database(DB_PATH, snapshot)
+            body = snapshot.read_bytes()
         self.send_response(200)
         self.send_header("Content-Type", "application/octet-stream")
         self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def handle_database_restore(self, user):
+        if self.headers.get("X-Confirm-Restore") != "replace-database":
+            self.send_json({"ok": False, "error": "Geri yükleme onayı gerekli."}, status=400)
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if not 0 < length <= 100 * 1024 * 1024:
+                raise ValueError("Yedek dosyası boş veya 100 MB sınırını aşıyor.")
+            body = self.rfile.read(length)
+            if len(body) != length or not body.startswith(b"SQLite format 3\x00"):
+                raise ValueError("Geçerli bir SQLite .db yedeği seçin.")
+            with tempfile.TemporaryDirectory() as temp_dir:
+                upload = Path(temp_dir) / "uploaded.db"
+                upload.write_bytes(body)
+                safety = restore_database(DB_PATH, upload, OWNER_USERNAME, user["username"])
+        except (ValueError, sqlite3.Error, OSError) as error:
+            self.send_json({"ok": False, "error": "Geri yükleme tamamlanamadı. " + str(error)}, status=400)
+            return
+        self.send_logout_json()
 
     def read_state(self):
         with get_connection() as connection:
@@ -941,8 +1000,40 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             return
 
         with get_connection() as connection:
-            delete_records(connection, payload)
-            upsert_records(connection, payload)
+            if not isinstance(payload, dict):
+                self.send_json({"ok": False, "error": "Geçersiz kayıt paketi."}, status=400)
+                return
+            try:
+                checked = {}
+                for collection in COLLECTIONS:
+                    records = payload.get(collection, [])
+                    if isinstance(records, dict):
+                        records = [records]
+                    if not isinstance(records, list):
+                        raise ValueError("Geçersiz kayıt listesi")
+                    checked[collection] = []
+                    for record in records:
+                        if not isinstance(record, dict) or not record_key(collection, record):
+                            raise ValueError("Geçersiz kayıt")
+                        row = connection.execute("SELECT value FROM records WHERE collection=? AND record_key=?", (collection, record_key(collection, record))).fetchone()
+                        existing = json.loads(row[0]) if row else None
+                        checked[collection].append(authorize_record(user, collection, record, existing))
+                deletions = payload.get("deletedRecords", [])
+                if not isinstance(deletions, list):
+                    raise ValueError("Geçersiz silme listesi")
+                for item in deletions:
+                    if not isinstance(item, dict) or item.get("collection") not in COLLECTIONS:
+                        raise ValueError("Geçersiz silme kaydı")
+                    row = connection.execute("SELECT value FROM records WHERE collection=? AND record_key=?", (item["collection"], str(item.get("key", "")))).fetchone()
+                    if row:
+                        record = json.loads(row[0])
+                        authorize_record(user, item["collection"], record, record, deleting=True)
+                checked["deletedRecords"] = deletions
+            except (PermissionError, ValueError, TypeError) as error:
+                self.send_json({"ok": False, "error": str(error)}, status=403)
+                return
+            delete_records(connection, checked)
+            upsert_records(connection, checked)
             collections = [
                 collection
                 for collection in COLLECTIONS
