@@ -55,6 +55,9 @@
       #butce-kalem-detay-panel .budget-progress-track{display:block!important;height:12px!important;overflow:hidden!important;border-radius:999px!important;background:#e5edf7!important}
       #butce-kalem-detay-panel .budget-progress-track span{display:block!important;height:100%!important;border-radius:inherit!important;background:linear-gradient(90deg,#16824a,#0e7490)!important}
       #butce-kalem-detay-panel .budget-progress-track span.over-limit{background:linear-gradient(90deg,#c47a08,#c93434)!important}
+      #butce-kalem-detay-panel .budget-detail-filters{display:grid!important;grid-template-columns:minmax(145px,.28fr) minmax(145px,.28fr) minmax(190px,.42fr) minmax(320px,1fr) auto!important;gap:12px!important;align-items:end!important;background:#f8fbff!important;border-bottom:1px solid #edf2f7!important;padding:16px 22px!important}
+      #butce-kalem-detay-panel .budget-detail-filters label{display:grid!important;gap:6px!important;color:#334155!important;font-size:12px!important;font-weight:850!important}
+      #butce-kalem-detay-panel .budget-detail-filters input,#butce-kalem-detay-panel .budget-detail-filters select{min-height:42px!important;border:1px solid #d7e3f2!important;border-radius:8px!important;background:#fff!important;color:#0f172a!important;font:inherit!important;font-weight:700!important;padding:0 12px!important}
       #butce-kalem-detay-panel .budget-detail-layout{display:grid!important;grid-template-columns:minmax(320px,.8fr) minmax(620px,1.2fr)!important;gap:16px!important;padding:16px 22px 22px!important}
       #butce-kalem-detay-panel .budget-timeline-panel,#butce-kalem-detay-panel .budget-expense-table-panel{display:block!important;background:#fff!important;border:1px solid #dbe4ef!important;border-radius:8px!important;box-shadow:0 10px 26px rgba(15,23,42,.04)!important;padding:15px!important}
       #butce-kalem-detay-panel .budget-timeline{display:grid!important;max-height:430px!important;gap:10px!important;overflow:auto!important;padding-right:4px!important}
@@ -62,8 +65,8 @@
       #butce-kalem-detay-panel .budget-timeline time{display:block!important;color:#1558b0!important;font-size:12px!important;font-weight:900!important}
       #butce-kalem-detay-panel .budget-timeline strong,#butce-kalem-detay-panel .budget-timeline span{display:block!important}#butce-kalem-detay-panel .budget-timeline strong{color:#0f172a!important;font-size:13px!important}#butce-kalem-detay-panel .budget-timeline span{color:#64748b!important;font-size:12px!important;line-height:1.4!important}
       #butce-kalem-detay-panel .budget-expense-table{min-width:920px!important}
-      @media (max-width:1180px){#butce-kalem-detay-panel .budget-detail-hero,#butce-kalem-detay-panel .budget-detail-summary-strip,#butce-kalem-detay-panel .budget-detail-layout{grid-template-columns:1fr!important}#butce-kalem-detay-panel .budget-report-actions{justify-content:flex-start!important}#butce-kalem-detay-panel .budget-detail-dashboard{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
-      @media (max-width:700px){#butce-kalem-detay-panel .budget-detail-dashboard{grid-template-columns:1fr!important}#butce-kalem-detay-panel .budget-detail-hero{padding:16px!important}#butce-kalem-detay-panel .budget-detail-summary-strip,#butce-kalem-detay-panel .budget-detail-dashboard,#butce-kalem-detay-panel .budget-progress-block,#butce-kalem-detay-panel .budget-detail-layout{padding-left:16px!important;padding-right:16px!important}}
+      @media (max-width:1180px){#butce-kalem-detay-panel .budget-detail-hero,#butce-kalem-detay-panel .budget-detail-summary-strip,#butce-kalem-detay-panel .budget-detail-layout,#butce-kalem-detay-panel .budget-detail-filters{grid-template-columns:1fr!important}#butce-kalem-detay-panel .budget-report-actions{justify-content:flex-start!important}#butce-kalem-detay-panel .budget-detail-dashboard{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+      @media (max-width:700px){#butce-kalem-detay-panel .budget-detail-dashboard{grid-template-columns:1fr!important}#butce-kalem-detay-panel .budget-detail-hero{padding:16px!important}#butce-kalem-detay-panel .budget-detail-summary-strip,#butce-kalem-detay-panel .budget-detail-dashboard,#butce-kalem-detay-panel .budget-progress-block,#butce-kalem-detay-panel .budget-detail-layout,#butce-kalem-detay-panel .budget-detail-filters{padding-left:16px!important;padding-right:16px!important}}
     </style>
   </head>
   <body>
@@ -713,6 +716,28 @@
                 <div class="budget-progress-track">
                   <span id="budgetUsageBar"></span>
                 </div>
+              </div>
+
+              <div class="budget-detail-filters" aria-label="Harcama filtreleri">
+                <label>
+                  Başlangıç
+                  <input id="budgetDetailStartDate" type="date" />
+                </label>
+                <label>
+                  Bitiş
+                  <input id="budgetDetailEndDate" type="date" />
+                </label>
+                <label>
+                  Kişi
+                  <select id="budgetDetailPersonFilter">
+                    <option value="">Tüm kişiler</option>
+                  </select>
+                </label>
+                <label class="wide-filter">
+                  Arama
+                  <input id="budgetDetailSearchInput" placeholder="Kime ödendi, ne için veya not içinde ara..." />
+                </label>
+                <button class="btn secondary" id="clearBudgetDetailFilters" type="button">Temizle</button>
               </div>
 
               <div class="budget-detail-layout">

@@ -1105,6 +1105,36 @@
         background: linear-gradient(90deg, #c47a08, #c93434);
       }
 
+      .budget-detail-filters {
+        display: grid;
+        grid-template-columns: minmax(145px, 0.28fr) minmax(145px, 0.28fr) minmax(190px, 0.42fr) minmax(320px, 1fr) auto;
+        gap: 12px;
+        align-items: end;
+        border-bottom: 1px solid #edf2f7;
+        background: #f8fbff;
+        padding: 16px 22px;
+      }
+
+      .budget-detail-filters label {
+        display: grid;
+        gap: 6px;
+        color: #334155;
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .budget-detail-filters input,
+      .budget-detail-filters select {
+        min-height: 42px;
+        border: 1px solid #d7e3f2;
+        border-radius: 8px;
+        background: white;
+        color: #0f172a;
+        font: inherit;
+        font-weight: 700;
+        padding: 0 12px;
+      }
+
       .budget-detail-layout {
         display: grid;
         grid-template-columns: minmax(320px, 0.8fr) minmax(620px, 1.2fr);
@@ -3010,6 +3040,10 @@
         }
 
         .budget-workspace {
+          grid-template-columns: 1fr;
+        }
+
+        .budget-detail-filters {
           grid-template-columns: 1fr;
         }
 

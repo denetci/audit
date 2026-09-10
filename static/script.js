@@ -314,6 +314,11 @@ const detailUsed = document.querySelector("#detailUsed");
 const detailAvailable = document.querySelector("#detailAvailable");
 const budgetUsageRate = document.querySelector("#budgetUsageRate");
 const budgetUsageBar = document.querySelector("#budgetUsageBar");
+const budgetDetailStartDate = document.querySelector("#budgetDetailStartDate");
+const budgetDetailEndDate = document.querySelector("#budgetDetailEndDate");
+const budgetDetailPersonFilter = document.querySelector("#budgetDetailPersonFilter");
+const budgetDetailSearchInput = document.querySelector("#budgetDetailSearchInput");
+const clearBudgetDetailFilters = document.querySelector("#clearBudgetDetailFilters");
 const budgetTimeline = document.querySelector("#budgetTimeline");
 const budgetExpenseTableSummary = document.querySelector("#budgetExpenseTableSummary");
 const budgetExpenseTableRows = document.querySelector("#budgetExpenseTableRows");
@@ -2928,6 +2933,31 @@ function selectedBudgetItem() {
   return budgetItems.find((item) => String(item.id) === String(selectedBudgetItemId));
 }
 
+function getFilteredBudgetDetailExpenses(itemId) {
+  const startDate = budgetDetailStartDate.value;
+  const endDate = budgetDetailEndDate.value;
+  const person = normalizeText(budgetDetailPersonFilter.value || "");
+  const query = normalizeText(budgetDetailSearchInput.value || "");
+  return budgetItemExpenses(itemId).filter((expense) => {
+    if (startDate && String(expense.date || "") < startDate) return false;
+    if (endDate && String(expense.date || "") > endDate) return false;
+    if (person && normalizeText(expense.payee || "") !== person) return false;
+    if (!query) return true;
+    return normalizeText([expense.date, expense.purpose, expense.payee, expense.note, formatMoney(expense.amount)].join(" ")).includes(query);
+  });
+}
+
+function renderBudgetDetailPersonOptions(expenses) {
+  const currentValue = budgetDetailPersonFilter.value;
+  const people = [...new Set(expenses.map((expense) => String(expense.payee || "").trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "tr"));
+  budgetDetailPersonFilter.innerHTML = `
+    <option value="">Tüm kişiler</option>
+    ${people.map((person) => `<option value="${escapeHtml(person)}">${escapeHtml(person)}</option>`).join("")}
+  `;
+  budgetDetailPersonFilter.value = people.includes(currentValue) ? currentValue : "";
+}
+
 function renderBudgetDetailPage() {
   const item = selectedBudgetItem();
   if (!item) {
@@ -2935,6 +2965,8 @@ function renderBudgetDetailPage() {
     return;
   }
   const expenses = budgetItemExpenses(item.id);
+  renderBudgetDetailPersonOptions(expenses);
+  const visibleExpenses = getFilteredBudgetDetailExpenses(item.id);
   const allocated = numberValue(item.allocated);
   const additional = numberValue(item.additional);
   const used = budgetUsedAmount(item.id);
@@ -2971,10 +3003,12 @@ function renderBudgetDetailPage() {
   budgetUsageBar.style.width = `${Math.min(100, usageRate)}%`;
   budgetUsageBar.classList.toggle("over-limit", usageRate > 100);
   detailBudgetExpenseBtn.disabled = !canEditModule("budget");
-  budgetExpenseTableSummary.textContent = `${expenses.length} harcama kaydı`;
+  budgetExpenseTableSummary.textContent = visibleExpenses.length === expenses.length
+    ? `${expenses.length} harcama kaydı`
+    : `${visibleExpenses.length} / ${expenses.length} harcama kaydı`;
 
-  budgetTimeline.innerHTML = expenses.length
-    ? expenses.map((expense) => `
+  budgetTimeline.innerHTML = visibleExpenses.length
+    ? visibleExpenses.map((expense) => `
         <article>
           <time>${formatDate(expense.date)}</time>
           <div>
@@ -2983,10 +3017,10 @@ function renderBudgetDetailPage() {
           </div>
         </article>
       `).join("")
-    : `<div class="side-empty">Bu kalem için henüz harcama yok.</div>`;
+    : `<div class="side-empty">${expenses.length ? "Filtreye uygun harcama kaydı bulunamadı." : "Bu kalem için henüz harcama yok."}</div>`;
 
-  budgetExpenseTableRows.innerHTML = expenses.length
-    ? expenses.map((expense) => `
+  budgetExpenseTableRows.innerHTML = visibleExpenses.length
+    ? visibleExpenses.map((expense) => `
         <tr>
           <td>${formatDate(expense.date)}</td>
           <td><strong>${escapeHtml(expense.purpose)}</strong></td>
@@ -3006,12 +3040,13 @@ function renderBudgetDetailPage() {
 function downloadBudgetCsv() {
   const item = selectedBudgetItem();
   if (!item) return;
+  const expenses = getFilteredBudgetDetailExpenses(item.id);
   const rows = [
     ["Yıl", "Ödenek Kalemi", "Alınan Ödenek", "Ek Ödenek", "Kullanılan", "Kullanılabilir"],
     [item.year, item.code, item.allocated, item.additional, budgetUsedAmount(item.id), budgetAvailableAmount(item)],
     [],
     ["Tarih", "Ne İçin", "Kime Ödendi", "Tutar", "Not"],
-    ...budgetItemExpenses(item.id).map((expense) => [expense.date, expense.purpose, expense.payee, expense.amount, expense.note || ""]),
+    ...expenses.map((expense) => [expense.date, expense.purpose, expense.payee, expense.amount, expense.note || ""]),
   ];
   const csv = rows.map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
   const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" });
@@ -4611,6 +4646,19 @@ clearBudgetFilters.addEventListener("click", () => {
   budgetSearchInput.value = "";
   selectedBudgetItemId = null;
   renderBudget();
+});
+
+[budgetDetailStartDate, budgetDetailEndDate, budgetDetailPersonFilter, budgetDetailSearchInput].forEach((control) => {
+  control.addEventListener("input", renderBudgetDetailPage);
+  control.addEventListener("change", renderBudgetDetailPage);
+});
+
+clearBudgetDetailFilters.addEventListener("click", () => {
+  budgetDetailStartDate.value = "";
+  budgetDetailEndDate.value = "";
+  budgetDetailPersonFilter.value = "";
+  budgetDetailSearchInput.value = "";
+  renderBudgetDetailPage();
 });
 
 monitoringForm.elements.monitoringResultDocument.addEventListener("change", () => {
