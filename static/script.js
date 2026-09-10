@@ -2897,12 +2897,13 @@ function renderBudget() {
     const available = budgetAvailableAmount(item);
     const active = String(item.id) === String(selectedBudgetItemId);
     return `
-      <tr class="${active ? "selected-row" : ""}" data-budget-row="${item.id}">
+      <tr class="clickable-row ${active ? "selected-row" : ""}" data-budget-select="${item.id}">
         <td>
-          <button class="link-row" data-budget-select="${item.id}" type="button">
+          <div class="budget-item-cell">
             <strong>${escapeHtml(item.code)}</strong>
             <small>${escapeHtml(item.note || "Detay, harcama ve rapor ekranına git")}</small>
-          </button>
+            <span>Detay</span>
+          </div>
         </td>
         <td><strong>${formatMoney(item.allocated)}</strong> TL</td>
         <td>${formatMoney(item.additional)} TL</td>
@@ -4531,20 +4532,16 @@ downloadBudgetExcel.addEventListener("click", downloadBudgetCsv);
 printBudgetReport.addEventListener("click", () => window.print());
 
 budgetRows.addEventListener("click", (event) => {
-  const selectButton = event.target.closest("[data-budget-select]");
   const actionButton = event.target.closest("[data-budget-item-action]");
-  if (selectButton) {
-    selectedBudgetItemId = Number(selectButton.dataset.budgetSelect);
-    setActiveModule("budgetDetail");
+  if (actionButton) {
+    const item = budgetItems.find((record) => String(record.id) === String(actionButton.dataset.id));
+    if (item && actionButton.dataset.budgetItemAction === "edit") openBudgetItemModal(item);
     return;
   }
-  if (!actionButton) return;
-  const item = budgetItems.find((record) => String(record.id) === String(actionButton.dataset.id));
-  if (!item) return;
-  if (actionButton.dataset.budgetItemAction === "edit") {
-    openBudgetItemModal(item);
-    return;
-  }
+  const row = event.target.closest("[data-budget-select]");
+  if (!row) return;
+  selectedBudgetItemId = Number(row.dataset.budgetSelect);
+  setActiveModule("budgetDetail");
 });
 
 budgetExpenseTableRows.addEventListener("click", (event) => {
