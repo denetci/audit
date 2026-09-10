@@ -2854,9 +2854,13 @@ function renderBudget() {
   const filteredItems = getFilteredBudgetItems();
   const canEditBudget = canEditModule("budget");
   const selectedVisible = filteredItems.some((item) => String(item.id) === String(selectedBudgetItemId));
-  if (!selectedVisible) selectedBudgetItemId = filteredItems[0]?.id || null;
+  if (!selectedVisible) selectedBudgetItemId = null;
+  const selectedItem = selectedVisible
+    ? filteredItems.find((item) => String(item.id) === String(selectedBudgetItemId))
+    : null;
+  const summaryItems = selectedItem ? [selectedItem] : filteredItems;
 
-  const totals = filteredItems.reduce(
+  const totals = summaryItems.reduce(
     (acc, item) => {
       acc.allocated += numberValue(item.allocated);
       acc.additional += numberValue(item.additional);
@@ -2866,7 +2870,7 @@ function renderBudget() {
     { allocated: 0, additional: 0, used: 0 },
   );
 
-  budgetItemCount.textContent = filteredItems.length;
+  budgetItemCount.textContent = selectedItem ? "1" : filteredItems.length;
   budgetTotalAllocated.textContent = formatMoney(totals.allocated);
   budgetTotalAdditional.textContent = formatMoney(totals.additional);
   budgetTotalUsed.textContent = formatMoney(totals.used);
@@ -2902,8 +2906,8 @@ function renderBudget() {
         <td>
           <div class="budget-item-cell">
             <strong>${escapeHtml(item.code)}</strong>
-            <small>${escapeHtml(item.note || "Detay, harcama ve rapor ekranına git")}</small>
-            <span>Detay</span>
+            <small>${escapeHtml(item.note || "Seçmek için satıra, rapor için Detay'a tıklayın")}</small>
+            <button class="btn secondary small" data-budget-open-detail="${item.id}" type="button">Detay</button>
           </div>
         </td>
         <td><strong>${formatMoney(item.allocated)}</strong> TL</td>
@@ -4550,6 +4554,12 @@ downloadBudgetExcel.addEventListener("click", downloadBudgetCsv);
 printBudgetReport.addEventListener("click", () => window.print());
 
 budgetRows.addEventListener("click", (event) => {
+  const detailButton = event.target.closest("[data-budget-open-detail]");
+  if (detailButton) {
+    selectedBudgetItemId = Number(detailButton.dataset.budgetOpenDetail);
+    setActiveModule("budgetDetail");
+    return;
+  }
   const actionButton = event.target.closest("[data-budget-item-action]");
   if (actionButton) {
     const item = budgetItems.find((record) => String(record.id) === String(actionButton.dataset.id));
@@ -4559,7 +4569,7 @@ budgetRows.addEventListener("click", (event) => {
   const row = event.target.closest("[data-budget-select]");
   if (!row) return;
   selectedBudgetItemId = Number(row.dataset.budgetSelect);
-  setActiveModule("budgetDetail");
+  renderBudget();
 });
 
 budgetExpenseTableRows.addEventListener("click", (event) => {
@@ -4599,6 +4609,7 @@ function handleBudgetExpenseAction(event) {
 clearBudgetFilters.addEventListener("click", () => {
   budgetYearFilter.value = yearSelect.value;
   budgetSearchInput.value = "";
+  selectedBudgetItemId = null;
   renderBudget();
 });
 
