@@ -1,4 +1,4 @@
-const MODULE_LABELS = {dashboard:"Faaliyet Paneli", audits:"Denetimler", approvals:"Olurlar", personnel:"Personel", leaves:"Personel İzinleri", duties:"Görev Durumu", monitoring:"İzleme Faaliyetleri", reports:"Rapor Arşivi"};
+const MODULE_LABELS = {dashboard:"Faaliyet Paneli", audits:"Denetimler", approvals:"Olurlar", personnel:"Personel", leaves:"Personel İzinleri", duties:"Görev Durumu", budget:"Bütçe İşlemleri", stock:"Stok İşlemleri", monitoring:"İzleme Faaliyetleri", reports:"Rapor Arşivi"};
 function hasAccess(module, edit = false) {
   if (!currentUser) return false;
   if (currentUser.owner) return true;
@@ -14,9 +14,9 @@ function permissionsEditor(user) {
   return `<details class="module-permissions"><summary>Modül Yetkileri</summary><div class="permission-grid">${Object.entries(MODULE_LABELS).map(([key,label]) => `<label>${label}<select data-permission="${key}" ${user.owner ? "disabled" : ""}>${[["none","Erişim yok"],["view","Görüntüleme"],["edit","Görüntüleme ve değişiklik"]].map(([value,text]) => `<option value="${value}" ${(user.owner ? "edit" : user.permissions?.[key] || "none") === value ? "selected" : ""}>${text}</option>`).join("")}</select></label>`).join("")}</div></details>`;
 }
 function mutationModule(element) {
-  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
+  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
   if (ids[element.id]) return ids[element.id];
-  for (const [attr,module] of [["data-action","audits"],["data-approval-action","approvals"],["data-leave-action","leaves"],["data-leave-right-action","leaves"],["data-duty-action","duties"],["data-monitoring-document-action","monitoring"],["data-report-document-action","reports"],["data-personnel-action","personnel"]]) {
+  for (const [attr,module] of [["data-action","audits"],["data-approval-action","approvals"],["data-leave-action","leaves"],["data-leave-right-action","leaves"],["data-duty-action","duties"],["data-budget-item-action","budget"],["data-budget-expense-action","budget"],["data-monitoring-document-action","monitoring"],["data-report-document-action","reports"],["data-personnel-action","personnel"]]) {
     const action = element.getAttribute(attr);
     if (["edit","delete","cancel","return","rename","save-link","monitoring"].includes(action)) return action === "monitoring" ? "monitoring" : module;
   }
@@ -26,7 +26,7 @@ function mutationModule(element) {
   return null;
 }
 function applyModulePermissions() {
-  const navs = [["#dashboardNav","dashboard"],["#auditMenuToggle","audits"],["#approvalsNav","approvals"],["#personnelMenuToggle","personnel"],["#reportsNav","reports"],["#monitoringNav","monitoring"]];
+  const navs = [["#dashboardNav","dashboard"],["#auditMenuToggle","audits"],["#approvalsNav","approvals"],["#personnelMenuToggle","personnel"],["#budgetNav","budget"],["#stockNav","stock"],["#reportsNav","reports"],["#monitoringNav","monitoring"]];
   navs.forEach(([selector,module]) => { const el=document.querySelector(selector); if(el) el.hidden=!hasAccess(module); });
   leaveMenuToggle.hidden = !hasAccess("leaves") && !hasAccess("duties");
   leaveModuleButtons.forEach(button => {button.hidden=!hasAccess(button.dataset.leaveModule === "Görev Durumu" ? "duties" : "leaves");});
@@ -56,6 +56,7 @@ const APPROVAL_DATA_VERSION = "2026-08-31-approvals-v1";
 const LEAVE_DATA_VERSION = "2026-08-31-leave-v1";
 const LEAVE_RIGHT_DATA_VERSION = "2026-08-31-leave-right-v1";
 const REPORT_DOCUMENT_DATA_VERSION = "2026-08-31-report-documents-v1";
+const BUDGET_DATA_VERSION = "2026-09-10-budget-v1";
 const API_STATE_URL = "/api/state";
 
 const defaultAudits = [];
@@ -69,6 +70,30 @@ const defaultLeaves = [];
 const defaultLeaveRights = [];
 
 const defaultDutyRecords = [];
+const defaultBudgetCodes = [
+  "01 PERSONEL GİDERLERİ",
+  "01.01 MEMURLAR",
+  "02 SOSYAL GÜVENLİK KURUMLARINA DEVLET PRİMİ GİDERLER",
+  "02.01 MEMURLAR",
+  "03.1 ÜRETİME YÖNELİK MAL VE MALZEME ALIMLARI",
+  "03.2 TÜKETİME YÖNELİK MAL VE MALZEME ALIMLARI",
+  "03.3 YOLLUKLAR",
+  "03.5 HİZMET ALIMLARI",
+  "03.6 TEMSİL VE TANITMA GİDERLERİ",
+  "03.7 MENKUL MAL, GAYRİMADDİ HAK ALIM, BAKIM VE ONARIM GİDERLERİ",
+  "03.8 GAYRİMENKUL MAL BAKIM VE ONARIM GİDERLERİ",
+];
+const defaultBudgetItems = ["2026", "2025", "2024"].flatMap((year) =>
+  defaultBudgetCodes.map((code, index) => ({
+    id: Number(`${year}${String(index + 1).padStart(2, "0")}`),
+    year,
+    code,
+    allocated: 0,
+    additional: 0,
+    note: "",
+  })),
+);
+const defaultBudgetExpenses = [];
 
 const reportArchiveLinkType = "Rapor Arşivi Bulut Linki";
 const ACTIVE_VIEW_KEY = "ic-denetim-active-view";
@@ -79,6 +104,9 @@ let audits = [];
 let approvals = [];
 let leaves = [];
 let dutyRecords = [];
+let budgetItems = [];
+let budgetExpenses = [];
+let stockItems = [];
 let reportDocuments = [];
 let personnelRecords = [];
 let leaveRights = [];
@@ -109,6 +137,8 @@ const dashboardNav = document.querySelector("#dashboardNav");
 const approvalsNav = document.querySelector("#approvalsNav");
 const reportsNav = document.querySelector("#reportsNav");
 const monitoringNav = document.querySelector("#monitoringNav");
+const budgetNav = document.querySelector("#budgetNav");
+const stockNav = document.querySelector("#stockNav");
 const adminNav = document.querySelector("#adminNav");
 const personnelMenuToggle = document.querySelector("#personnelMenuToggle");
 const personnelSubnav = document.querySelector("#personnelSubnav");
@@ -134,6 +164,9 @@ const approvalSections = Array.from(document.querySelectorAll('[data-view="appro
 const leaveSections = Array.from(document.querySelectorAll('[data-view="leave"]'));
 const personnelSections = Array.from(document.querySelectorAll('[data-view="personnel"]'));
 const personnelProfileSections = Array.from(document.querySelectorAll('[data-view="personnelProfile"]'));
+const budgetSections = Array.from(document.querySelectorAll('[data-view="budget"]'));
+const budgetDetailSections = Array.from(document.querySelectorAll('[data-view="budgetDetail"]'));
+const stockSections = Array.from(document.querySelectorAll('[data-view="stock"]'));
 const reportSections = Array.from(document.querySelectorAll('[data-view="reports"]'));
 const monitoringSections = Array.from(document.querySelectorAll('[data-view="monitoring"]'));
 const adminSections = Array.from(document.querySelectorAll('[data-view="admin"]'));
@@ -243,6 +276,46 @@ const cancelLeaveRight = document.querySelector("#cancelLeaveRight");
 const leaveRightModalMode = document.querySelector("#leaveRightModalMode");
 const leaveRightModalTitle = document.querySelector("#leaveRightModalTitle");
 const saveLeaveRightBtn = document.querySelector("#saveLeaveRightBtn");
+const budgetRows = document.querySelector("#budgetRows");
+const budgetItemCount = document.querySelector("#budgetItemCount");
+const budgetTotalAllocated = document.querySelector("#budgetTotalAllocated");
+const budgetTotalAdditional = document.querySelector("#budgetTotalAdditional");
+const budgetTotalUsed = document.querySelector("#budgetTotalUsed");
+const budgetTotalAvailable = document.querySelector("#budgetTotalAvailable");
+const budgetYearFilter = document.querySelector("#budgetYearFilter");
+const budgetSearchInput = document.querySelector("#budgetSearchInput");
+const clearBudgetFilters = document.querySelector("#clearBudgetFilters");
+const budgetEmptyState = document.querySelector("#budgetEmptyState");
+const budgetInsights = document.querySelector("#budgetInsights");
+const newBudgetItemBtn = document.querySelector("#newBudgetItemBtn");
+const budgetItemModal = document.querySelector("#budgetItemModal");
+const budgetItemForm = document.querySelector("#budgetItemForm");
+const closeBudgetItemModal = document.querySelector("#closeBudgetItemModal");
+const cancelBudgetItem = document.querySelector("#cancelBudgetItem");
+const budgetItemModalMode = document.querySelector("#budgetItemModalMode");
+const budgetItemModalTitle = document.querySelector("#budgetItemModalTitle");
+const budgetExpenseModal = document.querySelector("#budgetExpenseModal");
+const budgetExpenseForm = document.querySelector("#budgetExpenseForm");
+const closeBudgetExpenseModal = document.querySelector("#closeBudgetExpenseModal");
+const cancelBudgetExpense = document.querySelector("#cancelBudgetExpense");
+const budgetExpenseModalMode = document.querySelector("#budgetExpenseModalMode");
+const budgetExpenseModalTitle = document.querySelector("#budgetExpenseModalTitle");
+const backToBudget = document.querySelector("#backToBudget");
+const budgetDetailPageYear = document.querySelector("#budgetDetailPageYear");
+const budgetDetailPageTitle = document.querySelector("#budgetDetailPageTitle");
+const budgetDetailPageNote = document.querySelector("#budgetDetailPageNote");
+const detailBudgetExpenseBtn = document.querySelector("#detailBudgetExpenseBtn");
+const downloadBudgetExcel = document.querySelector("#downloadBudgetExcel");
+const printBudgetReport = document.querySelector("#printBudgetReport");
+const detailAllocated = document.querySelector("#detailAllocated");
+const detailAdditional = document.querySelector("#detailAdditional");
+const detailUsed = document.querySelector("#detailUsed");
+const detailAvailable = document.querySelector("#detailAvailable");
+const budgetUsageRate = document.querySelector("#budgetUsageRate");
+const budgetUsageBar = document.querySelector("#budgetUsageBar");
+const budgetTimeline = document.querySelector("#budgetTimeline");
+const budgetExpenseTableSummary = document.querySelector("#budgetExpenseTableSummary");
+const budgetExpenseTableRows = document.querySelector("#budgetExpenseTableRows");
 const reportArchiveCount = document.querySelector("#reportArchiveCount");
 const reportAuditRows = document.querySelector("#reportAuditRows");
 const reportArchiveEmpty = document.querySelector("#reportArchiveEmpty");
@@ -305,6 +378,9 @@ let editingAuditNo = null;
 let editingLeaveId = null;
 let editingLeaveRightId = null;
 let editingDutyId = null;
+let editingBudgetItemId = null;
+let editingBudgetExpenseId = null;
+let selectedBudgetItemId = null;
 let editingMonitoringAudit = null;
 let selectedReportAuditKey = "";
 let toastTimer = null;
@@ -320,6 +396,9 @@ const sharedCollections = [
   "leaves",
   "leaveRights",
   "dutyRecords",
+  "budgetItems",
+  "budgetExpenses",
+  "stockItems",
   "reportDocuments",
   "personnelRecords",
 ];
@@ -484,6 +563,47 @@ function saveDutyRecords() {
   scheduleSharedStateSave();
 }
 
+function mergeDefaultBudgetItems(items) {
+  const merged = Array.isArray(items) ? [...items] : [];
+  const keys = new Set(merged.map((item) => `${item.year}-${item.code}`));
+  defaultBudgetItems.forEach((item) => {
+    if (!keys.has(`${item.year}-${item.code}`)) {
+      merged.push({ ...item });
+    }
+  });
+  return merged;
+}
+
+function loadBudgetItems() {
+  const storedBudget = localStorage.getItem("ic-denetim-budget");
+  if (!storedBudget) return mergeDefaultBudgetItems([]);
+  try {
+    const parsed = JSON.parse(storedBudget);
+    return mergeDefaultBudgetItems(parsed.budgetItems);
+  } catch {
+    return mergeDefaultBudgetItems([]);
+  }
+}
+
+function loadBudgetExpenses() {
+  const storedBudget = localStorage.getItem("ic-denetim-budget");
+  if (!storedBudget) return [...defaultBudgetExpenses];
+  try {
+    const parsed = JSON.parse(storedBudget);
+    return Array.isArray(parsed.budgetExpenses) ? parsed.budgetExpenses : [...defaultBudgetExpenses];
+  } catch {
+    return [...defaultBudgetExpenses];
+  }
+}
+
+function saveBudgetRecords() {
+  localStorage.setItem(
+    "ic-denetim-budget",
+    JSON.stringify({ version: BUDGET_DATA_VERSION, budgetItems, budgetExpenses }),
+  );
+  scheduleSharedStateSave();
+}
+
 function loadLeaveRights() {
   const storedRights = localStorage.getItem("ic-denetim-leave-rights");
 
@@ -627,6 +747,9 @@ function buildSharedState() {
     leaves,
     leaveRights,
     dutyRecords,
+    budgetItems,
+    budgetExpenses,
+    stockItems,
     reportDocuments,
     personnelRecords,
     deletedRecords,
@@ -654,6 +777,18 @@ function getSharedCollectionRecords(collection) {
     return dutyRecords;
   }
 
+  if (collection === "budgetItems") {
+    return budgetItems;
+  }
+
+  if (collection === "budgetExpenses") {
+    return budgetExpenses;
+  }
+
+  if (collection === "stockItems") {
+    return stockItems;
+  }
+
   if (collection === "reportDocuments") {
     return reportDocuments;
   }
@@ -670,7 +805,7 @@ function recordKeyForCollection(collection, record) {
     return `${record.year}-${record.no}`;
   }
 
-  if (collection === "leaves" || collection === "leaveRights" || collection === "dutyRecords") {
+  if (collection === "leaves" || collection === "leaveRights" || collection === "dutyRecords" || collection === "budgetItems" || collection === "budgetExpenses" || collection === "stockItems") {
     return String(record.id);
   }
 
@@ -725,7 +860,7 @@ function buildChangedSharedState() {
   };
 
   sharedCollections.forEach((collection) => {
-    const modules = {audits:"audits",approvals:"approvals",leaves:"leaves",leaveRights:"leaves",dutyRecords:"duties",reportDocuments:"reports",personnelRecords:"personnel"};
+    const modules = {audits:"audits",approvals:"approvals",leaves:"leaves",leaveRights:"leaves",dutyRecords:"duties",budgetItems:"budget",budgetExpenses:"budget",stockItems:"stock",reportDocuments:"reports",personnelRecords:"personnel"};
     if (!hasAccess(modules[collection], true) && !(collection === "audits" && hasAccess("monitoring", true)) && !(collection === "reportDocuments" && hasAccess("monitoring", true))) return;
     const changedRecords = [];
     const previousRecords = lastSharedRecordJson[collection] || {};
@@ -778,6 +913,7 @@ function buildLocalStorageState() {
   const storedApprovals = readStoredJson("ic-denetim-approvals");
   const storedLeaves = readStoredJson("ic-denetim-leaves");
   const storedDuties = readStoredJson("ic-denetim-duties");
+  const storedBudget = readStoredJson("ic-denetim-budget");
   const storedLeaveRights = readStoredJson("ic-denetim-leave-rights");
   const storedReportDocuments = readStoredJson("ic-denetim-report-documents");
   const storedPersonnel = readStoredJson("ic-denetim-personnel");
@@ -794,6 +930,13 @@ function buildLocalStorageState() {
     dutyRecords: Array.isArray(storedDuties.dutyRecords)
       ? storedDuties.dutyRecords
       : [...defaultDutyRecords],
+    budgetItems: Array.isArray(storedBudget.budgetItems)
+      ? mergeDefaultBudgetItems(storedBudget.budgetItems)
+      : mergeDefaultBudgetItems([]),
+    budgetExpenses: Array.isArray(storedBudget.budgetExpenses)
+      ? storedBudget.budgetExpenses
+      : [...defaultBudgetExpenses],
+    stockItems: [],
     leaveRights: Array.isArray(storedLeaveRights.leaveRights)
       ? storedLeaveRights.leaveRights
       : [...defaultLeaveRights],
@@ -819,6 +962,9 @@ function hasSharedState(payload) {
       Array.isArray(payload.leaves) ||
       Array.isArray(payload.leaveRights) ||
       Array.isArray(payload.dutyRecords) ||
+      Array.isArray(payload.budgetItems) ||
+      Array.isArray(payload.budgetExpenses) ||
+      Array.isArray(payload.stockItems) ||
       Array.isArray(payload.reportDocuments) ||
       Array.isArray(payload.personnelRecords))
   );
@@ -840,6 +986,18 @@ function applySharedState(payload) {
 
   if (Array.isArray(payload.dutyRecords)) {
     dutyRecords = payload.dutyRecords;
+  }
+
+  if (Array.isArray(payload.budgetItems)) {
+    budgetItems = hasAccess("budget") ? mergeDefaultBudgetItems(payload.budgetItems) : [];
+  }
+
+  if (Array.isArray(payload.budgetExpenses)) {
+    budgetExpenses = hasAccess("budget") ? payload.budgetExpenses : [];
+  }
+
+  if (Array.isArray(payload.stockItems)) {
+    stockItems = hasAccess("stock") ? payload.stockItems : [];
   }
 
   if (Array.isArray(payload.leaveRights)) {
@@ -962,7 +1120,7 @@ async function logout() {
   currentUser = null;
   sharedStateLoaded = false;
   clearTimeout(sharedStateSaveTimer);
-  audits = []; approvals = []; leaves = []; leaveRights = []; dutyRecords = []; reportDocuments = []; personnelRecords = [];
+  audits = []; approvals = []; leaves = []; leaveRights = []; dutyRecords = []; budgetItems = []; budgetExpenses = []; stockItems = []; reportDocuments = []; personnelRecords = [];
   deletedRecords = [];
   document.querySelectorAll("dialog[open]").forEach(dialog => dialog.close());
   renderEverything();
@@ -1089,6 +1247,7 @@ function renderEverything() {
   renderAudits();
   renderApprovals();
   renderLeaves();
+  renderBudget();
 
   if (activeModule === "personnel") {
     renderPersonnel();
@@ -1110,6 +1269,7 @@ function saveActiveView() {
       module: activeModule,
       leaveModule: activeLeaveModule,
       personnelModule: activePersonnelModule,
+      budgetItemId: selectedBudgetItemId,
     }),
   );
 }
@@ -1136,6 +1296,10 @@ function restoreActiveView() {
     personnelModuleButtons.forEach((button) => {
       button.classList.toggle("active", button.dataset.personnelModule === activePersonnelModule);
     });
+  }
+
+  if (storedView.budgetItemId) {
+    selectedBudgetItemId = storedView.budgetItemId;
   }
 
   setActiveModule(moduleName || "dashboard", { skipSave: true });
@@ -1291,6 +1455,52 @@ function formatDate(value) {
 
   const [year, month, day] = value.split("-");
   return `${day}.${month}.${year}`;
+}
+
+function numberValue(value) {
+  if (typeof value === "string") {
+    const trimmed = value.trim().replace(/\s/g, "").replace(/TL$/i, "");
+    if (!trimmed) return 0;
+    const normalized = trimmed.includes(",")
+      ? trimmed.replace(/\./g, "").replace(",", ".")
+      : trimmed.replace(/,/g, "");
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function formatMoney(value) {
+  return numberValue(value).toLocaleString("tr-TR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function budgetItemExpenses(itemId) {
+  return budgetExpenses
+    .filter((expense) => String(expense.itemId) === String(itemId))
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+}
+
+function budgetUsedAmount(itemId) {
+  return budgetItemExpenses(itemId).reduce((sum, expense) => sum + numberValue(expense.amount), 0);
+}
+
+function budgetAvailableAmount(item) {
+  return numberValue(item.allocated) + numberValue(item.additional) - budgetUsedAmount(item.id);
+}
+
+function formatMoneyField(input) {
+  if (!input) return;
+  input.value = formatMoney(input.value);
+}
+
+function clearMoneyFieldForEditing(input) {
+  if (!input) return;
+  const value = numberValue(input.value);
+  input.value = value ? String(value).replace(".", ",") : "";
 }
 
 function formatDateRange(audit) {
@@ -2404,10 +2614,10 @@ function setActiveTypeFilter(filterName) {
 function setActiveModule(moduleName, options = {}) {
   if (moduleName === "leave" && !hasAccess(leaveAccessModule())) activeLeaveModule = hasAccess("leaves") ? "Personel" : "Görev Durumu";
   leaveModuleButtons.forEach(button => button.classList.toggle("active", button.dataset.leaveModule === activeLeaveModule));
-  const moduleKey = moduleName === "leave" ? leaveAccessModule() : moduleName === "personnelProfile" ? "personnel" : moduleName;
+  const moduleKey = moduleName === "leave" ? leaveAccessModule() : moduleName === "personnelProfile" ? "personnel" : moduleName === "budgetDetail" ? "budget" : moduleName;
   const allowed = moduleName === "admin" ? currentUser?.owner : moduleName === "dashboard" ? (hasAccess("dashboard") || hasAccess("audits")) : hasAccess(moduleKey);
   if (!allowed) {
-    const fallback = ["dashboard","approvals","personnel","leave","monitoring","reports","admin"].find(name => name === "admin" ? currentUser?.owner : name === "leave" ? (hasAccess("leaves") || hasAccess("duties")) : name === "dashboard" ? (hasAccess("dashboard") || hasAccess("audits")) : hasAccess(name));
+    const fallback = ["dashboard","approvals","personnel","leave","budget","stock","monitoring","reports","admin"].find(name => name === "admin" ? currentUser?.owner : name === "leave" ? (hasAccess("leaves") || hasAccess("duties")) : name === "dashboard" ? (hasAccess("dashboard") || hasAccess("audits")) : hasAccess(name));
     if (fallback && fallback !== moduleName) return setActiveModule(fallback, options);
     document.querySelectorAll("[data-view]").forEach(el => { el.hidden = true; });
     document.querySelector(".topbar h1").textContent = "Henüz modül yetkiniz tanımlanmamış";
@@ -2429,6 +2639,9 @@ function setActiveModule(moduleName, options = {}) {
   const showLeave = moduleName === "leave";
   const showPersonnel = moduleName === "personnel";
   const showPersonnelProfile = moduleName === "personnelProfile";
+  const showBudget = moduleName === "budget";
+  const showBudgetDetail = moduleName === "budgetDetail";
+  const showStock = moduleName === "stock";
   const showReports = moduleName === "reports";
   const showMonitoring = moduleName === "monitoring";
   const showAdmin = moduleName === "admin";
@@ -2449,6 +2662,15 @@ function setActiveModule(moduleName, options = {}) {
   personnelProfileSections.forEach((section) => {
     section.hidden = !showPersonnelProfile;
   });
+  budgetSections.forEach((section) => {
+    section.hidden = !showBudget;
+  });
+  budgetDetailSections.forEach((section) => {
+    section.hidden = !showBudgetDetail;
+  });
+  stockSections.forEach((section) => {
+    section.hidden = !showStock;
+  });
   reportSections.forEach((section) => {
     section.hidden = !showReports;
   });
@@ -2463,13 +2685,15 @@ function setActiveModule(moduleName, options = {}) {
   approvalsNav.classList.toggle("active", showApprovals);
   reportsNav.classList.toggle("active", showReports);
   monitoringNav.classList.toggle("active", showMonitoring);
+  budgetNav.classList.toggle("active", showBudget || showBudgetDetail);
+  stockNav.classList.toggle("active", showStock);
   adminNav?.classList.toggle("active", showAdmin);
   leaveMenuToggle.classList.toggle("open", showLeave);
   personnelMenuToggle.classList.toggle("open", showPersonnel || showPersonnelProfile);
   layout.classList.toggle("approvals-mode", showApprovals);
   layout.classList.toggle(
     "focus-mode",
-    showApprovals || showLeave || showPersonnel || showPersonnelProfile || showReports || showMonitoring || showAdmin,
+    showApprovals || showLeave || showPersonnel || showPersonnelProfile || showBudget || showBudgetDetail || showStock || showReports || showMonitoring || showAdmin,
   );
 
   leaveMenuToggle.setAttribute("aria-expanded", String(showLeave));
@@ -2512,6 +2736,26 @@ function setActiveModule(moduleName, options = {}) {
     document.querySelector(".topbar h1").textContent = "Personel Profili";
     topbarSubtitle.textContent = "Personel bilgileri, aktif görevler, eğitim ve sertifika kayıtları";
     renderPersonnelProfile();
+    return;
+  }
+
+  if (showBudget) {
+    document.querySelector(".topbar h1").textContent = "Bütçe İşlemleri";
+    topbarSubtitle.textContent = "Ödenek kalemleri, harcama hareketleri ve kullanılabilir bakiye takibi";
+    renderBudget();
+    return;
+  }
+
+  if (showBudgetDetail) {
+    document.querySelector(".topbar h1").textContent = "Bütçe Kalem Detayı";
+    topbarSubtitle.textContent = "Seçili ödenek kaleminin harcama ve rapor ekranı";
+    renderBudgetDetailPage();
+    return;
+  }
+
+  if (showStock) {
+    document.querySelector(".topbar h1").textContent = "Stok İşlemleri";
+    topbarSubtitle.textContent = "Stok kartları ve taşınır hareketleri";
     return;
   }
 
@@ -2586,6 +2830,173 @@ function createApprovalRow(approval) {
   `;
 
   return row;
+}
+
+function getFilteredBudgetItems() {
+  const year = budgetYearFilter.value;
+  const query = normalizeText(budgetSearchInput.value || "");
+  return budgetItems
+    .filter((item) => String(item.year) === String(year))
+    .filter((item) => {
+      if (!query) return true;
+      const expenses = budgetItemExpenses(item.id);
+      return normalizeText([
+        item.code,
+        item.note,
+        ...expenses.flatMap((expense) => [expense.payee, expense.purpose, expense.note]),
+      ].join(" ")).includes(query);
+    })
+    .sort((a, b) => String(a.code).localeCompare(String(b.code), "tr"));
+}
+
+function renderBudget() {
+  const filteredItems = getFilteredBudgetItems();
+  const canEditBudget = canEditModule("budget");
+  const selectedVisible = filteredItems.some((item) => String(item.id) === String(selectedBudgetItemId));
+  if (!selectedVisible) selectedBudgetItemId = filteredItems[0]?.id || null;
+
+  const totals = filteredItems.reduce(
+    (acc, item) => {
+      acc.allocated += numberValue(item.allocated);
+      acc.additional += numberValue(item.additional);
+      acc.used += budgetUsedAmount(item.id);
+      return acc;
+    },
+    { allocated: 0, additional: 0, used: 0 },
+  );
+
+  budgetItemCount.textContent = filteredItems.length;
+  budgetTotalAllocated.textContent = formatMoney(totals.allocated);
+  budgetTotalAdditional.textContent = formatMoney(totals.additional);
+  budgetTotalUsed.textContent = formatMoney(totals.used);
+  budgetTotalAvailable.textContent = formatMoney(totals.allocated + totals.additional - totals.used);
+  newBudgetItemBtn.disabled = !canEditBudget;
+  budgetEmptyState.hidden = filteredItems.length > 0;
+  const overBudgetItems = filteredItems.filter((item) => budgetAvailableAmount(item) < 0);
+  const unusedItems = filteredItems.filter((item) => numberValue(item.allocated) + numberValue(item.additional) > 0 && budgetUsedAmount(item.id) === 0);
+  const highestExpense = [...budgetExpenses]
+    .filter((expense) => String(expense.year) === String(budgetYearFilter.value))
+    .sort((a, b) => numberValue(b.amount) - numberValue(a.amount))[0];
+  budgetInsights.innerHTML = `
+    <article>
+      <strong>${overBudgetItems.length}</strong>
+      <span>ödeneği aşan kalem</span>
+    </article>
+    <article>
+      <strong>${unusedItems.length}</strong>
+      <span>ödenekli ama harcamasız kalem</span>
+    </article>
+    <article>
+      <strong>${highestExpense ? formatMoney(highestExpense.amount) + " TL" : "0,00 TL"}</strong>
+      <span>en yüksek tek harcama</span>
+    </article>
+  `;
+
+  budgetRows.innerHTML = filteredItems.map((item) => {
+    const used = budgetUsedAmount(item.id);
+    const available = budgetAvailableAmount(item);
+    const active = String(item.id) === String(selectedBudgetItemId);
+    return `
+      <tr class="${active ? "selected-row" : ""}" data-budget-row="${item.id}">
+        <td>
+          <button class="link-row" data-budget-select="${item.id}" type="button">
+            <strong>${escapeHtml(item.code)}</strong>
+            <small>${escapeHtml(item.note || "Detay, harcama ve rapor ekranına git")}</small>
+          </button>
+        </td>
+        <td><strong>${formatMoney(item.allocated)}</strong> TL</td>
+        <td>${formatMoney(item.additional)} TL</td>
+        <td>${formatMoney(used)} TL</td>
+        <td><strong class="${available < 0 ? "negative-money" : ""}">${formatMoney(available)}</strong> TL</td>
+        <td>
+          <button class="btn secondary small" data-budget-item-action="edit" data-id="${item.id}" type="button">Düzenle</button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  applyModulePermissions();
+}
+
+function selectedBudgetItem() {
+  return budgetItems.find((item) => String(item.id) === String(selectedBudgetItemId));
+}
+
+function renderBudgetDetailPage() {
+  const item = selectedBudgetItem();
+  if (!item) {
+    setActiveModule("budget");
+    return;
+  }
+  const expenses = budgetItemExpenses(item.id);
+  const allocated = numberValue(item.allocated);
+  const additional = numberValue(item.additional);
+  const used = budgetUsedAmount(item.id);
+  const available = budgetAvailableAmount(item);
+  const totalBudget = allocated + additional;
+  const usageRate = totalBudget > 0 ? Math.min(999, Math.round((used / totalBudget) * 100)) : 0;
+
+  budgetDetailPageYear.textContent = `${item.year} bütçe kalemi`;
+  budgetDetailPageTitle.textContent = item.code;
+  budgetDetailPageNote.textContent = item.note || "Bu kaleme ait ödenek ve harcama hareketleri";
+  detailAllocated.textContent = `${formatMoney(allocated)} TL`;
+  detailAdditional.textContent = `${formatMoney(additional)} TL`;
+  detailUsed.textContent = `${formatMoney(used)} TL`;
+  detailAvailable.textContent = `${formatMoney(available)} TL`;
+  detailAvailable.classList.toggle("negative-money", available < 0);
+  budgetUsageRate.textContent = `${usageRate}%`;
+  budgetUsageBar.style.width = `${Math.min(100, usageRate)}%`;
+  budgetUsageBar.classList.toggle("over-limit", usageRate > 100);
+  detailBudgetExpenseBtn.disabled = !canEditModule("budget");
+  budgetExpenseTableSummary.textContent = `${expenses.length} harcama kaydı`;
+
+  budgetTimeline.innerHTML = expenses.length
+    ? expenses.map((expense) => `
+        <article>
+          <time>${formatDate(expense.date)}</time>
+          <div>
+            <strong>${escapeHtml(expense.purpose)}</strong>
+            <span>${escapeHtml(expense.payee)} · ${formatMoney(expense.amount)} TL</span>
+          </div>
+        </article>
+      `).join("")
+    : `<div class="side-empty">Bu kalem için henüz harcama yok.</div>`;
+
+  budgetExpenseTableRows.innerHTML = expenses.length
+    ? expenses.map((expense) => `
+        <tr>
+          <td>${formatDate(expense.date)}</td>
+          <td><strong>${escapeHtml(expense.purpose)}</strong></td>
+          <td>${escapeHtml(expense.payee)}</td>
+          <td><strong>${formatMoney(expense.amount)} TL</strong></td>
+          <td>${escapeHtml(expense.note || "-")}</td>
+          <td>
+            <button class="btn secondary small" data-budget-expense-action="edit" data-id="${expense.id}" type="button">Düzenle</button>
+            <button class="btn secondary small" data-budget-expense-action="delete" data-id="${expense.id}" type="button">Sil</button>
+          </td>
+        </tr>
+      `).join("")
+    : "";
+  applyModulePermissions();
+}
+
+function downloadBudgetCsv() {
+  const item = selectedBudgetItem();
+  if (!item) return;
+  const rows = [
+    ["Yıl", "Ödenek Kalemi", "Alınan Ödenek", "Ek Ödenek", "Kullanılan", "Kullanılabilir"],
+    [item.year, item.code, item.allocated, item.additional, budgetUsedAmount(item.id), budgetAvailableAmount(item)],
+    [],
+    ["Tarih", "Ne İçin", "Kime Ödendi", "Tutar", "Not"],
+    ...budgetItemExpenses(item.id).map((expense) => [expense.date, expense.purpose, expense.payee, expense.amount, expense.note || ""]),
+  ];
+  const csv = rows.map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
+  const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `${item.year}-butce-${item.code.replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "").toLocaleLowerCase("tr-TR")}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
 }
 
 function personnelKey(person) {
@@ -3537,6 +3948,57 @@ function closeDutyDialog() {
   dutyModal.close();
 }
 
+function openBudgetItemModal(item = null) {
+  budgetItemForm.reset();
+  editingBudgetItemId = item ? item.id : null;
+  budgetItemModalMode.textContent = item ? `${item.code} ödenek kalemi` : "Yeni ödenek kalemi";
+  budgetItemModalTitle.textContent = item ? "Kalemi Düzenle" : "Kalem Ekle";
+  if (item) {
+    budgetItemForm.elements.year.value = item.year;
+    budgetItemForm.elements.code.value = item.code;
+    budgetItemForm.elements.allocated.value = formatMoney(item.allocated);
+    budgetItemForm.elements.additional.value = formatMoney(item.additional);
+    budgetItemForm.elements.note.value = item.note || "";
+  } else {
+    budgetItemForm.elements.year.value = budgetYearFilter.value || yearSelect.value;
+    budgetItemForm.elements.allocated.value = "0,00";
+    budgetItemForm.elements.additional.value = "0,00";
+  }
+  budgetItemModal.showModal();
+}
+
+function closeBudgetItemDialog() {
+  editingBudgetItemId = null;
+  budgetItemModal.close();
+}
+
+function openBudgetExpenseModal(expense = null) {
+  if (!selectedBudgetItemId) {
+    showToast("Önce bir ödenek kalemi seç.");
+    return;
+  }
+  budgetExpenseForm.reset();
+  editingBudgetExpenseId = expense ? expense.id : null;
+  budgetExpenseModalMode.textContent = expense ? "Harcama kaydı" : "Yeni harcama";
+  budgetExpenseModalTitle.textContent = expense ? "Harcamayı Düzenle" : "Harcama Ekle";
+  if (expense) {
+    budgetExpenseForm.elements.date.value = expense.date || "";
+    budgetExpenseForm.elements.amount.value = formatMoney(expense.amount);
+    budgetExpenseForm.elements.payee.value = expense.payee || "";
+    budgetExpenseForm.elements.purpose.value = expense.purpose || "";
+    budgetExpenseForm.elements.note.value = expense.note || "";
+  } else {
+    budgetExpenseForm.elements.date.value = new Date().toISOString().slice(0, 10);
+    budgetExpenseForm.elements.amount.value = "";
+  }
+  budgetExpenseModal.showModal();
+}
+
+function closeBudgetExpenseDialog() {
+  editingBudgetExpenseId = null;
+  budgetExpenseModal.close();
+}
+
 function closeActionMenus() {
   document
     .querySelectorAll(".action-menu")
@@ -3583,11 +4045,13 @@ yearSelect.addEventListener("change", (event) => {
   approvalYearFilter.value = year;
   leaveYearFilter.value = year;
   dutyYearFilter.value = year;
+  budgetYearFilter.value = year;
   approvalForm.elements.year.value = year;
   approvalForm.elements.no.value = getNextApprovalNo(year);
   renderAudits();
   renderApprovals();
   renderLeaves();
+  renderBudget();
   setActiveModule(activeModule);
 });
 
@@ -3672,6 +4136,16 @@ reportsNav.addEventListener("click", (event) => {
 monitoringNav.addEventListener("click", (event) => {
   event.preventDefault();
   setActiveModule("monitoring");
+});
+
+budgetNav.addEventListener("click", (event) => {
+  event.preventDefault();
+  setActiveModule("budget");
+});
+
+stockNav.addEventListener("click", (event) => {
+  event.preventDefault();
+  setActiveModule("stock");
 });
 
 adminNav?.addEventListener("click", (event) => {
@@ -4046,6 +4520,72 @@ closeLeaveRightModal.addEventListener("click", closeLeaveRightDialog);
 cancelLeaveRight.addEventListener("click", closeLeaveRightDialog);
 closeDutyModal.addEventListener("click", closeDutyDialog);
 cancelDuty.addEventListener("click", closeDutyDialog);
+newBudgetItemBtn.addEventListener("click", () => openBudgetItemModal());
+closeBudgetItemModal.addEventListener("click", closeBudgetItemDialog);
+cancelBudgetItem.addEventListener("click", closeBudgetItemDialog);
+closeBudgetExpenseModal.addEventListener("click", closeBudgetExpenseDialog);
+cancelBudgetExpense.addEventListener("click", closeBudgetExpenseDialog);
+backToBudget.addEventListener("click", () => setActiveModule("budget"));
+detailBudgetExpenseBtn.addEventListener("click", () => openBudgetExpenseModal());
+downloadBudgetExcel.addEventListener("click", downloadBudgetCsv);
+printBudgetReport.addEventListener("click", () => window.print());
+
+budgetRows.addEventListener("click", (event) => {
+  const selectButton = event.target.closest("[data-budget-select]");
+  const actionButton = event.target.closest("[data-budget-item-action]");
+  if (selectButton) {
+    selectedBudgetItemId = Number(selectButton.dataset.budgetSelect);
+    setActiveModule("budgetDetail");
+    return;
+  }
+  if (!actionButton) return;
+  const item = budgetItems.find((record) => String(record.id) === String(actionButton.dataset.id));
+  if (!item) return;
+  if (actionButton.dataset.budgetItemAction === "edit") {
+    openBudgetItemModal(item);
+    return;
+  }
+});
+
+budgetExpenseTableRows.addEventListener("click", (event) => {
+  handleBudgetExpenseAction(event);
+});
+
+function handleBudgetExpenseAction(event) {
+  const actionButton = event.target.closest("[data-budget-expense-action]");
+  if (!actionButton) return;
+  const expense = budgetExpenses.find((record) => String(record.id) === String(actionButton.dataset.id));
+  if (!expense) return;
+  if (actionButton.dataset.budgetExpenseAction === "edit") {
+    selectedBudgetItemId = expense.itemId;
+    openBudgetExpenseModal(expense);
+    return;
+  }
+  if (actionButton.dataset.budgetExpenseAction === "delete" && confirm("Bu harcama kaydı silinsin mi?")) {
+    markRecordDeleted("budgetExpenses", expense);
+    budgetExpenses = budgetExpenses.filter((record) => String(record.id) !== String(expense.id));
+    saveBudgetRecords();
+    renderBudget();
+    if (activeModule === "budgetDetail") renderBudgetDetailPage();
+    showToast("Harcama kaydı silindi.");
+  }
+}
+
+[budgetYearFilter, budgetSearchInput].forEach((control) => {
+  control.addEventListener("input", renderBudget);
+  control.addEventListener("change", renderBudget);
+});
+
+[budgetItemForm.elements.allocated, budgetItemForm.elements.additional, budgetExpenseForm.elements.amount].forEach((input) => {
+  input.addEventListener("focus", () => clearMoneyFieldForEditing(input));
+  input.addEventListener("blur", () => formatMoneyField(input));
+});
+
+clearBudgetFilters.addEventListener("click", () => {
+  budgetYearFilter.value = yearSelect.value;
+  budgetSearchInput.value = "";
+  renderBudget();
+});
 
 monitoringForm.elements.monitoringResultDocument.addEventListener("change", () => {
   if (!editingMonitoringAudit) {
@@ -4722,6 +5262,62 @@ leaveForm.addEventListener("submit", (event) => {
   saveLeaves();
   renderLeaves();
   closeLeaveDialog();
+});
+
+budgetItemForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const formData = new FormData(budgetItemForm);
+  const year = String(formData.get("year"));
+  const code = String(formData.get("code"));
+  const existingSameCode = budgetItems.find((record) =>
+    String(record.year) === year && record.code === code && String(record.id) !== String(editingBudgetItemId || ""),
+  );
+  const item = {
+    id: editingBudgetItemId || existingSameCode?.id || Math.max(...budgetItems.map((record) => Number(record.id) || 0), 0) + 1,
+    year,
+    code,
+    allocated: numberValue(formData.get("allocated")),
+    additional: numberValue(formData.get("additional")),
+    note: String(formData.get("note")).trim(),
+  };
+  const existingIndex = budgetItems.findIndex((record) => String(record.id) === String(item.id));
+  if (existingIndex >= 0) budgetItems[existingIndex] = item;
+  else budgetItems.push(item);
+  selectedBudgetItemId = item.id;
+  budgetYearFilter.value = item.year;
+  saveBudgetRecords();
+  renderBudget();
+  if (activeModule === "budgetDetail") renderBudgetDetailPage();
+  closeBudgetItemDialog();
+  showToast("Bütçe kalemi kaydedildi.");
+});
+
+budgetExpenseForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (!selectedBudgetItemId) {
+    showToast("Önce bir ödenek kalemi seç.");
+    return;
+  }
+  const formData = new FormData(budgetExpenseForm);
+  const selectedItem = budgetItems.find((item) => String(item.id) === String(selectedBudgetItemId));
+  const expense = {
+    id: editingBudgetExpenseId || Math.max(...budgetExpenses.map((record) => Number(record.id) || 0), 0) + 1,
+    itemId: selectedBudgetItemId,
+    year: selectedItem?.year || budgetYearFilter.value,
+    date: String(formData.get("date")),
+    amount: numberValue(formData.get("amount")),
+    payee: String(formData.get("payee")).trim(),
+    purpose: String(formData.get("purpose")).trim(),
+    note: String(formData.get("note")).trim(),
+  };
+  const existingIndex = budgetExpenses.findIndex((record) => String(record.id) === String(expense.id));
+  if (existingIndex >= 0) budgetExpenses[existingIndex] = expense;
+  else budgetExpenses.push(expense);
+  saveBudgetRecords();
+  if (activeModule === "budgetDetail") renderBudgetDetailPage();
+  else renderBudget();
+  closeBudgetExpenseDialog();
+  showToast("Harcama kaydı kaydedildi.");
 });
 
 dutyForm.addEventListener("submit", async (event) => {

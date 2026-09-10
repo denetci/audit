@@ -30,9 +30,9 @@ class PermissionAPI(unittest.TestCase):
         with app.get_connection() as c:
             c.execute('DELETE FROM records'); c.execute('DELETE FROM sessions')
             c.execute('DELETE FROM users WHERE username != ?', (app.OWNER_USERNAME,))
-            for name, perms in [('leave', {'leaves':'edit'}), ('duty', {'duties':'view'}), ('monitor', {'monitoring':'edit'}), ('none', {})]:
+            for name, perms in [('leave', {'leaves':'edit'}), ('duty', {'duties':'view'}), ('budget', {'budget':'edit'}), ('monitor', {'monitoring':'edit'}), ('none', {})]:
                 c.execute('INSERT INTO users(username,email,password_hash,display_name,role,permissions) VALUES(?,?,?,?,?,?)', (name,name+'@test.invalid', app.hash_password('testpass'), name,'user', json.dumps(normalize_permissions(perms))))
-            app.upsert_records(c, {'leaves':[{'id':1,'year':self.year,'person':'P','type':'Rapor','note':'private'}], 'dutyRecords':[{'id':2,'year':self.year,'person':'P'}], 'personnelRecords':[{'no':1,'group':'G','name':'P','certificate':'private'}], 'audits':[{'no':1,'year':self.year,'scope':'Audit','findingCount':1,'privateField':'secret'}]})
+            app.upsert_records(c, {'leaves':[{'id':1,'year':self.year,'person':'P','type':'Rapor','note':'private'}], 'dutyRecords':[{'id':2,'year':self.year,'person':'P'}], 'budgetItems':[{'id':1,'year':self.year,'code':'03.5 HİZMET ALIMLARI','allocated':1000,'additional':0}], 'budgetExpenses':[{'id':1,'itemId':1,'year':self.year,'amount':250,'payee':'Firma','purpose':'Bakım'}], 'personnelRecords':[{'no':1,'group':'G','name':'P','certificate':'private'}], 'audits':[{'no':1,'year':self.year,'scope':'Audit','findingCount':1,'privateField':'secret'}]})
     def request(self, path, body=None, cookie=None):
         req=urllib.request.Request(self.url+path, data=json.dumps(body).encode() if body is not None else None, headers={'Content-Type':'application/json', **({'Cookie':cookie} if cookie else {})})
         try:
@@ -88,6 +88,20 @@ class PermissionAPI(unittest.TestCase):
         self.assertEqual(self.request('/api/admin/users',{'username':'new','email':'new@test.invalid','password':'testpass'},owner)[0],200)
         _,data,_=self.request('/api/state',cookie=self.login('new'))
         self.assertTrue(all(data[c]==[] for c in app.COLLECTIONS))
+    def test_budget_permission_and_refresh(self):
+        cookie=self.login('budget')
+        status,data,_=self.request('/api/state',cookie=cookie)
+        self.assertEqual(status,200)
+        self.assertEqual(len(data['budgetItems']),1)
+        self.assertEqual(len(data['budgetExpenses']),1)
+        self.assertEqual(data['leaves'],[])
+        item={'id':1,'year':self.year,'code':'03.5 HİZMET ALIMLARI','allocated':1500,'additional':500}
+        expense={'id':2,'itemId':1,'year':self.year,'amount':300,'payee':'Kişi','purpose':'Yolluk','date':self.year+'-09-10'}
+        self.assertEqual(self.request('/api/state',{'budgetItems':[item],'budgetExpenses':[expense]},cookie)[0],200)
+        _,data,_=self.request('/api/state',cookie=cookie)
+        self.assertEqual(data['budgetItems'][0]['allocated'],1500)
+        self.assertTrue(any(record['purpose']=='Yolluk' for record in data['budgetExpenses']))
+        self.assertEqual(self.request('/api/state',{'dutyRecords':[{'id':5,'year':self.year}]},cookie)[0],403)
     def test_document_type_relabel_denied(self):
         with app.get_connection() as c:
             app.upsert_records(c,{'reportDocuments':[{'id':'d','documentType':'Rapor','fileData':'private'}]})

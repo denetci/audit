@@ -102,6 +102,8 @@
             </div>
           </div>
           <a href="#"><span class="nav-icon">◇</span>Eğitimler</a>
+          <a id="budgetNav" href="#butce-islemleri-panel"><span class="nav-icon">₺</span>Bütçe İşlemleri</a>
+          <a id="stockNav" href="#stok-islemleri-panel"><span class="nav-icon">▦</span>Stok İşlemleri</a>
           <a id="monitoringNav" href="#izleme-faaliyetleri-panel"><span class="nav-icon">◎</span>İzleme Faaliyetleri</a>
           <a id="reportsNav" href="#rapor-arsivi-panel"><span class="nav-icon">▢</span>Rapor Arşivi</a>
           <a id="adminNav" href="#yonetim-panel" hidden><span class="nav-icon">⚙</span>Yönetim</a>
@@ -513,6 +515,180 @@
               <div class="empty-state" id="leaveEmptyState" hidden>
                 <strong>İzin kaydı bulunamadı</strong>
                 <span>Filtreleri değiştirerek aramayı genişletebilirsin.</span>
+              </div>
+            </section>
+
+            <section class="panel budget-panel" id="butce-islemleri-panel" data-view="budget" hidden>
+              <div class="panel-head">
+                <div>
+                  <h2>Bütçe İşlemleri</h2>
+                  <p class="eyebrow">Ödenek kalemleri, kullanılabilir tutarlar ve harcama hareketleri</p>
+                </div>
+                <div class="panel-actions">
+                  <span class="panel-count"><strong id="budgetItemCount">0</strong> kalem</span>
+                  <button class="btn secondary" id="newBudgetItemBtn" type="button">＋ Kalem Ekle</button>
+                </div>
+              </div>
+
+              <div class="stats budget-stats" aria-label="Bütçe özetleri">
+                <article class="card">
+                  <div class="stat-top"><div class="stat-icon bg-blue">₺</div></div>
+                  <p>Alınan Ödenek</p>
+                  <div class="value"><strong id="budgetTotalAllocated">0</strong><span>TL</span></div>
+                  <div class="note">Seçili yıl ana ödenek toplamı</div>
+                </article>
+                <article class="card">
+                  <div class="stat-top"><div class="stat-icon bg-green">＋</div></div>
+                  <p>Ek Ödenek</p>
+                  <div class="value"><strong id="budgetTotalAdditional">0</strong><span>TL</span></div>
+                  <div class="note">Yıl içinde eklenen ödenekler</div>
+                </article>
+                <article class="card">
+                  <div class="stat-top"><div class="stat-icon bg-amber">−</div></div>
+                  <p>Kullanılan</p>
+                  <div class="value"><strong id="budgetTotalUsed">0</strong><span>TL</span></div>
+                  <div class="note">Harcama kayıtlarının toplamı</div>
+                </article>
+                <article class="card">
+                  <div class="stat-top"><div class="stat-icon bg-cyan">=</div></div>
+                  <p>Kullanılabilir</p>
+                  <div class="value"><strong id="budgetTotalAvailable">0</strong><span>TL</span></div>
+                  <div class="note">Alınan ve ek ödenekten kalan tutar</div>
+                </article>
+              </div>
+
+              <div class="module-filters budget-filters" aria-label="Bütçe filtreleri">
+                <label>
+                  Yıl
+                  <select id="budgetYearFilter">
+                    <option value="2026" selected>2026</option>
+                    <option value="2025">2025</option>
+                    <option value="2024">2024</option>
+                  </select>
+                </label>
+                <label class="wide-filter">
+                  Arama
+                  <input id="budgetSearchInput" placeholder="Ödenek kalemi veya harcama ara..." />
+                </label>
+                <button class="btn secondary" id="clearBudgetFilters" type="button">Temizle</button>
+              </div>
+
+              <div class="budget-insights" id="budgetInsights"></div>
+
+              <div class="budget-workspace">
+                <div class="table-wrap budget-items-wrap">
+                  <table class="budget-table">
+                    <thead>
+                      <tr>
+                        <th>Ödenek Kalemi</th>
+                        <th>Alınan Ödenek</th>
+                        <th>Ek Ödenek</th>
+                        <th>Kullanılan Ödenek</th>
+                        <th>Kullanılabilir Ödenek</th>
+                        <th>İşlem</th>
+                      </tr>
+                    </thead>
+                    <tbody id="budgetRows"></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="empty-state" id="budgetEmptyState" hidden>
+                <strong>Bütçe kalemi bulunamadı</strong>
+                <span>Yeni kalem ekleyebilir veya filtreleri değiştirebilirsin.</span>
+              </div>
+            </section>
+
+            <section class="panel stock-panel" id="stok-islemleri-panel" data-view="stock" hidden>
+              <div class="panel-head">
+                <div>
+                  <h2>Stok İşlemleri</h2>
+                  <p class="eyebrow">Stok kartları ve taşınır hareketleri için hazırlanan modül alanı</p>
+                </div>
+              </div>
+              <div class="empty-state">
+                <strong>Stok modülü hazırlandı</strong>
+                <span>Stok kartları, giriş-çıkış hareketleri ve zimmet alanlarını sonraki adımda bağlayabiliriz.</span>
+              </div>
+            </section>
+
+            <section class="panel budget-detail-page" id="butce-kalem-detay-panel" data-view="budgetDetail" hidden>
+              <div class="budget-detail-hero">
+                <button class="btn secondary" id="backToBudget" type="button">← Bütçe Özetine Dön</button>
+                <div>
+                  <p class="eyebrow" id="budgetDetailPageYear">2026 bütçe kalemi</p>
+                  <h2 id="budgetDetailPageTitle">Ödenek Kalemi</h2>
+                  <span id="budgetDetailPageNote"></span>
+                </div>
+                <div class="budget-report-actions">
+                  <button class="btn secondary" id="downloadBudgetExcel" type="button">Excel İndir</button>
+                  <button class="btn primary" id="printBudgetReport" type="button">PDF / Yazdır</button>
+                  <button class="btn primary" id="detailBudgetExpenseBtn" type="button">＋ Harcama Ekle</button>
+                </div>
+              </div>
+
+              <div class="budget-detail-dashboard">
+                <article>
+                  <span>Alınan Ödenek</span>
+                  <strong id="detailAllocated">0,00 TL</strong>
+                </article>
+                <article>
+                  <span>Ek Ödenek</span>
+                  <strong id="detailAdditional">0,00 TL</strong>
+                </article>
+                <article>
+                  <span>Kullanılan</span>
+                  <strong id="detailUsed">0,00 TL</strong>
+                </article>
+                <article>
+                  <span>Kullanılabilir</span>
+                  <strong id="detailAvailable">0,00 TL</strong>
+                </article>
+              </div>
+
+              <div class="budget-progress-block">
+                <div class="budget-progress-head">
+                  <strong>Ödenek Kullanım Oranı</strong>
+                  <span id="budgetUsageRate">0%</span>
+                </div>
+                <div class="budget-progress-track">
+                  <span id="budgetUsageBar"></span>
+                </div>
+              </div>
+
+              <div class="budget-detail-layout">
+                <section class="budget-timeline-panel">
+                  <div class="sub-panel-head">
+                    <div>
+                      <h3>Harcama Akışı</h3>
+                      <p class="eyebrow">Son harcamadan geçmişe doğru</p>
+                    </div>
+                  </div>
+                  <div class="budget-timeline" id="budgetTimeline"></div>
+                </section>
+
+                <section class="budget-expense-table-panel">
+                  <div class="sub-panel-head">
+                    <div>
+                      <h3>Harcama Listesi</h3>
+                      <p class="eyebrow" id="budgetExpenseTableSummary">0 harcama kaydı</p>
+                    </div>
+                  </div>
+                  <div class="table-wrap compact-table">
+                    <table class="budget-expense-table">
+                      <thead>
+                        <tr>
+                          <th>Tarih</th>
+                          <th>Ne İçin</th>
+                          <th>Kime Ödendi</th>
+                          <th>Tutar</th>
+                          <th>Not</th>
+                          <th>İşlem</th>
+                        </tr>
+                      </thead>
+                      <tbody id="budgetExpenseTableRows"></tbody>
+                    </table>
+                  </div>
+                </section>
               </div>
             </section>
 
@@ -1403,6 +1579,98 @@
         <div class="modal-actions">
           <button class="btn secondary" id="cancelDuty" type="button">Vazgeç</button>
           <button class="btn primary" id="saveDutyBtn" type="submit">Kaydet</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="budgetItemModal">
+      <form class="modal-card" id="budgetItemForm" method="dialog">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow" id="budgetItemModalMode">Yeni ödenek kalemi</p>
+            <h2 id="budgetItemModalTitle">Kalem Ekle</h2>
+          </div>
+          <button class="icon-btn" id="closeBudgetItemModal" type="button" aria-label="Kapat">×</button>
+        </div>
+        <div class="form-grid">
+          <label>
+            Yıl
+            <select name="year" required>
+              <option>2026</option>
+              <option>2025</option>
+              <option>2024</option>
+            </select>
+          </label>
+          <label>
+            Ödenek Kalemi
+            <select name="code" required>
+              <option>01 PERSONEL GİDERLERİ</option>
+              <option>01.01 MEMURLAR</option>
+              <option>02 SOSYAL GÜVENLİK KURUMLARINA DEVLET PRİMİ GİDERLER</option>
+              <option>02.01 MEMURLAR</option>
+              <option>03.1 ÜRETİME YÖNELİK MAL VE MALZEME ALIMLARI</option>
+              <option>03.2 TÜKETİME YÖNELİK MAL VE MALZEME ALIMLARI</option>
+              <option>03.3 YOLLUKLAR</option>
+              <option>03.5 HİZMET ALIMLARI</option>
+              <option>03.6 TEMSİL VE TANITMA GİDERLERİ</option>
+              <option>03.7 MENKUL MAL, GAYRİMADDİ HAK ALIM, BAKIM VE ONARIM GİDERLERİ</option>
+              <option>03.8 GAYRİMENKUL MAL BAKIM VE ONARIM GİDERLERİ</option>
+            </select>
+          </label>
+          <label>
+            Alınan Ödenek
+            <input name="allocated" inputmode="decimal" value="0,00" required />
+          </label>
+          <label>
+            Ek Ödenek
+            <input name="additional" inputmode="decimal" value="0,00" required />
+          </label>
+          <label class="span-2">
+            Not
+            <textarea name="note" placeholder="Gerekirse kısa not"></textarea>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="btn secondary" id="cancelBudgetItem" type="button">Vazgeç</button>
+          <button class="btn primary" id="saveBudgetItemBtn" type="submit">Kaydet</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="budgetExpenseModal">
+      <form class="modal-card" id="budgetExpenseForm" method="dialog">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow" id="budgetExpenseModalMode">Yeni harcama</p>
+            <h2 id="budgetExpenseModalTitle">Harcama Ekle</h2>
+          </div>
+          <button class="icon-btn" id="closeBudgetExpenseModal" type="button" aria-label="Kapat">×</button>
+        </div>
+        <div class="form-grid">
+          <label>
+            Tarih
+            <input name="date" type="date" required />
+          </label>
+          <label>
+            Tutar
+            <input name="amount" inputmode="decimal" required />
+          </label>
+          <label>
+            Kime Ödendi
+            <input name="payee" required placeholder="Kişi, kurum veya firma" />
+          </label>
+          <label>
+            Ne İçin
+            <input name="purpose" required placeholder="Harcama açıklaması" />
+          </label>
+          <label class="span-2">
+            Not
+            <textarea name="note" placeholder="Fatura, olur veya açıklama bilgisi"></textarea>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="btn secondary" id="cancelBudgetExpense" type="button">Vazgeç</button>
+          <button class="btn primary" id="saveBudgetExpenseBtn" type="submit">Kaydet</button>
         </div>
       </form>
     </dialog>

@@ -1,8 +1,8 @@
 """Server-side module permissions and record projections."""
 from datetime import datetime
 
-MODULES = {"dashboard": "Faaliyet Paneli", "audits": "Denetimler", "approvals": "Olurlar", "personnel": "Personel", "leaves": "Personel İzinleri", "duties": "Görev Durumu", "monitoring": "İzleme Faaliyetleri", "reports": "Rapor Arşivi"}
-COLLECTION_MODULE = {"approvals": "approvals", "leaves": "leaves", "leaveRights": "leaves", "dutyRecords": "duties", "personnelRecords": "personnel"}
+MODULES = {"dashboard": "Faaliyet Paneli", "audits": "Denetimler", "approvals": "Olurlar", "personnel": "Personel", "leaves": "Personel İzinleri", "duties": "Görev Durumu", "budget": "Bütçe İşlemleri", "stock": "Stok İşlemleri", "monitoring": "İzleme Faaliyetleri", "reports": "Rapor Arşivi"}
+COLLECTION_MODULE = {"approvals": "approvals", "leaves": "leaves", "leaveRights": "leaves", "dutyRecords": "duties", "budgetItems": "budget", "budgetExpenses": "budget", "stockItems": "stock", "personnelRecords": "personnel"}
 MONITOR_FIELDS = {"monitoringAuditName", "monitoringOfficer", "findingCount", "openFindingCount", "monitoringDueDate"}
 AUDIT_SUMMARY = {"year", "no", "start", "end", "unit", "scope", "type", "team", "supervisor", "status", "deletedAt"}
 DIRECTORY_FIELDS = {"no", "name", "title", "group", "unit", "status"}

@@ -35,6 +35,9 @@ COLLECTIONS = (
     "leaves",
     "leaveRights",
     "dutyRecords",
+    "budgetItems",
+    "budgetExpenses",
+    "stockItems",
     "reportDocuments",
     "personnelRecords",
 )
@@ -48,7 +51,7 @@ def record_key(collection, record):
             return ""
         return f"{year}-{number}"
 
-    if collection in ("leaves", "leaveRights", "dutyRecords"):
+    if collection in ("leaves", "leaveRights", "dutyRecords", "budgetItems", "budgetExpenses", "stockItems"):
         record_id = record.get("id")
         if record_id is None:
             return ""
