@@ -7,6 +7,36 @@
     <link rel="icon" type="image/png" href="tarim-orman-logo.png" />
     <link rel="apple-touch-icon" href="tarim-orman-logo.png" />
     <link rel="stylesheet" href="style.css?v=20260910-budget-detail" />
+    <style>
+      .budget-detail-page.report-surface{overflow:hidden;background:#f7fafc;border-color:#d8e3f1}
+      .budget-detail-hero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:18px;align-items:center;border-bottom:1px solid #d5e1ef;background:linear-gradient(135deg,#fff 0%,#eef6ff 100%);padding:20px 22px}
+      .budget-detail-hero h2{margin:4px 0 6px;color:#0f172a;font-size:26px;line-height:1.25}
+      .budget-detail-hero span{color:#64748b;font-size:13px;font-weight:750}
+      .budget-report-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+      .budget-detail-summary-strip{display:grid;grid-template-columns:.85fr .65fr 1fr;gap:12px;padding:16px 22px 0}
+      .budget-detail-summary-strip article{display:grid;gap:5px;border:1px solid #dbe6f3;border-left:4px solid #1558b0;border-radius:8px;background:#fff;padding:12px 14px}
+      .budget-detail-summary-strip article.good{border-left-color:#16824a}.budget-detail-summary-strip article.danger{border-left-color:#c93434}.budget-detail-summary-strip article.quiet{border-left-color:#c47a08}
+      .budget-detail-summary-strip span,.budget-detail-dashboard span{color:#64748b;font-size:11px;font-weight:900;text-transform:uppercase}
+      .budget-detail-summary-strip strong{color:#0f172a;font-size:15px}
+      .budget-detail-dashboard{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:16px 22px}
+      .budget-detail-dashboard article{display:grid;gap:9px;border:1px solid #dbe6f3;border-radius:8px;background:#fff;box-shadow:0 10px 24px rgba(15,23,42,.04);padding:16px}
+      .budget-detail-dashboard strong{color:#0f172a;font-size:24px;line-height:1}
+      .budget-progress-block{display:grid;gap:8px;border-block:1px solid #edf2f7;background:#fff;padding:15px 22px}
+      .budget-progress-head{display:flex;justify-content:space-between;gap:12px;color:#334155;font-size:13px;font-weight:850}
+      .budget-progress-track{height:12px;overflow:hidden;border-radius:999px;background:#e5edf7}
+      .budget-progress-track span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#16824a,#0e7490)}
+      .budget-progress-track span.over-limit{background:linear-gradient(90deg,#c47a08,#c93434)}
+      .budget-detail-layout{display:grid;grid-template-columns:minmax(320px,.8fr) minmax(620px,1.2fr);gap:16px;padding:16px 22px 22px}
+      .budget-timeline-panel,.budget-expense-table-panel{border:1px solid #dbe4ef;border-radius:8px;background:#fff;box-shadow:0 10px 26px rgba(15,23,42,.04);padding:15px}
+      .budget-timeline{display:grid;max-height:430px;gap:10px;overflow:auto;padding-right:4px}
+      .budget-timeline article{display:grid;grid-template-columns:92px minmax(0,1fr);gap:12px;border-left:3px solid #1558b0;border-radius:0 8px 8px 0;background:#fff;padding:10px 12px}
+      .budget-timeline time{color:#1558b0;font-size:12px;font-weight:900}
+      .budget-timeline strong,.budget-timeline span{display:block}.budget-timeline strong{color:#0f172a;font-size:13px}.budget-timeline span{color:#64748b;font-size:12px;line-height:1.4}
+      .budget-expense-table{min-width:920px}
+      @media (max-width:1180px){.budget-detail-hero,.budget-detail-summary-strip,.budget-detail-layout{grid-template-columns:1fr}.budget-report-actions{justify-content:flex-start}.budget-detail-dashboard{grid-template-columns:repeat(2,minmax(0,1fr))}}
+      @media (max-width:700px){.budget-detail-dashboard{grid-template-columns:1fr}.budget-detail-hero{padding:16px}.budget-detail-summary-strip,.budget-detail-dashboard,.budget-progress-block,.budget-detail-layout{padding-inline:16px}}
+      @media print{.sidebar,.topbar,.budget-detail-hero>.btn,.budget-report-actions,.toast{display:none!important}[data-view]:not([data-view="budgetDetail"]){display:none!important}.budget-detail-layout{grid-template-columns:1fr}.table-wrap,.budget-timeline{max-height:none;overflow:visible}}
+    </style>
   </head>
   <body>
     <section class="auth-screen" id="authScreen">
