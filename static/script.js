@@ -304,6 +304,7 @@ const backToBudget = document.querySelector("#backToBudget");
 const budgetDetailPageYear = document.querySelector("#budgetDetailPageYear");
 const budgetDetailPageTitle = document.querySelector("#budgetDetailPageTitle");
 const budgetDetailPageNote = document.querySelector("#budgetDetailPageNote");
+const budgetDetailSummaryStrip = document.querySelector("#budgetDetailSummaryStrip");
 const detailBudgetExpenseBtn = document.querySelector("#detailBudgetExpenseBtn");
 const downloadBudgetExcel = document.querySelector("#downloadBudgetExcel");
 const printBudgetReport = document.querySelector("#printBudgetReport");
@@ -2936,10 +2937,27 @@ function renderBudgetDetailPage() {
   const available = budgetAvailableAmount(item);
   const totalBudget = allocated + additional;
   const usageRate = totalBudget > 0 ? Math.min(999, Math.round((used / totalBudget) * 100)) : 0;
+  const lastExpense = expenses[0];
+  const statusText = available < 0 ? "Ödenek aşımı var" : used === 0 ? "Henüz harcama yok" : "Denge uygun";
+  const statusClass = available < 0 ? "danger" : used === 0 ? "quiet" : "good";
 
   budgetDetailPageYear.textContent = `${item.year} bütçe kalemi`;
   budgetDetailPageTitle.textContent = item.code;
   budgetDetailPageNote.textContent = item.note || "Bu kaleme ait ödenek ve harcama hareketleri";
+  budgetDetailSummaryStrip.innerHTML = `
+    <article class="${statusClass}">
+      <span>Durum</span>
+      <strong>${statusText}</strong>
+    </article>
+    <article>
+      <span>Harcama Sayısı</span>
+      <strong>${expenses.length} kayıt</strong>
+    </article>
+    <article>
+      <span>Son Harcama</span>
+      <strong>${lastExpense ? `${formatDate(lastExpense.date)} · ${formatMoney(lastExpense.amount)} TL` : "Kayıt yok"}</strong>
+    </article>
+  `;
   detailAllocated.textContent = `${formatMoney(allocated)} TL`;
   detailAdditional.textContent = `${formatMoney(additional)} TL`;
   detailUsed.textContent = `${formatMoney(used)} TL`;

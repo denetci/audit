@@ -6,7 +6,7 @@
     <title>İç Denetim Başkanlığı Faaliyet Paneli</title>
     <link rel="icon" type="image/png" href="tarim-orman-logo.png" />
     <link rel="apple-touch-icon" href="tarim-orman-logo.png" />
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="style.css?v=20260910-budget-detail" />
   </head>
   <body>
     <section class="auth-screen" id="authScreen">
@@ -611,7 +611,7 @@
               </div>
             </section>
 
-            <section class="panel budget-detail-page" id="butce-kalem-detay-panel" data-view="budgetDetail" hidden>
+            <section class="panel budget-detail-page report-surface" id="butce-kalem-detay-panel" data-view="budgetDetail" hidden>
               <div class="budget-detail-hero">
                 <button class="btn secondary" id="backToBudget" type="button">← Bütçe Özetine Dön</button>
                 <div>
@@ -625,6 +625,8 @@
                   <button class="btn primary" id="detailBudgetExpenseBtn" type="button">＋ Harcama Ekle</button>
                 </div>
               </div>
+
+              <div class="budget-detail-summary-strip" id="budgetDetailSummaryStrip"></div>
 
               <div class="budget-detail-dashboard">
                 <article>
@@ -1674,7 +1676,7 @@
         </div>
       </form>
     </dialog>
-    <script src="script.js"></script>
+    <script src="script.js?v=20260910-budget-detail"></script>
   </body>
 </html>
 
