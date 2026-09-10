@@ -1191,6 +1191,30 @@
         line-height: 1.4;
       }
 
+      .budget-filter-total {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 12px;
+        border: 1px solid #dbe6f3;
+        border-radius: var(--radius);
+        background: linear-gradient(135deg, #f8fbff 0%, #ffffff 100%);
+        color: #0f172a;
+        padding: 12px 14px;
+      }
+
+      .budget-filter-total strong {
+        color: #1558b0;
+        font-size: 14px;
+      }
+
+      .budget-filter-total span {
+        font-size: 14px;
+        font-weight: 850;
+        text-align: right;
+      }
+
       .budget-expense-table {
         min-width: 920px;
       }

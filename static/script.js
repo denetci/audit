@@ -320,6 +320,7 @@ const budgetDetailPersonFilter = document.querySelector("#budgetDetailPersonFilt
 const budgetDetailSearchInput = document.querySelector("#budgetDetailSearchInput");
 const clearBudgetDetailFilters = document.querySelector("#clearBudgetDetailFilters");
 const budgetTimeline = document.querySelector("#budgetTimeline");
+const budgetFilterTotal = document.querySelector("#budgetFilterTotal");
 const budgetExpenseTableSummary = document.querySelector("#budgetExpenseTableSummary");
 const budgetExpenseTableRows = document.querySelector("#budgetExpenseTableRows");
 const reportArchiveCount = document.querySelector("#reportArchiveCount");
@@ -2958,6 +2959,14 @@ function renderBudgetDetailPersonOptions(expenses) {
   budgetDetailPersonFilter.value = people.includes(currentValue) ? currentValue : "";
 }
 
+function budgetDetailFilterLabel() {
+  const person = budgetDetailPersonFilter.value;
+  const query = (budgetDetailSearchInput.value || "").trim();
+  if (person) return person;
+  if (query) return query;
+  return "Bu kalemde";
+}
+
 function renderBudgetDetailPage() {
   const item = selectedBudgetItem();
   if (!item) {
@@ -3003,6 +3012,13 @@ function renderBudgetDetailPage() {
   budgetUsageBar.style.width = `${Math.min(100, usageRate)}%`;
   budgetUsageBar.classList.toggle("over-limit", usageRate > 100);
   detailBudgetExpenseBtn.disabled = !canEditModule("budget");
+  const visibleTotal = visibleExpenses.reduce((sum, expense) => sum + numberValue(expense.amount), 0);
+  const filterLabel = budgetDetailFilterLabel();
+  const filteredText = visibleExpenses.length === expenses.length ? "" : ` · ${visibleExpenses.length} kayıt`;
+  budgetFilterTotal.innerHTML = `
+    <strong>${escapeHtml(filterLabel)}</strong>
+    <span>Toplam ödeme: ${formatMoney(visibleTotal)} TL${filteredText}</span>
+  `;
   budgetExpenseTableSummary.textContent = visibleExpenses.length === expenses.length
     ? `${expenses.length} harcama kaydı`
     : `${visibleExpenses.length} / ${expenses.length} harcama kaydı`;
