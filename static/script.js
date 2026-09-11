@@ -3639,6 +3639,18 @@ function renderLeaveOverview() {
   leaveUpcomingList.innerHTML = upcomingLeaves.length
     ? upcomingLeaves.map((leave) => createLeaveOverviewItem(leave, "upcoming")).join("")
     : `<div class="empty-inline">Yaklaşan izin başlangıcı bulunmuyor.</div>`;
+
+  return { activeLeaves, upcomingLeaves };
+}
+
+function getCriticalLeaveRights() {
+  return leaveRights.filter((right) => {
+    if (!matchesSelectedRecordYear(right, leaveYearFilter.value)) return false;
+    const totalRight = Number(right.entitled || 0) + Number(right.carried || 0);
+    if (totalRight <= 0) return false;
+    const remaining = totalRight - getUsedAnnualLeave(right.person, right.year);
+    return remaining <= 5;
+  });
 }
 
 function getDutyEndDate(duty) {
@@ -3990,18 +4002,14 @@ function renderLeaves() {
 
   leaveRows.innerHTML = "";
   const visibleLeaves = getVisibleLeaves();
-  const totalDays = visibleLeaves.reduce((sum, leave) => sum + Number(leave.days || 0), 0);
+  const overview = renderLeaveOverview();
+  const criticalRights = getCriticalLeaveRights();
 
-  renderLeaveOverview();
   visibleLeaves.forEach((leave) => leaveRows.append(createLeaveRow(leave)));
   leaveVisibleCount.textContent = visibleLeaves.length;
-  leaveTotalDays.textContent = totalDays;
-  leaveApprovedCount.textContent = visibleLeaves.filter(
-    (leave) => leave.status === "Onaylandı",
-  ).length;
-  leavePendingCount.textContent = visibleLeaves.filter(
-    (leave) => leave.status === "Beklemede",
-  ).length;
+  leaveTotalDays.textContent = overview.activeLeaves.length;
+  leaveApprovedCount.textContent = overview.upcomingLeaves.length;
+  leavePendingCount.textContent = criticalRights.length;
   leaveSummary.textContent =
     activeLeaveModule === "Bakiye"
       ? "Personel bazında kalan izin bilgileri için filtreleme yapılıyor."

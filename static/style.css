@@ -1259,6 +1259,26 @@
         background: #f8fbff;
       }
 
+      .leave-stats .card {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 10px 14px;
+        align-items: center;
+        min-height: 116px;
+      }
+
+      .leave-stats .stat-top {
+        grid-row: span 3;
+      }
+
+      .leave-stats .card p {
+        margin: 0;
+      }
+
+      .leave-stats .note {
+        line-height: 1.3;
+      }
+
       .leave-overview-card {
         overflow: hidden;
         border: 1px solid var(--line);
