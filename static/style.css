@@ -3087,6 +3087,17 @@
         box-shadow: 0 0 0 3px rgb(21 88 176 / 0.12);
       }
 
+      .person-picker {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .person-picker select {
+        min-width: 0;
+      }
+
       .modal-actions {
         display: flex;
         justify-content: flex-end;

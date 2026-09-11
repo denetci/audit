@@ -1329,6 +1329,12 @@
           <label>
             Denetim Ekibi
             <textarea name="team" required placeholder="Ad Soyad&#10;Ad Soyad"></textarea>
+            <div class="person-picker">
+              <select id="auditTeamPersonPicker">
+                <option value="">Personelden seç</option>
+              </select>
+              <button class="btn small secondary" id="addAuditTeamPerson" type="button">Ekle</button>
+            </div>
           </label>
           <label>
             Başlangıç
@@ -1351,6 +1357,12 @@
           <label>
             Denetim Gözetim Sorumlusu
             <input name="supervisor" required placeholder="Ad Soyad" />
+            <div class="person-picker">
+              <select id="auditSupervisorPersonPicker">
+                <option value="">Personelden seç</option>
+              </select>
+              <button class="btn small secondary" id="setAuditSupervisorPerson" type="button">Seç</button>
+            </div>
           </label>
         </div>
 
@@ -1387,6 +1399,12 @@
           <label>
             İzlemeden Sorumlu Denetçi
             <textarea name="monitoringOfficer" rows="3" placeholder="Her denetçiyi ayrı satıra yazabilirsiniz" required></textarea>
+            <div class="person-picker">
+              <select id="monitoringOfficerPersonPicker">
+                <option value="">Personelden seç</option>
+              </select>
+              <button class="btn small secondary" id="addMonitoringOfficerPerson" type="button">Ekle</button>
+            </div>
           </label>
           <label>
             Bulgu Sayısı

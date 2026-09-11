@@ -118,6 +118,10 @@ const auditSortButtons = Array.from(document.querySelectorAll("[data-audit-sort]
 const auditModal = document.querySelector("#auditModal");
 const auditForm = document.querySelector("#auditForm");
 const newAuditBtn = document.querySelector("#newAuditBtn");
+const auditTeamPersonPicker = document.querySelector("#auditTeamPersonPicker");
+const addAuditTeamPerson = document.querySelector("#addAuditTeamPerson");
+const auditSupervisorPersonPicker = document.querySelector("#auditSupervisorPersonPicker");
+const setAuditSupervisorPerson = document.querySelector("#setAuditSupervisorPerson");
 const migrateLocalDataBtn = document.querySelector("#migrateLocalDataBtn");
 const closeAuditModal = document.querySelector("#closeAuditModal");
 const cancelAudit = document.querySelector("#cancelAudit");
@@ -354,6 +358,8 @@ const monitoringSearchInput = document.querySelector("#monitoringSearchInput");
 const clearMonitoringFilters = document.querySelector("#clearMonitoringFilters");
 const monitoringModal = document.querySelector("#monitoringModal");
 const monitoringForm = document.querySelector("#monitoringForm");
+const monitoringOfficerPersonPicker = document.querySelector("#monitoringOfficerPersonPicker");
+const addMonitoringOfficerPerson = document.querySelector("#addMonitoringOfficerPerson");
 const monitoringDocumentInfo = document.querySelector("#monitoringDocumentInfo");
 const monitoringSelectedFileName = document.querySelector("#monitoringSelectedFileName");
 const closeMonitoringModal = document.querySelector("#closeMonitoringModal");
@@ -1794,10 +1800,11 @@ function findPersonnelByName(name) {
   );
 }
 
-function renderPersonnelOptions(selectElement, selectedName = "") {
+function renderPersonnelOptions(selectElement, selectedName = "", placeholder = "") {
   const people = getLeavePersonnel();
   const isDatalist = selectElement.tagName === "DATALIST";
-  selectElement.innerHTML = people
+  const placeholderOption = placeholder && !isDatalist ? `<option value="">${escapeHtml(placeholder)}</option>` : "";
+  selectElement.innerHTML = placeholderOption + people
     .map(
       (person) =>
         isDatalist
@@ -1805,6 +1812,26 @@ function renderPersonnelOptions(selectElement, selectedName = "") {
           : `<option value="${escapeHtml(person.name)}" ${normalizeText(person.name) === normalizeText(selectedName) ? "selected" : ""}>${escapeHtml(person.name)} · ${escapeHtml(person.title)}</option>`,
     )
     .join("");
+}
+
+function appendPersonToMultilineField(field, picker) {
+  const name = String(picker?.value || "").trim();
+  if (!name || !field) return;
+  const names = splitPersonNames(field.value);
+  if (!names.some((existing) => normalizeText(existing) === normalizeText(name))) {
+    names.push(name);
+  }
+  field.value = names.join("\n");
+  picker.value = "";
+  field.focus();
+}
+
+function setPersonField(field, picker) {
+  const name = String(picker?.value || "").trim();
+  if (!name || !field) return;
+  field.value = name;
+  picker.value = "";
+  field.focus();
 }
 
 function applySelectedPersonnelToForm(form) {
@@ -3962,6 +3989,8 @@ function openAuditModal(audit = null) {
     : "Yeni kayıt";
   auditModalTitle.textContent = audit ? "Denetim Düzenle" : "Denetim Ekle";
   saveAuditBtn.textContent = audit ? "Güncelle" : "Kaydet";
+  renderPersonnelOptions(auditTeamPersonPicker, "", "Personelden seç");
+  renderPersonnelOptions(auditSupervisorPersonPicker, "", "Personelden seç");
 
   if (audit) {
     auditForm.elements.unit.value = audit.unit;
@@ -3990,6 +4019,7 @@ function openMonitoringModal(audit) {
   monitoringForm.elements.unit.value = audit.unit;
   monitoringForm.elements.monitoringAuditName.value = details.auditName;
   monitoringForm.elements.monitoringOfficer.value = details.officer;
+  renderPersonnelOptions(monitoringOfficerPersonPicker, "", "Personelden seç");
   monitoringForm.elements.findingCount.value = details.findingCount;
   monitoringForm.elements.openFindingCount.value = details.openFindingCount;
   monitoringForm.elements.monitoringDueDate.value = details.dueDate;
@@ -4707,8 +4737,11 @@ leaveMenuToggle.addEventListener("click", () => {
 newAuditBtn.addEventListener("click", () => openAuditModal());
 closeAuditModal.addEventListener("click", closeModal);
 cancelAudit.addEventListener("click", closeModal);
+addAuditTeamPerson.addEventListener("click", () => appendPersonToMultilineField(auditForm.elements.team, auditTeamPersonPicker));
+setAuditSupervisorPerson.addEventListener("click", () => setPersonField(auditForm.elements.supervisor, auditSupervisorPersonPicker));
 closeMonitoringModal.addEventListener("click", closeMonitoringDialog);
 cancelMonitoring.addEventListener("click", closeMonitoringDialog);
+addMonitoringOfficerPerson.addEventListener("click", () => appendPersonToMultilineField(monitoringForm.elements.monitoringOfficer, monitoringOfficerPersonPicker));
 closeDocumentChoiceModal.addEventListener("click", () => documentChoiceModal.close());
 newApprovalBtn.addEventListener("click", () => openApprovalModal());
 closeApprovalModal.addEventListener("click", closeApprovalDialog);
