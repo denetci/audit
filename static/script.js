@@ -114,6 +114,7 @@ let leaveRights = [];
 const searchInput = document.querySelector("#searchInput");
 const yearSelect = document.querySelector("#yearSelect");
 const auditRows = document.querySelector("#auditRows");
+const auditSortButtons = Array.from(document.querySelectorAll("[data-audit-sort]"));
 const auditModal = document.querySelector("#auditModal");
 const auditForm = document.querySelector("#auditForm");
 const newAuditBtn = document.querySelector("#newAuditBtn");
@@ -381,6 +382,7 @@ const ownerPanelName = document.querySelector("#ownerPanelName");
 const ownerPanelMeta = document.querySelector("#ownerPanelMeta");
 let activeTypeFilter = "Tümü";
 let activeLeaveModule = "Personel";
+let auditSort = { key: "no", direction: "asc" };
 let activePersonnelModule = "Denetçiler";
 let activeQuickFilter = null;
 let selectedPersonnelKey = "";
@@ -1897,6 +1899,40 @@ function auditMatchesGroup(audit, groupName) {
   return groupTypes.includes(audit.type);
 }
 
+function auditSortValue(audit, key) {
+  if (key === "no") return Number(audit.no) || 0;
+  if (key === "date") return audit.start || audit.end || "";
+  if (key === "unit") return audit.unit || "";
+  if (key === "scope") return audit.scope || "";
+  if (key === "type") return audit.type || "";
+  if (key === "team") return getAuditTeamNames(audit).join(", ");
+  if (key === "supervisor") return getAuditSupervisorNames(audit).join(", ");
+  if (key === "status") return audit.status || "";
+  return "";
+}
+
+function compareAuditSort(a, b) {
+  const first = auditSortValue(a, auditSort.key);
+  const second = auditSortValue(b, auditSort.key);
+  const direction = auditSort.direction === "desc" ? -1 : 1;
+  const result = typeof first === "number" && typeof second === "number"
+    ? first - second
+    : String(first).localeCompare(String(second), "tr", { numeric: true, sensitivity: "base" });
+  return result === 0 ? (Number(a.no) || 0) - (Number(b.no) || 0) : result * direction;
+}
+
+function renderAuditSortButtons() {
+  auditSortButtons.forEach((button) => {
+    const active = button.dataset.auditSort === auditSort.key;
+    button.classList.toggle("active", active);
+    button.dataset.direction = active ? auditSort.direction : "";
+    button.setAttribute(
+      "aria-label",
+      `${button.textContent.replace(/[↑↓]/g, "").trim()} sütununa göre ${active && auditSort.direction === "asc" ? "azalan" : "artan"} sırala`,
+    );
+  });
+}
+
 function getReportArchiveAudits() {
   const query = normalizeText(reportArchiveSearch?.value || "");
   const typeFilter = reportArchiveTypeFilter?.value || "Tümü";
@@ -2004,7 +2040,7 @@ function getVisibleAudits() {
         normalizeText(audit.unit) === normalizeText(activeQuickFilter.value));
 
     return matchesYear && matchesType && matchesSearch && matchesQuickFilter;
-  }).sort((a, b) => Number(a.no) - Number(b.no));
+  }).sort(compareAuditSort);
 }
 
 function createAuditRow(audit) {
@@ -2392,6 +2428,7 @@ function renderAudits(options = {}) {
   const visibleAudits = getVisibleAudits();
   const filterLabel = activeQuickFilter?.label || "";
 
+  renderAuditSortButtons();
   visibleAudits.forEach((audit) => auditRows.append(createAuditRow(audit)));
   auditListTitle.textContent = filterLabel
     ? filterLabel
@@ -4148,6 +4185,17 @@ function updateAudit(no, year, changes) {
 searchInput.addEventListener("input", () => {
   activeQuickFilter = null;
   renderAudits();
+});
+
+auditSortButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const key = button.dataset.auditSort;
+    auditSort = {
+      key,
+      direction: auditSort.key === key && auditSort.direction === "asc" ? "desc" : "asc",
+    };
+    renderAudits();
+  });
 });
 
 if (migrateLocalDataBtn) {

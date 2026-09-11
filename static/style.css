@@ -1366,6 +1366,40 @@
         text-transform: uppercase;
       }
 
+      .table-sort {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        font: inherit;
+        font-weight: inherit;
+        padding: 0;
+        text-align: left;
+        text-transform: inherit;
+      }
+
+      .table-sort::after {
+        content: "↕";
+        color: #94a3b8;
+        font-size: 11px;
+      }
+
+      .table-sort.active::after {
+        content: "↑";
+        color: #1558b0;
+      }
+
+      .table-sort.active[data-direction="desc"]::after {
+        content: "↓";
+      }
+
+      .table-sort:hover {
+        color: #1558b0;
+      }
+
       th,
       td {
         border-bottom: 1px solid #edf2f7;
