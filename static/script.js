@@ -2378,7 +2378,7 @@ function createMonitoringRow(audit) {
     <td><span class="audit-no">${escapeHtml(audit.year)}</span></td>
     <td class="unit-cell"><strong>${escapeHtml(audit.unit)}</strong></td>
     <td class="scope-cell">${escapeHtml(details.auditName)}</td>
-    <td class="supervisor-cell">${escapeHtml(details.officer)}</td>
+    <td class="supervisor-cell">${renderPersonNames(splitPersonNames(details.officer))}</td>
     <td><span class="finding-count">${details.findingCount}</span></td>
     <td><span class="finding-count ${details.openFindingCount === 0 ? "done-count" : "progress-count"}">${details.openFindingCount}</span></td>
     <td><span class="date-range">${formatDate(details.dueDate)}</span></td>
