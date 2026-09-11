@@ -88,6 +88,14 @@ class PermissionAPI(unittest.TestCase):
         self.assertEqual(self.request('/api/admin/users',{'username':'new','email':'new@test.invalid','password':'testpass'},owner)[0],200)
         _,data,_=self.request('/api/state',cookie=self.login('new'))
         self.assertTrue(all(data[c]==[] for c in app.COLLECTIONS))
+    def test_user_can_update_own_account(self):
+        cookie=self.login('leave')
+        status,data,_=self.request('/api/account',{'username':'leave.updated','displayName':'Leave Updated','email':'leave.updated@test.invalid','currentPassword':'testpass','newPassword':'newpass1'},cookie)
+        self.assertEqual(status,200)
+        self.assertEqual(data['user']['username'],'leave.updated')
+        self.assertEqual(data['user']['displayName'],'Leave Updated')
+        self.assertEqual(self.request('/api/login',{'username':'leave','password':'testpass'})[0],401)
+        self.assertEqual(self.request('/api/login',{'username':'leave.updated','password':'newpass1'})[0],200)
     def test_budget_permission_and_refresh(self):
         cookie=self.login('budget')
         status,data,_=self.request('/api/state',cookie=cookie)

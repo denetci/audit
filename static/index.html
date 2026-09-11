@@ -127,7 +127,6 @@
             <button class="nav-toggle" id="auditMenuToggle" type="button" aria-expanded="false">
               <span class="nav-icon">☑</span>
               <span>Denetimler</span>
-              <span class="chevron" aria-hidden="true">⌄</span>
             </button>
             <div class="subnav" id="auditSubnav" aria-label="Denetim türleri" hidden>
               <button class="subnav-item active" data-type-filter="Tümü" type="button">Tüm Denetimler</button>
@@ -201,9 +200,11 @@
               <span aria-hidden="true">⌕</span>
               <input id="searchInput" placeholder="Rapor, olur, denetim ara..." />
             </label>
+            <button class="btn secondary" id="homeBtn" type="button">Ana Sayfa</button>
             <button class="btn secondary" id="newAuditBtn" data-view="dashboard" type="button">＋ Yeni Denetim</button>
             <div class="user-pill" id="currentUserBox" hidden>
               <span id="currentUserLabel"></span>
+              <button class="btn small secondary" id="accountBtn" type="button">Hesabım</button>
               <button class="btn small secondary" id="logoutBtn" type="button">Çıkış</button>
             </div>
           </div>
@@ -219,6 +220,14 @@
                 <p>Sistem/Uygunluk</p>
                 <div class="value"><strong data-count>0</strong><span>kayıt</span></div>
                 <div class="note">Sistem, uygunluk ve karma denetimler</div>
+              </button>
+              <button class="card stat-filter" data-card-filter="Mali" type="button">
+                <div class="stat-top">
+                  <div class="stat-icon bg-cyan">₺</div>
+                </div>
+                <p>Mali</p>
+                <div class="value"><strong data-count>0</strong><span>kayıt</span></div>
+                <div class="note">Mali denetim faaliyetleri</div>
               </button>
               <button class="card stat-filter" data-card-filter="Performans" type="button">
                 <div class="stat-top">
@@ -1759,6 +1768,45 @@
         <div class="modal-actions">
           <button class="btn secondary" id="cancelBudgetExpense" type="button">Vazgeç</button>
           <button class="btn primary" id="saveBudgetExpenseBtn" type="submit">Kaydet</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="accountModal">
+      <form class="modal-card" id="accountForm" method="dialog">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow">Kullanıcı hesabı</p>
+            <h2>Hesabım</h2>
+          </div>
+          <button class="icon-btn" id="cancelAccount" type="button">×</button>
+        </div>
+        <p class="form-hint">Kullanıcı bilgilerinizi buradan güncelleyebilirsiniz. Parola değiştirmek istemiyorsanız parola alanlarını boş bırakın.</p>
+        <div class="form-grid">
+          <label>
+            Kullanıcı adı
+            <input name="username" autocomplete="username" required />
+          </label>
+          <label>
+            Görünen ad
+            <input name="displayName" autocomplete="name" required />
+          </label>
+          <label class="span-2">
+            E-posta
+            <input name="email" type="email" autocomplete="email" required />
+          </label>
+          <label>
+            Mevcut Parola
+            <input name="currentPassword" type="password" autocomplete="current-password" />
+          </label>
+          <label>
+            Yeni Parola
+            <input name="newPassword" type="password" autocomplete="new-password" minlength="6" />
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="btn secondary" id="closeAccount" type="button">Vazgeç</button>
+          <button class="btn primary" type="submit">Bilgileri Güncelle</button>
         </div>
       </form>
     </dialog>

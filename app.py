@@ -483,6 +483,15 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.handle_change_password(user)
             return
 
+        if path == "/api/account":
+            user = self.require_auth()
+
+            if not user:
+                return
+
+            self.handle_account_update(user)
+            return
+
         if path == "/api/state":
             user = self.require_auth()
 
@@ -926,6 +935,77 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             log_action(connection, current_user, "password_change", "Parola değiştirildi")
 
         self.send_json({"ok": True})
+
+    def handle_account_update(self, current_user):
+        try:
+            payload = self.read_json_body()
+        except json.JSONDecodeError:
+            self.send_json({"ok": False, "error": "Geçersiz hesap bilgisi."}, status=400)
+            return
+
+        username = str(payload.get("username", "")).strip()
+        display_name = str(payload.get("displayName", "")).strip() or username
+        email = str(payload.get("email", "")).strip().lower()
+        current_password = str(payload.get("currentPassword", ""))
+        new_password = str(payload.get("newPassword", ""))
+
+        if not username or not email:
+            self.send_json({"ok": False, "error": "Kullanıcı adı ve e-posta gerekli."}, status=400)
+            return
+
+        if "@" not in email:
+            self.send_json({"ok": False, "error": "Geçerli bir e-posta adresi yazılmalı."}, status=400)
+            return
+
+        if new_password and len(new_password) < 6:
+            self.send_json({"ok": False, "error": "Yeni parola en az 6 karakter olmalı."}, status=400)
+            return
+
+        with get_connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM users WHERE id = ? AND active = 1",
+                (current_user["id"],),
+            ).fetchone()
+
+            if not row:
+                self.send_json({"ok": False, "error": "Kullanıcı bulunamadı."}, status=404)
+                return
+
+            if row["username"] == OWNER_USERNAME and username != OWNER_USERNAME:
+                self.send_json({"ok": False, "error": "Ana yönetici kullanıcı adı değiştirilemez."}, status=403)
+                return
+
+            duplicate = connection.execute(
+                "SELECT id FROM users WHERE lower(username) = lower(?) AND id != ?",
+                (username, current_user["id"]),
+            ).fetchone()
+
+            if duplicate:
+                self.send_json({"ok": False, "error": "Bu kullanıcı adı başka bir kullanıcıda kayıtlı."}, status=409)
+                return
+
+            if new_password and not verify_password(current_password, row["password_hash"]):
+                self.send_json({"ok": False, "error": "Mevcut parola hatalı."}, status=401)
+                return
+
+            connection.execute(
+                "UPDATE users SET username = ?, display_name = ?, email = ? WHERE id = ?",
+                (username, display_name, email, current_user["id"]),
+            )
+
+            if new_password:
+                connection.execute(
+                    "UPDATE users SET password_hash = ? WHERE id = ?",
+                    (hash_password(new_password), current_user["id"]),
+                )
+
+            updated = connection.execute(
+                "SELECT * FROM users WHERE id = ?",
+                (current_user["id"],),
+            ).fetchone()
+            log_action(connection, public_user(updated), "account_update", "Kullanıcı kendi hesap bilgilerini güncelledi")
+
+        self.send_json({"ok": True, "user": public_user(updated)})
 
     def handle_admin_audit_log(self):
         with get_connection() as connection:

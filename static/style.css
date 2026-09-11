@@ -459,6 +459,10 @@
         gap: 16px;
       }
 
+      .audit-groups {
+        grid-template-columns: repeat(auto-fit, minmax(178px, 1fr));
+      }
+
       .card,
       .panel {
         border: 1px solid var(--line);

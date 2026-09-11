@@ -158,6 +158,12 @@ const forgotPasswordError = document.querySelector("#forgotPasswordError");
 const backToLogin = document.querySelector("#backToLogin");
 const currentUserBox = document.querySelector("#currentUserBox");
 const currentUserLabel = document.querySelector("#currentUserLabel");
+const homeBtn = document.querySelector("#homeBtn");
+const accountBtn = document.querySelector("#accountBtn");
+const accountModal = document.querySelector("#accountModal");
+const accountForm = document.querySelector("#accountForm");
+const cancelAccount = document.querySelector("#cancelAccount");
+const closeAccount = document.querySelector("#closeAccount");
 const logoutBtn = document.querySelector("#logoutBtn");
 const dashboardSections = Array.from(document.querySelectorAll('[data-view="dashboard"]'));
 const approvalSections = Array.from(document.querySelectorAll('[data-view="approvals"]'));
@@ -412,6 +418,7 @@ const sharedCollections = [
 
 const typeGroups = {
   "Sistem/Uygunluk": ["Sistem", "Uygunluk", "Sistem/Uygunluk"],
+  Mali: ["Mali"],
   BT: ["Bilgi Teknolojileri", "BT"],
   Performans: ["Performans"],
   Danışmanlık: ["Danışmanlık"],
@@ -1146,6 +1153,37 @@ async function requestPasswordReset(email) {
   }
 
   return payload.message || "Parola yenileme talebi alındı.";
+}
+
+function openAccountModal() {
+  if (!currentUser) return;
+  accountForm.reset();
+  accountForm.elements.username.value = currentUser.username || "";
+  accountForm.elements.displayName.value = currentUser.displayName || currentUser.username || "";
+  accountForm.elements.email.value = currentUser.email || "";
+  accountForm.elements.username.disabled = Boolean(currentUser.owner);
+  accountModal.showModal();
+}
+
+async function updateAccount(formData) {
+  const response = await apiFetch("/api/account", {
+    method: "POST",
+    body: {
+      username: currentUser?.owner ? currentUser.username : formData.get("username"),
+      displayName: formData.get("displayName"),
+      email: formData.get("email"),
+      currentPassword: formData.get("currentPassword"),
+      newPassword: formData.get("newPassword"),
+    },
+  });
+  const payload = await readApiJson(response, "Hesap bilgileri güncellenemedi.");
+
+  if (!response.ok) {
+    throw new Error(payload.error || "Hesap bilgileri güncellenemedi.");
+  }
+
+  currentUser = payload.user || currentUser;
+  renderAuthState();
 }
 
 function roleLabel(role) {
@@ -4269,6 +4307,37 @@ forgotPasswordForm?.addEventListener("submit", async (event) => {
   }
 });
 
+homeBtn.addEventListener("click", () => {
+  activeQuickFilter = null;
+  setActiveModule("dashboard");
+  setActiveTypeFilter("Tümü");
+});
+
+accountBtn.addEventListener("click", openAccountModal);
+cancelAccount.addEventListener("click", () => accountModal.close());
+closeAccount.addEventListener("click", () => accountModal.close());
+
+accountForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(accountForm);
+  const newPassword = String(formData.get("newPassword") || "");
+  const currentPassword = String(formData.get("currentPassword") || "");
+
+  if (newPassword && !currentPassword) {
+    showToast("Parola değiştirmek için mevcut parolanızı yazın.");
+    return;
+  }
+
+  try {
+    await updateAccount(formData);
+    accountModal.close();
+    accountForm.reset();
+    showToast("Hesap bilgileri güncellendi.");
+  } catch (error) {
+    showToast(error.message || "Hesap bilgileri güncellenemedi.");
+  }
+});
+
 logoutBtn.addEventListener("click", async () => {
   await logout();
   showToast("Oturum kapatıldı.");
@@ -5176,13 +5245,13 @@ leaveRightRows.addEventListener("click", (event) => {
 
 auditMenuToggle.addEventListener("click", () => {
   setActiveModule("dashboard");
+  setActiveTypeFilter("Tümü");
   leaveMenuToggle.setAttribute("aria-expanded", "false");
   leaveMenuToggle.classList.remove("open");
   leaveSubnav.hidden = true;
-  const isOpen = auditMenuToggle.getAttribute("aria-expanded") === "true";
-  auditMenuToggle.setAttribute("aria-expanded", String(!isOpen));
-  auditMenuToggle.classList.toggle("open", !isOpen);
-  auditSubnav.hidden = isOpen;
+  auditMenuToggle.setAttribute("aria-expanded", "false");
+  auditMenuToggle.classList.remove("open");
+  auditSubnav.hidden = true;
 });
 
 typeFilterButtons.forEach((button) => {
