@@ -2741,8 +2741,8 @@ function setActiveModule(moduleName, options = {}) {
     showApprovals || showLeave || showPersonnel || showPersonnelProfile || showBudget || showBudgetDetail || showStock || showReports || showMonitoring || showAdmin,
   );
 
-  leaveMenuToggle.setAttribute("aria-expanded", String(showLeave));
-  leaveSubnav.hidden = !showLeave;
+  leaveMenuToggle.setAttribute("aria-expanded", "false");
+  leaveSubnav.hidden = true;
 
   if (!showPersonnel && !showPersonnelProfile) {
     personnelMenuToggle.setAttribute("aria-expanded", "false");
@@ -2764,8 +2764,10 @@ function setActiveModule(moduleName, options = {}) {
   }
 
   if (showLeave) {
-    document.querySelector(".topbar h1").textContent = "İzin Takip";
-    topbarSubtitle.textContent = "Personel izin kayıtları, izin türleri ve bakiye takibi";
+    document.querySelector(".topbar h1").textContent = "İzin ve Görev Takip";
+    topbarSubtitle.textContent = activeLeaveModule === "Görev Durumu"
+      ? "Personelin aktif görevleri, dönüş durumları ve yıllık görev geçmişi"
+      : "Personel izin kayıtları, izin türleri ve bakiye takibi";
     renderLeaves();
     return;
   }
