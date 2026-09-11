@@ -428,6 +428,8 @@ const typeGroups = {
   "Yönetim Faaliyetleri": ["Yönetim Faaliyetleri"],
 };
 
+const monitoringExcludedTypes = new Set(["Danışmanlık", "İnceleme", "Yönetim Faaliyetleri"]);
+
 function loadAudits() {
   const storedAudits = localStorage.getItem("ic-denetim-audits");
 
@@ -2046,6 +2048,9 @@ function getVisibleAudits() {
 function createAuditRow(audit) {
   const row = document.createElement("tr");
   row.dataset.text = makeSearchText(audit);
+  const monitoringAction = canAuditBeMonitored(audit)
+    ? `<button data-action="monitoring" data-year="${audit.year}" data-no="${audit.no}" type="button">İzleme Sürecine Al</button>`
+    : "";
 
   row.innerHTML = `
     <td><span class="audit-no">${audit.no}</span></td>
@@ -2061,7 +2066,7 @@ function createAuditRow(audit) {
         <button class="icon-btn action-toggle" data-action="toggle-menu" data-year="${audit.year}" data-no="${audit.no}" aria-label="${audit.no} numaralı kayıt işlemleri">⋮</button>
         <div class="action-menu" data-menu-for="${audit.year}-${audit.no}" hidden>
           <button data-action="edit" data-year="${audit.year}" data-no="${audit.no}" type="button">Düzenle</button>
-          <button data-action="monitoring" data-year="${audit.year}" data-no="${audit.no}" type="button">İzleme Sürecine Al</button>
+          ${monitoringAction}
           <button data-action="cancel" data-year="${audit.year}" data-no="${audit.no}" type="button">İptal Et</button>
           <button class="danger" data-action="delete" data-year="${audit.year}" data-no="${audit.no}" type="button">Sil</button>
         </div>
@@ -2105,8 +2110,12 @@ function getMonitoringStatusClass(details) {
   return details.openFindingCount === 0 ? "done" : "progress";
 }
 
+function canAuditBeMonitored(audit) {
+  return !monitoringExcludedTypes.has(audit.type);
+}
+
 function isMonitoringAudit(audit) {
-  return !isAuditDeleted(audit) && audit.status === "İzleme Sürecinde";
+  return !isAuditDeleted(audit) && canAuditBeMonitored(audit) && audit.status === "İzleme Sürecinde";
 }
 
 function getAllMonitoringAudits() {
@@ -5067,6 +5076,11 @@ auditRows.addEventListener("click", (event) => {
   }
 
   if (action === "monitoring") {
+    if (!canAuditBeMonitored(audit)) {
+      showToast(`${audit.type} türündeki kayıtlar izleme faaliyetine alınmaz.`);
+      return;
+    }
+
     updateAudit(no, year, {
       status: "İzleme Sürecinde",
       monitoringAuditName: audit.monitoringAuditName || audit.scope,
