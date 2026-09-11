@@ -22,7 +22,7 @@ function mutationModule(element) {
   if (ids[element.id]) return ids[element.id];
   for (const [attr,module] of [["data-action","audits"],["data-approval-action","approvals"],["data-leave-action","leaves"],["data-leave-right-action","leaves"],["data-duty-action","duties"],["data-budget-item-action","budget"],["data-budget-expense-action","budget"],["data-monitoring-document-action","monitoring"],["data-report-document-action","reports"],["data-personnel-action","personnel"]]) {
     const action = element.getAttribute(attr);
-    if (["edit","delete","cancel","return","rename","save-link","monitoring"].includes(action)) return action === "monitoring" ? "monitoring" : module;
+    if (["edit","delete","cancel","return","rename","save-link","monitoring","toggle-menu"].includes(action)) return action === "monitoring" ? "monitoring" : module;
   }
   if (element.matches("[data-restore-audit]")) return "audits";
   if (element.matches("[data-personnel-delete]")) return "personnel";
@@ -47,6 +47,24 @@ function applyModulePermissions() {
       const formYear = Number(el.elements.year?.value);
       lockedRecord ||= formYear > 0 && formYear < new Date().getFullYear();
     }
+    const lacksEditPermission = !hasAccess(module, true);
+    if (el.tagName !== "FORM") {
+      if (lacksEditPermission) {
+        if (el.dataset.permissionHidden !== "true") {
+          el.dataset.permissionHidden = "true";
+          el.dataset.previousHidden = String(el.hidden);
+        }
+        el.hidden = true;
+        el.disabled = true;
+        return;
+      }
+      if (el.dataset.permissionHidden === "true") {
+        el.hidden = el.dataset.previousHidden === "true";
+        delete el.dataset.permissionHidden;
+        delete el.dataset.previousHidden;
+      }
+    }
+
     const disabled=!canEditModule(module) || lockedRecord || el.dataset.saving === "true" || (el.id === "saveDutyBtn" && dutyForm.dataset.saving === "true");
     if(el.tagName === "FORM") el.querySelectorAll("input,select,textarea,button[type=submit]").forEach(input => {input.disabled=disabled;});
     else el.disabled=disabled;
@@ -2481,6 +2499,7 @@ function renderMonitoringAudits() {
   monitoringAudits.forEach((audit) => monitoringRows.append(createMonitoringRow(audit)));
   monitoringEmptyState.hidden = monitoringAudits.length > 0;
   renderMonitoringReport(monitoringAudits);
+  applyModulePermissions();
 }
 
 function renderAudits(options = {}) {
@@ -2511,6 +2530,7 @@ function renderAudits(options = {}) {
   renderReportArchive();
   renderDeletedAudits();
   renderMonitoringAudits();
+  applyModulePermissions();
 }
 
 function renderReportArchive() {
@@ -3458,6 +3478,7 @@ function renderApprovals() {
             .length
         } olur kaydı var.`;
   approvalEmptyState.hidden = visibleApprovals.length > 0;
+  applyModulePermissions();
 }
 
 function renderPersonnel() {
@@ -3500,6 +3521,7 @@ function renderPersonnel() {
   });
 
   personnelEmptyState.hidden = visiblePersonnel.length > 0;
+  applyModulePermissions();
 }
 
 function getVisibleLeaves() {
@@ -3997,6 +4019,7 @@ function renderLeaves() {
     renderDutyRecords();
     leaveVisibleCount.textContent = getVisiblePersonnelStatuses().length;
     leaveSummary.textContent = "Personelin aktif görevleri, dönüş durumları ve yıllık görev geçmişi";
+    applyModulePermissions();
     return;
   }
 
@@ -4020,6 +4043,7 @@ function renderLeaves() {
           } izin kaydı var.`;
   leaveEmptyState.hidden = visibleLeaves.length > 0;
   renderLeaveRights();
+  applyModulePermissions();
 }
 
 function openAuditModal(audit = null) {
