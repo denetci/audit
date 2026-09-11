@@ -10,6 +10,10 @@ function canEditModule(module) {
   const year = module === "duties" ? dutyYearFilter.value : leaveYearFilter.value;
   return hasAccess(module, true) && (!["leaves", "duties"].includes(module) || year === "Tümü" || Number(year) >= new Date().getFullYear());
 }
+function isPastYearLocked(year) {
+  const recordYear = Number(year);
+  return recordYear > 0 && recordYear < new Date().getFullYear();
+}
 function permissionsEditor(user) {
   return `<details class="module-permissions"><summary>Modül Yetkileri</summary><div class="permission-grid">${Object.entries(MODULE_LABELS).map(([key,label]) => `<label>${label}<select data-permission="${key}" ${user.owner ? "disabled" : ""}>${[["none","Erişim yok"],["view","Görüntüleme"],["edit","Görüntüleme ve değişiklik"]].map(([value,text]) => `<option value="${value}" ${(user.owner ? "edit" : user.permissions?.[key] || "none") === value ? "selected" : ""}>${text}</option>`).join("")}</select></label>`).join("")}</div></details>`;
 }
@@ -1759,6 +1763,11 @@ function makeLeaveSearchText(leave) {
     leave.status,
     leave.note,
   ].join(" ");
+}
+
+function unitLabelForLeave(leave) {
+  const person = findPersonnelByName(leave.person);
+  return leave.unit || person?.unit || person?.expertise || person?.workArea || "";
 }
 
 function getLeaveRight(person, year) {
@@ -3565,12 +3574,16 @@ function createLeaveOverviewItem(leave, variant) {
   return `
     <article class="leave-overview-item ${variant}">
       <div class="leave-person-line">
-        <strong>${escapeHtml(leave.person)}</strong>
+        <div>
+          <strong>${escapeHtml(leave.person)}</strong>
+          <small>${escapeHtml(unitLabelForLeave(leave) || "İç Denetim Başkanlığı")}</small>
+        </div>
         <span class="type-pill">${escapeHtml(title)}</span>
       </div>
       <div class="leave-overview-meta">
         <span>${escapeHtml(leave.type)}</span>
-        <span>${formatDate(leave.start)} - İşbaşı ${formatDate(leave.end)}</span>
+        <span>${formatDate(leave.start)} başlangıç</span>
+        <span>${formatDate(leave.end)} işbaşı</span>
       </div>
       <div class="leave-overview-foot">
         <span class="status ${getStatusClass(leave.status)}">${escapeHtml(leave.status)}</span>
