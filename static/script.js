@@ -1586,6 +1586,22 @@ function parseDateOnly(value) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function formatDateOnlyValue(date) {
+  if (!date) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function addCalendarDays(dateText, dayCount) {
+  const date = parseDateOnly(dateText);
+  const days = Math.max(0, Math.ceil(Number(dayCount) || 0));
+  if (!date || !days) return dateText || "";
+  date.setDate(date.getDate() + days);
+  return formatDateOnlyValue(date);
+}
+
 function getTodayDateOnly() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -3540,6 +3556,7 @@ function createLeaveOverviewItem(leave, variant) {
   const today = getTodayDateOnly();
   const startDate = parseDateOnly(leave.start);
   const endDate = parseDateOnly(leave.end);
+  const canEditLeave = canEditModule("leaves") && !isPastYearLocked(leave.year);
   const dayText =
     variant === "active"
       ? `${Math.max(getDayDifference(today, endDate), 0)} gün sonra işbaşı`
@@ -3557,7 +3574,10 @@ function createLeaveOverviewItem(leave, variant) {
       </div>
       <div class="leave-overview-foot">
         <span class="status ${getStatusClass(leave.status)}">${escapeHtml(leave.status)}</span>
-        <strong>${escapeHtml(dayText)}</strong>
+        <div class="leave-overview-actions">
+          <strong>${escapeHtml(dayText)}</strong>
+          <button class="btn secondary small" data-leave-action="edit" data-id="${leave.id}" type="button" ${canEditLeave ? "" : "disabled"}>Düzenle</button>
+        </div>
       </div>
     </article>
   `;
@@ -4075,6 +4095,13 @@ function openLeaveModal(leave = null) {
 function closeLeaveDialog() {
   editingLeaveId = null;
   leaveModal.close();
+}
+
+function updateLeaveReturnDateFromDuration() {
+  const start = leaveForm.elements.start.value;
+  const days = leaveForm.elements.days.value;
+  if (!start || !days) return;
+  leaveForm.elements.end.value = addCalendarDays(start, days);
 }
 
 function openLeaveRightModal(right = null) {
@@ -4855,6 +4882,8 @@ approvalForm.elements.year.addEventListener("change", (event) => {
   leaveForm.elements.person.addEventListener(eventName, () => {
     applySelectedPersonnelToForm(leaveForm);
   });
+  leaveForm.elements.start.addEventListener(eventName, updateLeaveReturnDateFromDuration);
+  leaveForm.elements.days.addEventListener(eventName, updateLeaveReturnDateFromDuration);
 });
 
 leaveRightForm.elements.person.addEventListener("change", () => {
@@ -5269,7 +5298,7 @@ approvalRows.addEventListener("click", (event) => {
   );
 });
 
-leaveRows.addEventListener("click", (event) => {
+function handleLeaveAction(event) {
   const actionButton = event.target.closest("[data-leave-action]");
 
   if (!actionButton) {
@@ -5306,7 +5335,11 @@ leaveRows.addEventListener("click", (event) => {
     saveLeaves();
     renderLeaves();
   }
-});
+}
+
+leaveRows.addEventListener("click", handleLeaveAction);
+leaveActiveList.addEventListener("click", handleLeaveAction);
+leaveUpcomingList.addEventListener("click", handleLeaveAction);
 
 leaveRightRows.addEventListener("click", (event) => {
   const actionButton = event.target.closest("[data-leave-right-action]");

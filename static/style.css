@@ -1319,6 +1319,13 @@
         font-size: 12px;
       }
 
+      .leave-overview-actions {
+        display: inline-flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
       .duty-panel {
         display: grid;
         gap: 0;
