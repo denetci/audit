@@ -231,6 +231,25 @@
         background: rgb(255 255 255 / 0.09);
       }
 
+      .nav a.locked,
+      .nav-toggle.locked,
+      .subnav-item.locked {
+        opacity: 0.48;
+        cursor: not-allowed;
+        filter: grayscale(1);
+      }
+
+      .nav a.locked:hover,
+      .nav-toggle.locked:hover,
+      .subnav-item.locked:hover {
+        background: transparent;
+        color: #dbeafe;
+      }
+
+      .subnav-item.locked:hover {
+        color: #b9ccef;
+      }
+
       .chevron {
         margin-left: auto;
         color: #b9ccef;

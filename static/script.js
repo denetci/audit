@@ -29,12 +29,36 @@ function mutationModule(element) {
   if (element.matches("[data-monitoring-edit]")) return "monitoring";
   return null;
 }
+function setNavPermissionState(element, allowed) {
+  if (!element) return;
+  element.hidden = false;
+  element.classList.toggle("locked", !allowed);
+  element.setAttribute("aria-disabled", String(!allowed));
+  if (element.tagName === "BUTTON") element.disabled = false;
+}
+
+function canOpenModule(moduleName) {
+  const moduleKey = moduleName === "leave" ? leaveAccessModule() : moduleName === "personnelProfile" ? "personnel" : moduleName === "budgetDetail" ? "budget" : moduleName;
+  if (moduleName === "admin") return Boolean(currentUser?.owner);
+  if (moduleName === "dashboard") return hasAccess("dashboard") || hasAccess("audits");
+  if (moduleName === "leave") return hasAccess("leaves") || hasAccess("duties");
+  return hasAccess(moduleKey);
+}
+
+function guardModuleNavigation(event, moduleName) {
+  if (canOpenModule(moduleName)) return true;
+  event?.preventDefault();
+  showToast("Bu menü için yetkiniz yok.");
+  applyModulePermissions();
+  return false;
+}
+
 function applyModulePermissions() {
   const navs = [["#dashboardNav","dashboard"],["#auditMenuToggle","audits"],["#approvalsNav","approvals"],["#personnelMenuToggle","personnel"],["#budgetNav","budget"],["#stockNav","stock"],["#reportsNav","reports"],["#monitoringNav","monitoring"]];
-  navs.forEach(([selector,module]) => { const el=document.querySelector(selector); if(el) el.hidden=!hasAccess(module); });
-  leaveMenuToggle.hidden = !hasAccess("leaves") && !hasAccess("duties");
-  leaveModuleButtons.forEach(button => {button.hidden=!hasAccess(button.dataset.leaveModule === "Görev Durumu" ? "duties" : "leaves");});
-  adminNav.hidden = !currentUser?.owner;
+  navs.forEach(([selector,module]) => setNavPermissionState(document.querySelector(selector), module === "dashboard" ? canOpenModule("dashboard") : hasAccess(module)));
+  setNavPermissionState(leaveMenuToggle, hasAccess("leaves") || hasAccess("duties"));
+  leaveModuleButtons.forEach(button => setNavPermissionState(button, hasAccess(button.dataset.leaveModule === "Görev Durumu" ? "duties" : "leaves")));
+  setNavPermissionState(adminNav, Boolean(currentUser?.owner));
   document.querySelectorAll("[data-report-cloud-link-type]").forEach(el => { el.disabled = !hasAccess("reports", true); });
   document.querySelectorAll("button, form").forEach(el => {
     const module=mutationModule(el);
@@ -2777,8 +2801,7 @@ function setActiveTypeFilter(filterName) {
 function setActiveModule(moduleName, options = {}) {
   if (moduleName === "leave" && !hasAccess(leaveAccessModule())) activeLeaveModule = hasAccess("leaves") ? "Personel" : "Görev Durumu";
   leaveModuleButtons.forEach(button => button.classList.toggle("active", button.dataset.leaveModule === activeLeaveModule));
-  const moduleKey = moduleName === "leave" ? leaveAccessModule() : moduleName === "personnelProfile" ? "personnel" : moduleName === "budgetDetail" ? "budget" : moduleName;
-  const allowed = moduleName === "admin" ? currentUser?.owner : moduleName === "dashboard" ? (hasAccess("dashboard") || hasAccess("audits")) : hasAccess(moduleKey);
+  const allowed = canOpenModule(moduleName);
   if (!allowed) {
     const fallback = ["dashboard","approvals","personnel","leave","budget","stock","monitoring","reports","admin"].find(name => name === "admin" ? currentUser?.owner : name === "leave" ? (hasAccess("leaves") || hasAccess("duties")) : name === "dashboard" ? (hasAccess("dashboard") || hasAccess("audits")) : hasAccess(name));
     if (fallback && fallback !== moduleName) return setActiveModule(fallback, options);
@@ -4393,36 +4416,43 @@ clearMonitoringFilters.addEventListener("click", () => {
 
 dashboardNav.addEventListener("click", (event) => {
   event.preventDefault();
+  if (!guardModuleNavigation(event, "dashboard")) return;
   setActiveModule("dashboard");
 });
 
 approvalsNav.addEventListener("click", (event) => {
   event.preventDefault();
+  if (!guardModuleNavigation(event, "approvals")) return;
   setActiveModule("approvals");
 });
 
 reportsNav.addEventListener("click", (event) => {
   event.preventDefault();
+  if (!guardModuleNavigation(event, "reports")) return;
   setActiveModule("reports");
 });
 
 monitoringNav.addEventListener("click", (event) => {
   event.preventDefault();
+  if (!guardModuleNavigation(event, "monitoring")) return;
   setActiveModule("monitoring");
 });
 
 budgetNav.addEventListener("click", (event) => {
   event.preventDefault();
+  if (!guardModuleNavigation(event, "budget")) return;
   setActiveModule("budget");
 });
 
 stockNav.addEventListener("click", (event) => {
   event.preventDefault();
+  if (!guardModuleNavigation(event, "stock")) return;
   setActiveModule("stock");
 });
 
 adminNav?.addEventListener("click", (event) => {
   event.preventDefault();
+  if (!guardModuleNavigation(event, "admin")) return;
   setActiveModule("admin");
 });
 
@@ -4645,7 +4675,8 @@ adminPasswordForm?.addEventListener("submit", async (event) => {
   }
 });
 
-personnelMenuToggle.addEventListener("click", () => {
+personnelMenuToggle.addEventListener("click", (event) => {
+  if (!guardModuleNavigation(event, "personnel")) return;
   setActiveModule("personnel");
   const isOpen = personnelMenuToggle.getAttribute("aria-expanded") === "true";
   personnelMenuToggle.setAttribute("aria-expanded", String(!isOpen));
@@ -4802,7 +4833,8 @@ personnelProfileForm.addEventListener("submit", (event) => {
   showToast("Personel bilgileri kaydedildi.");
 });
 
-leaveMenuToggle.addEventListener("click", () => {
+leaveMenuToggle.addEventListener("click", (event) => {
+  if (!guardModuleNavigation(event, "leave")) return;
   setActiveModule("leave");
 });
 
@@ -5418,7 +5450,8 @@ leaveRightRows.addEventListener("click", (event) => {
   }
 });
 
-auditMenuToggle.addEventListener("click", () => {
+auditMenuToggle.addEventListener("click", (event) => {
+  if (!guardModuleNavigation(event, "dashboard")) return;
   setActiveModule("dashboard");
   setActiveTypeFilter("Tümü");
   leaveMenuToggle.setAttribute("aria-expanded", "false");
@@ -5430,14 +5463,22 @@ auditMenuToggle.addEventListener("click", () => {
 });
 
 typeFilterButtons.forEach((button) => {
-  button.addEventListener("click", () => {
+  button.addEventListener("click", (event) => {
+    if (!guardModuleNavigation(event, "dashboard")) return;
     setActiveModule("dashboard");
     setActiveTypeFilter(button.dataset.typeFilter);
   });
 });
 
 leaveModuleButtons.forEach((button) => {
-  button.addEventListener("click", () => {
+  button.addEventListener("click", (event) => {
+    const targetModule = button.dataset.leaveModule === "Görev Durumu" ? "duties" : "leaves";
+    if (!hasAccess(targetModule)) {
+      event.preventDefault();
+      showToast("Bu alt menü için yetkiniz yok.");
+      applyModulePermissions();
+      return;
+    }
     activeLeaveModule = getValidLeaveModule(button.dataset.leaveModule);
     leaveModuleButtons.forEach((item) => {
       item.classList.toggle("active", item.dataset.leaveModule === activeLeaveModule);
