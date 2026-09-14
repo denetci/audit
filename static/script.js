@@ -38,10 +38,11 @@ function setNavPermissionState(element, allowed) {
 }
 
 function canOpenModule(moduleName) {
-  const moduleKey = moduleName === "leave" ? leaveAccessModule() : moduleName === "personnelProfile" ? "personnel" : moduleName === "budgetDetail" ? "budget" : moduleName;
+  const moduleKey = moduleName === "leave" ? leaveAccessModule() : moduleName === "leaveDetail" ? (activeLeaveDetail.source === "duty" ? "duties" : "leaves") : moduleName === "personnelProfile" ? "personnel" : moduleName === "budgetDetail" ? "budget" : moduleName;
   if (moduleName === "admin") return Boolean(currentUser?.owner);
   if (moduleName === "dashboard") return hasAccess("dashboard") || hasAccess("audits");
   if (moduleName === "leave") return hasAccess("leaves") || hasAccess("duties");
+  if (moduleName === "leaveDetail") return activeLeaveDetail.source === "duty" ? hasAccess("duties") : hasAccess("leaves");
   return hasAccess(moduleKey);
 }
 
@@ -156,6 +157,7 @@ let stockItems = [];
 let reportDocuments = [];
 let personnelRecords = [];
 let leaveRights = [];
+let activeLeaveDetail = { source: "leave", type: "active" };
 
 const searchInput = document.querySelector("#searchInput");
 const yearSelect = document.querySelector("#yearSelect");
@@ -219,6 +221,7 @@ const logoutBtn = document.querySelector("#logoutBtn");
 const dashboardSections = Array.from(document.querySelectorAll('[data-view="dashboard"]'));
 const approvalSections = Array.from(document.querySelectorAll('[data-view="approvals"]'));
 const leaveSections = Array.from(document.querySelectorAll('[data-view="leave"]'));
+const leaveDetailSections = Array.from(document.querySelectorAll('[data-view="leaveDetail"]'));
 const personnelSections = Array.from(document.querySelectorAll('[data-view="personnel"]'));
 const personnelProfileSections = Array.from(document.querySelectorAll('[data-view="personnelProfile"]'));
 const budgetSections = Array.from(document.querySelectorAll('[data-view="budget"]'));
@@ -326,6 +329,15 @@ const leaveEmptyState = document.querySelector("#leaveEmptyState");
 const leaveRightSearchInput = document.querySelector("#leaveRightSearchInput");
 const leaveRightRows = document.querySelector("#leaveRightRows");
 const leaveRightCount = document.querySelector("#leaveRightCount");
+const leaveDetailEyebrow = document.querySelector("#leaveDetailEyebrow");
+const leaveDetailTitle = document.querySelector("#leaveDetailTitle");
+const leaveDetailSummaryText = document.querySelector("#leaveDetailSummary");
+const leaveDetailSummaryStrip = document.querySelector("#leaveDetailSummaryStrip");
+const leaveDetailSearchInput = document.querySelector("#leaveDetailSearchInput");
+const clearLeaveDetailSearch = document.querySelector("#clearLeaveDetailSearch");
+const leaveDetailList = document.querySelector("#leaveDetailList");
+const leaveDetailEmpty = document.querySelector("#leaveDetailEmpty");
+const backToLeaveOverview = document.querySelector("#backToLeaveOverview");
 const leaveRightModal = document.querySelector("#leaveRightModal");
 const leaveRightForm = document.querySelector("#leaveRightForm");
 const closeLeaveRightModal = document.querySelector("#closeLeaveRightModal");
@@ -2823,6 +2835,7 @@ function setActiveModule(moduleName, options = {}) {
 
   const showApprovals = moduleName === "approvals";
   const showLeave = moduleName === "leave";
+  const showLeaveDetail = moduleName === "leaveDetail";
   const showPersonnel = moduleName === "personnel";
   const showPersonnelProfile = moduleName === "personnelProfile";
   const showBudget = moduleName === "budget";
@@ -2841,6 +2854,9 @@ function setActiveModule(moduleName, options = {}) {
   });
   leaveSections.forEach((section) => {
     section.hidden = !showLeave;
+  });
+  leaveDetailSections.forEach((section) => {
+    section.hidden = !showLeaveDetail;
   });
   personnelSections.forEach((section) => {
     section.hidden = !showPersonnel;
@@ -2879,7 +2895,7 @@ function setActiveModule(moduleName, options = {}) {
   layout.classList.toggle("approvals-mode", showApprovals);
   layout.classList.toggle(
     "focus-mode",
-    showApprovals || showLeave || showPersonnel || showPersonnelProfile || showBudget || showBudgetDetail || showStock || showReports || showMonitoring || showAdmin,
+    showApprovals || showLeave || showLeaveDetail || showPersonnel || showPersonnelProfile || showBudget || showBudgetDetail || showStock || showReports || showMonitoring || showAdmin,
   );
 
   leaveMenuToggle.setAttribute("aria-expanded", "false");
@@ -2895,6 +2911,13 @@ function setActiveModule(moduleName, options = {}) {
     auditMenuToggle.setAttribute("aria-expanded", "false");
     auditMenuToggle.classList.remove("open");
     auditSubnav.hidden = true;
+  }
+
+  if (showLeaveDetail) {
+    document.querySelector(".topbar h1").textContent = "İzin ve Görev Detayı";
+    topbarSubtitle.textContent = "Seçili özet başlığına ait personel listesi";
+    renderLeaveDetailPage();
+    return;
   }
 
   if (showApprovals) {
@@ -3646,13 +3669,37 @@ function matchesSelectedRecordYear(record, year) {
 }
 
 function renderLeaveOverview() {
+  const { activeLeaves, upcomingLeaves } = getLeaveOverviewData();
+  const previewActive = activeLeaves.slice(0, 3);
+  const previewUpcoming = upcomingLeaves.slice(0, 3);
+
+  leaveActiveCount.textContent = activeLeaves.length;
+  leaveUpcomingCount.textContent = upcomingLeaves.length;
+  leaveActiveSummary.textContent = activeLeaves.length
+    ? activeLeaves.length > previewActive.length
+      ? `Bugün izinli ${activeLeaves.length} personel var, ilk ${previewActive.length} kayıt gösteriliyor`
+      : "Bugün izinli görünen personel"
+    : "Bugün için aktif izin görünmüyor";
+  leaveUpcomingSummary.textContent = upcomingLeaves.length
+    ? upcomingLeaves.length > previewUpcoming.length
+      ? `${upcomingLeaves.length} yaklaşan izin var, detay için tıklayın`
+      : "Başlama tarihi en yakın izinler"
+    : "Yaklaşan izin kaydı bulunmuyor";
+  leaveActiveList.innerHTML = previewActive.length
+    ? previewActive.map((leave) => createLeaveOverviewItem(leave, "active")).join("")
+    : `<div class="empty-inline">Bugün izinde olan personel bulunmuyor.</div>`;
+  leaveUpcomingList.innerHTML = previewUpcoming.length
+    ? previewUpcoming.map((leave) => createLeaveOverviewItem(leave, "upcoming")).join("")
+    : `<div class="empty-inline">Yaklaşan izin başlangıcı bulunmuyor.</div>`;
+
+  return { activeLeaves, upcomingLeaves };
+}
+
+function getLeaveOverviewData() {
   const today = getTodayDateOnly();
   const activeLeaves = leaves.filter((leave) => matchesSelectedRecordYear(leave, leaveYearFilter.value))
     .filter((leave) => {
-      if (leave.status !== "Onaylandı") {
-        return false;
-      }
-
+      if (leave.status !== "Onaylandı") return false;
       const startDate = parseDateOnly(leave.start);
       const endDate = parseDateOnly(leave.end);
       return startDate && endDate && startDate <= today && endDate > today;
@@ -3660,32 +3707,163 @@ function renderLeaveOverview() {
     .sort((a, b) => String(a.end).localeCompare(String(b.end)));
   const upcomingLeaves = leaves.filter((leave) => matchesSelectedRecordYear(leave, leaveYearFilter.value))
     .filter((leave) => {
-      if (leave.status === "İptal Edildi") {
-        return false;
-      }
-
+      if (leave.status === "İptal Edildi") return false;
       const startDate = parseDateOnly(leave.start);
       return startDate && startDate > today;
     })
-    .sort((a, b) => String(a.start).localeCompare(String(b.start)))
-    .slice(0, 6);
-
-  leaveActiveCount.textContent = activeLeaves.length;
-  leaveUpcomingCount.textContent = upcomingLeaves.length;
-  leaveActiveSummary.textContent = activeLeaves.length
-    ? "Bugün izinli görünen personel"
-    : "Bugün için aktif izin görünmüyor";
-  leaveUpcomingSummary.textContent = upcomingLeaves.length
-    ? "Başlama tarihi en yakın izinler"
-    : "Yaklaşan izin kaydı bulunmuyor";
-  leaveActiveList.innerHTML = activeLeaves.length
-    ? activeLeaves.map((leave) => createLeaveOverviewItem(leave, "active")).join("")
-    : `<div class="empty-inline">Bugün izinde olan personel bulunmuyor.</div>`;
-  leaveUpcomingList.innerHTML = upcomingLeaves.length
-    ? upcomingLeaves.map((leave) => createLeaveOverviewItem(leave, "upcoming")).join("")
-    : `<div class="empty-inline">Yaklaşan izin başlangıcı bulunmuyor.</div>`;
-
+    .sort((a, b) => String(a.start).localeCompare(String(b.start)));
   return { activeLeaves, upcomingLeaves };
+}
+
+function leaveDetailConfig() {
+  const { source, type } = activeLeaveDetail;
+  const isDuty = source === "duty";
+  const configs = {
+    leave: {
+      active: { title: "Bugün İzinde Olanlar", summary: "Bugün kurum dışında görünen izinli personel", tone: "blue" },
+      upcoming: { title: "Yaklaşan İzinler", summary: "Başlangıç tarihi yaklaşan onaylı izinler", tone: "green" },
+      critical: { title: "Kritik Bakiye", summary: "Yıllık izin bakiyesi 5 gün ve altında olan personel", tone: "amber" },
+    },
+    duty: {
+      office: { title: "Birimde Olanlar", summary: "Bugün kurumda görünen personel", tone: "green" },
+      active: { title: "Görevde Olanlar", summary: "Dönüşü yapılmamış aktif görev kayıtları", tone: "blue" },
+      unavailable: { title: "İzin / Rapor", summary: "Bugün izinli, görev izinli veya raporlu görünen personel", tone: "amber" },
+      upcoming: { title: "İzni Yaklaşanlar", summary: "Önümüzdeki 30 günde onaylı izni başlayacak personel", tone: "cyan" },
+    },
+  };
+  return configs[isDuty ? "duty" : "leave"][type] || configs.leave.active;
+}
+
+function getLeaveDetailRecords() {
+  const query = normalizeText(leaveDetailSearchInput?.value || "");
+  let records = [];
+
+  if (activeLeaveDetail.source === "leave") {
+    const { activeLeaves, upcomingLeaves } = getLeaveOverviewData();
+    if (activeLeaveDetail.type === "active") records = activeLeaves.map((leave) => ({ kind: "leave", leave }));
+    if (activeLeaveDetail.type === "upcoming") records = upcomingLeaves.map((leave) => ({ kind: "leave", leave }));
+    if (activeLeaveDetail.type === "critical") records = getCriticalLeaveRights().map((right) => ({ kind: "right", right }));
+  } else {
+    const allStatuses = getLeavePersonnel().map(getPersonnelStatusRecord);
+    const upcoming = getUpcomingDutyLeaves();
+    if (activeLeaveDetail.type === "office") records = allStatuses.filter((record) => ["Birimde", "Görev kaydı yok"].includes(record.status)).map((record) => ({ kind: "status", record }));
+    if (activeLeaveDetail.type === "active") records = allStatuses.filter((record) => record.status === "Görevde").map((record) => ({ kind: "status", record }));
+    if (activeLeaveDetail.type === "unavailable") records = allStatuses.filter((record) => ["Görev İzninde", "İzinde", "Raporlu"].includes(record.status)).map((record) => ({ kind: "status", record }));
+    if (activeLeaveDetail.type === "upcoming") records = upcoming.map((leave) => ({ kind: "leave", leave }));
+  }
+
+  if (!query) return records;
+  return records.filter((item) => normalizeText(leaveDetailSearchText(item)).includes(query));
+}
+
+function leaveDetailSearchText(item) {
+  if (item.kind === "leave") {
+    const leave = item.leave;
+    return [leave.person, leave.title, leave.unit, leave.type, leave.status, leave.start, leave.end, leave.note].join(" ");
+  }
+  if (item.kind === "right") {
+    const right = item.right;
+    return [right.person, right.title, right.unit, right.year, right.note].join(" ");
+  }
+  const record = item.record;
+  return makePersonnelStatusSearchText(record);
+}
+
+function renderLeaveDetailCard(item) {
+  if (item.kind === "right") {
+    const right = item.right;
+    const used = getUsedAnnualLeave(right.person, right.year);
+    const totalRight = Number(right.entitled || 0) + Number(right.carried || 0);
+    const remaining = totalRight - used;
+    return `
+      <article class="leave-detail-card warning">
+        <div class="leave-detail-card-main">
+          <strong>${escapeHtml(right.person)}</strong>
+          <span>${escapeHtml(right.title || "-")} · ${escapeHtml(right.unit || "-")}</span>
+        </div>
+        <div class="leave-detail-metrics">
+          <span><b>${escapeHtml(totalRight)}</b> hak</span>
+          <span><b>${escapeHtml(used)}</b> kullanılan</span>
+          <span><b>${escapeHtml(remaining)}</b> kalan</span>
+        </div>
+      </article>
+    `;
+  }
+
+  if (item.kind === "status") {
+    const record = item.record;
+    return `
+      <article class="leave-detail-card">
+        <div class="leave-detail-card-main">
+          <strong>${escapeHtml(record.person.name)}</strong>
+          <span>${escapeHtml(record.person.title || "-")} · ${escapeHtml(record.person.unit || getPersonnelUnit(record.person) || "-")}</span>
+        </div>
+        <div class="leave-detail-meta-grid">
+          <span><b>Durum</b>${escapeHtml(record.status)}</span>
+          <span><b>Bulunduğu yer</b>${escapeHtml(record.place || "-")}</span>
+          <span><b>Başlangıç</b>${record.start ? formatDate(record.start) : "-"}</span>
+          <span><b>Dönüş / İşbaşı</b>${record.end ? formatDate(record.end) : "-"}</span>
+        </div>
+      </article>
+    `;
+  }
+
+  const leave = item.leave;
+  const person = findPersonnelByName(leave.person);
+  const today = getTodayDateOnly();
+  const targetDate = activeLeaveDetail.type === "upcoming" ? parseDateOnly(leave.start) : parseDateOnly(leave.end);
+  const suffix = activeLeaveDetail.type === "upcoming" ? "gün sonra başlayacak" : "gün sonra işbaşı";
+  const returnText = targetDate ? `${Math.max(getDayDifference(today, targetDate), 0)} ${suffix}` : "Tarih yok";
+  return `
+    <article class="leave-detail-card ${activeLeaveDetail.type === "upcoming" ? "upcoming" : ""}">
+      <div class="leave-detail-card-main">
+        <strong>${escapeHtml(leave.person)}</strong>
+        <span>${escapeHtml(leave.title || person?.title || "-")} · ${escapeHtml(leave.unit || person?.unit || "-")}</span>
+      </div>
+      <div class="leave-detail-meta-grid">
+        <span><b>İzin türü</b>${escapeHtml(leave.type)}</span>
+        <span><b>Başlangıç</b>${formatDate(leave.start)}</span>
+        <span><b>İşe başlama</b>${formatDate(leave.end)}</span>
+        <span><b>Süre</b>${escapeHtml(leave.days || "-")} gün</span>
+      </div>
+      <div class="leave-detail-card-foot">
+        <span class="status ${getStatusClass(leave.status)}">${escapeHtml(leave.status)}</span>
+        <strong>${escapeHtml(returnText)}</strong>
+      </div>
+    </article>
+  `;
+}
+
+function openLeaveDetail(source, type) {
+  activeLeaveDetail = { source, type };
+  if (leaveDetailSearchInput) leaveDetailSearchInput.value = "";
+  setActiveModule("leaveDetail");
+}
+
+function renderLeaveDetailPage() {
+  const config = leaveDetailConfig();
+  const records = getLeaveDetailRecords();
+  const totalRecords = getLeaveDetailRecordsUnfiltered().length;
+  const year = activeLeaveDetail.source === "duty" ? dutyYearFilter.value : leaveYearFilter.value;
+  leaveDetailEyebrow.textContent = `${year} ${activeLeaveDetail.source === "duty" ? "görev durumu" : "personel izinleri"}`;
+  leaveDetailTitle.textContent = config.title;
+  leaveDetailSummaryText.textContent = config.summary;
+  leaveDetailSummaryStrip.innerHTML = `
+    <article class="${config.tone}"><span>Toplam</span><strong>${totalRecords} kayıt</strong></article>
+    <article><span>Filtrelenen</span><strong>${records.length} kayıt</strong></article>
+    <article><span>Görünüm</span><strong>${activeLeaveDetail.source === "duty" ? "Görev Durumu" : "Personel İzinleri"}</strong></article>
+  `;
+  leaveDetailList.innerHTML = records.map(renderLeaveDetailCard).join("");
+  leaveDetailEmpty.hidden = records.length > 0;
+  applyModulePermissions();
+}
+
+function getLeaveDetailRecordsUnfiltered() {
+  const currentQuery = leaveDetailSearchInput?.value || "";
+  if (leaveDetailSearchInput) leaveDetailSearchInput.value = "";
+  const records = getLeaveDetailRecords();
+  if (leaveDetailSearchInput) leaveDetailSearchInput.value = currentQuery;
+  return records;
 }
 
 function getCriticalLeaveRights() {
@@ -5417,6 +5595,39 @@ function handleLeaveAction(event) {
 leaveRows.addEventListener("click", handleLeaveAction);
 leaveActiveList.addEventListener("click", handleLeaveAction);
 leaveUpcomingList.addEventListener("click", handleLeaveAction);
+
+document.querySelectorAll("[data-leave-detail]").forEach((element) => {
+  const open = (event) => {
+    if (event.target.closest("button, a, input, select, textarea")) return;
+    openLeaveDetail("leave", element.dataset.leaveDetail);
+  };
+  element.addEventListener("click", open);
+  element.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    open(event);
+  });
+});
+
+document.querySelectorAll("[data-duty-detail]").forEach((element) => {
+  const open = (event) => {
+    if (event.target.closest("button, a, input, select, textarea")) return;
+    openLeaveDetail("duty", element.dataset.dutyDetail);
+  };
+  element.addEventListener("click", open);
+  element.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    open(event);
+  });
+});
+
+backToLeaveOverview.addEventListener("click", () => setActiveModule("leave"));
+leaveDetailSearchInput.addEventListener("input", renderLeaveDetailPage);
+clearLeaveDetailSearch.addEventListener("click", () => {
+  leaveDetailSearchInput.value = "";
+  renderLeaveDetailPage();
+});
 
 leaveRightRows.addEventListener("click", (event) => {
   const actionButton = event.target.closest("[data-leave-right-action]");

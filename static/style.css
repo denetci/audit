@@ -1306,6 +1306,37 @@
         box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
       }
 
+      .action-card {
+        position: relative;
+        cursor: pointer;
+        transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+      }
+
+      .action-card:hover,
+      .action-card:focus-visible {
+        border-color: #9bc2f0;
+        box-shadow: 0 18px 34px rgb(15 23 42 / 0.1);
+        transform: translateY(-1px);
+        outline: none;
+      }
+
+      .action-card::after {
+        content: "Detayı gör →";
+        position: absolute;
+        right: 14px;
+        top: 12px;
+        color: #1558b0;
+        font-size: 11px;
+        font-weight: 850;
+        opacity: 0;
+        transition: opacity 0.16s ease;
+      }
+
+      .action-card:hover::after,
+      .action-card:focus-visible::after {
+        opacity: 1;
+      }
+
       .compact-head {
         padding: 14px 16px;
       }
@@ -1376,6 +1407,160 @@
 
       .leave-overview-actions .btn {
         min-width: 74px;
+      }
+
+
+      .leave-detail-page {
+        overflow: hidden;
+        background: #f5f8fc;
+      }
+
+      .leave-detail-hero {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 18px;
+        align-items: center;
+        padding: 22px;
+        border-bottom: 1px solid #d8e6f7;
+        background: linear-gradient(135deg, #f7fbff 0%, #edf6ff 100%);
+      }
+
+      .leave-detail-hero span {
+        color: #557092;
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .leave-detail-hero h2 {
+        margin: 4px 0 5px;
+        font-size: 26px;
+      }
+
+      .leave-detail-summary-strip {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        padding: 16px 22px;
+        background: #fff;
+        border-bottom: 1px solid #edf2f7;
+      }
+
+      .leave-detail-summary-strip article {
+        border: 1px solid #dce8f7;
+        border-left: 4px solid #1558b0;
+        border-radius: 10px;
+        background: #fbfdff;
+        padding: 12px 14px;
+      }
+
+      .leave-detail-summary-strip article.green { border-left-color: #11875d; }
+      .leave-detail-summary-strip article.amber { border-left-color: #c87900; }
+      .leave-detail-summary-strip article.cyan { border-left-color: #12809b; }
+
+      .leave-detail-summary-strip span,
+      .leave-detail-meta-grid b {
+        display: block;
+        color: #557092;
+        font-size: 11px;
+        font-weight: 850;
+        text-transform: uppercase;
+      }
+
+      .leave-detail-summary-strip strong {
+        display: block;
+        margin-top: 5px;
+        color: #071429;
+        font-size: 18px;
+      }
+
+      .leave-detail-toolbar {
+        display: grid;
+        grid-template-columns: minmax(260px, 1fr) auto;
+        gap: 12px;
+        align-items: end;
+        padding: 16px 22px;
+        background: #f8fbff;
+        border-bottom: 1px solid #edf2f7;
+      }
+
+      .leave-detail-toolbar label {
+        display: grid;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .leave-detail-toolbar input {
+        min-height: 40px;
+        border: 1px solid #d3dfec;
+        border-radius: 8px;
+        padding: 0 12px;
+        font-weight: 700;
+      }
+
+      .leave-detail-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 14px;
+        padding: 18px 22px 22px;
+      }
+
+      .leave-detail-card {
+        display: grid;
+        gap: 13px;
+        border: 1px solid #dce8f7;
+        border-left: 4px solid #1558b0;
+        border-radius: 12px;
+        background: #fff;
+        padding: 15px;
+        box-shadow: 0 14px 30px rgb(15 23 42 / 0.06);
+      }
+
+      .leave-detail-card.upcoming { border-left-color: #c87900; }
+      .leave-detail-card.warning { border-left-color: #c87900; background: #fffdf7; }
+
+      .leave-detail-card-main strong {
+        display: block;
+        color: var(--ink);
+        font-size: 15px;
+      }
+
+      .leave-detail-card-main span {
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .leave-detail-meta-grid,
+      .leave-detail-metrics {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 9px;
+      }
+
+      .leave-detail-meta-grid span,
+      .leave-detail-metrics span {
+        border-radius: 9px;
+        background: #f5f8fc;
+        color: #0f172a;
+        padding: 9px 10px;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .leave-detail-card-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .leave-detail-card-foot strong {
+        color: #0f3f7a;
+        font-size: 12px;
       }
 
       .duty-panel {

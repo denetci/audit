@@ -354,7 +354,7 @@
               </div>
 
               <div class="stats leave-stats" aria-label="İzin özetleri">
-                <article class="card">
+                <article class="card action-card" data-leave-detail="active" role="button" tabindex="0">
                   <div class="stat-top">
                     <div class="stat-icon bg-blue">◷</div>
                   </div>
@@ -362,7 +362,7 @@
                   <div class="value"><strong id="leaveTotalDays">0</strong><span>kişi</span></div>
                   <div class="note">Bugün kurum dışında olan personel</div>
                 </article>
-                <article class="card">
+                <article class="card action-card" data-leave-detail="upcoming" role="button" tabindex="0">
                   <div class="stat-top">
                     <div class="stat-icon bg-green">✓</div>
                   </div>
@@ -370,7 +370,7 @@
                   <div class="value"><strong id="leaveApprovedCount">0</strong><span>kayıt</span></div>
                   <div class="note">Başlangıcı yaklaşan izinler</div>
                 </article>
-                <article class="card">
+                <article class="card action-card" data-leave-detail="critical" role="button" tabindex="0">
                   <div class="stat-top">
                     <div class="stat-icon bg-amber">⌛</div>
                   </div>
@@ -381,7 +381,7 @@
               </div>
 
               <section class="leave-overview" aria-label="Güncel izin durumu">
-                <article class="leave-overview-card">
+                <article class="leave-overview-card action-card" data-leave-detail="active" role="button" tabindex="0">
                   <div class="sub-panel-head compact-head">
                     <div>
                       <h3>Bugün İzinde Olanlar</h3>
@@ -391,7 +391,7 @@
                   </div>
                   <div class="leave-overview-list" id="leaveActiveList"></div>
                 </article>
-                <article class="leave-overview-card">
+                <article class="leave-overview-card action-card" data-leave-detail="upcoming" role="button" tabindex="0">
                   <div class="sub-panel-head compact-head">
                     <div>
                       <h3>Yaklaşan İzinler</h3>
@@ -405,7 +405,7 @@
 
               <section class="duty-panel" id="dutyStatusPanel" hidden>
                 <div class="stats duty-stats" aria-label="Görev durumu özetleri">
-                  <article class="card">
+                  <article class="card action-card" data-duty-detail="office" role="button" tabindex="0">
                     <div class="stat-top">
                       <div class="stat-icon bg-green">✓</div>
                     </div>
@@ -413,7 +413,7 @@
                     <div class="value"><strong id="dutyActiveCount">0</strong><span>kişi</span></div>
                     <div class="note">Bugün kurumda görünen personel</div>
                   </article>
-                  <article class="card">
+                  <article class="card action-card" data-duty-detail="active" role="button" tabindex="0">
                     <div class="stat-top">
                       <div class="stat-icon bg-blue">▦</div>
                     </div>
@@ -421,7 +421,7 @@
                     <div class="value"><strong id="dutyRecordCount">0</strong><span>kayıt</span></div>
                     <div class="note">Dönüşü yapılmamış aktif görevler</div>
                   </article>
-                  <article class="card">
+                  <article class="card action-card" data-duty-detail="unavailable" role="button" tabindex="0">
                     <div class="stat-top">
                       <div class="stat-icon bg-amber">◷</div>
                     </div>
@@ -429,7 +429,7 @@
                     <div class="value"><strong id="dutyTotalDays">0</strong><span>kişi</span></div>
                     <div class="note">Bugün izinli veya raporlu olanlar</div>
                   </article>
-                  <article class="card">
+                  <article class="card action-card" data-duty-detail="upcoming" role="button" tabindex="0">
                     <div class="stat-top">
                       <div class="stat-icon bg-cyan" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18M8 16h3"/></svg></div>
                     </div>
@@ -586,6 +586,32 @@
               <div class="empty-state" id="leaveEmptyState" hidden>
                 <strong>İzin kaydı bulunamadı</strong>
                 <span>Filtreleri değiştirerek aramayı genişletebilirsin.</span>
+              </div>
+            </section>
+
+
+
+            <section class="panel leave-detail-page" id="izin-detay-panel" data-view="leaveDetail" hidden>
+              <div class="leave-detail-hero">
+                <button class="btn secondary" id="backToLeaveOverview" type="button">← İzin ve Görev Takibe Dön</button>
+                <div>
+                  <span id="leaveDetailEyebrow">2026 izin ve görev görünümü</span>
+                  <h2 id="leaveDetailTitle">Detay</h2>
+                  <p class="eyebrow" id="leaveDetailSummary">Seçili başlığa ait kayıtlar</p>
+                </div>
+              </div>
+              <div class="leave-detail-summary-strip" id="leaveDetailSummaryStrip"></div>
+              <div class="leave-detail-toolbar">
+                <label>
+                  Arama
+                  <input id="leaveDetailSearchInput" placeholder="Personel, birim, görev veya açıklama ara..." />
+                </label>
+                <button class="btn secondary" id="clearLeaveDetailSearch" type="button">Temizle</button>
+              </div>
+              <div class="leave-detail-list" id="leaveDetailList"></div>
+              <div class="empty-state" id="leaveDetailEmpty" hidden>
+                <strong>Kayıt bulunamadı</strong>
+                <span>Bu başlıkta gösterilecek kayıt yok.</span>
               </div>
             </section>
 
