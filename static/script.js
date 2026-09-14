@@ -3814,6 +3814,8 @@ function renderLeaveDetailCard(item) {
   const targetDate = activeLeaveDetail.type === "upcoming" ? parseDateOnly(leave.start) : parseDateOnly(leave.end);
   const suffix = activeLeaveDetail.type === "upcoming" ? "gün sonra başlayacak" : "gün sonra işbaşı";
   const returnText = targetDate ? `${Math.max(getDayDifference(today, targetDate), 0)} ${suffix}` : "Tarih yok";
+  const remainingAnnualLeave = leave.type === "Yıllık İzin" ? getRemainingAnnualLeave(leave.person, leave.year) : "";
+  const remainingLeaveText = leave.type === "Yıllık İzin" ? (remainingAnnualLeave === "" ? "Tanımlı değil" : `${remainingAnnualLeave} gün`) : "-";
   return `
     <article class="leave-detail-card ${activeLeaveDetail.type === "upcoming" ? "upcoming" : ""}">
       <div class="leave-detail-card-main">
@@ -3825,6 +3827,7 @@ function renderLeaveDetailCard(item) {
         <span><b>Başlangıç</b>${formatDate(leave.start)}</span>
         <span><b>İşe başlama</b>${formatDate(leave.end)}</span>
         <span><b>Süre</b>${escapeHtml(leave.days || "-")} gün</span>
+        <span><b>Kalan izin</b>${escapeHtml(remainingLeaveText)}</span>
       </div>
       <div class="leave-detail-card-foot">
         <span class="status ${getStatusClass(leave.status)}">${escapeHtml(leave.status)}</span>
