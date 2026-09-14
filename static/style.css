@@ -43,6 +43,25 @@
         grid-template-columns: 260px minmax(0, 1fr);
       }
 
+      .boot-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 60;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, var(--navy), var(--navy-dark));
+        color: #dbeafe;
+        font-size: 15px;
+        font-weight: 800;
+      }
+
+      .boot-screen div {
+        border: 1px solid rgb(255 255 255 / 0.18);
+        border-radius: 999px;
+        background: rgb(255 255 255 / 0.08);
+        padding: 12px 18px;
+      }
+
       .auth-screen {
         position: fixed;
         inset: 0;
