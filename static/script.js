@@ -1199,6 +1199,9 @@ async function login(username, password) {
 
 async function logout() {
   await apiFetch("/api/logout", { method: "POST" });
+  localStorage.removeItem(ACTIVE_VIEW_KEY);
+  activeModule = "dashboard";
+  activeLeaveDetail = { source: "leave", type: "active" };
   currentUser = null;
   sharedStateLoaded = false;
   clearTimeout(sharedStateSaveTimer);
