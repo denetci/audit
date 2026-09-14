@@ -702,12 +702,83 @@
               <div class="panel-head">
                 <div>
                   <h2>Stok İşlemleri</h2>
-                  <p class="eyebrow">Stok kartları ve taşınır hareketleri için hazırlanan modül alanı</p>
+                  <p class="eyebrow">Ürün kartları, stok giriş-çıkış hareketleri ve kritik stok takibi</p>
+                </div>
+                <div class="panel-actions">
+                  <span class="panel-count"><strong id="stockProductCount">0</strong> ürün</span>
+                  <button class="btn secondary" id="newStockProductBtn" type="button">＋ Yeni Ürün</button>
+                  <button class="btn secondary" id="newStockEntryBtn" type="button">＋ Stok Girişi</button>
+                  <button class="btn primary" id="newStockExitBtn" type="button">− Stok Çıkışı</button>
                 </div>
               </div>
-              <div class="empty-state">
-                <strong>Stok modülü hazırlandı</strong>
-                <span>Stok kartları, giriş-çıkış hareketleri ve zimmet alanlarını sonraki adımda bağlayabiliriz.</span>
+
+              <div class="stats stock-stats" aria-label="Stok özetleri">
+                <article class="card"><div class="stat-top"><div class="stat-icon bg-blue">▦</div></div><p>Toplam Ürün</p><div class="value"><strong id="stockTotalProducts">0</strong><span>ürün</span></div><div class="note">Aktif stok kartı sayısı</div></article>
+                <article class="card"><div class="stat-top"><div class="stat-icon bg-amber">⌛</div></div><p>Kritik Stok</p><div class="value"><strong id="stockCriticalCount">0</strong><span>ürün</span></div><div class="note">Kritik seviyede veya altında</div></article>
+                <article class="card"><div class="stat-top"><div class="stat-icon bg-green">＋</div></div><p>Bu Ay Giriş</p><div class="value"><strong id="stockMonthlyEntries">0</strong><span>miktar</span></div><div class="note">Ay içindeki toplam giriş</div></article>
+                <article class="card"><div class="stat-top"><div class="stat-icon bg-red">−</div></div><p>Bu Ay Çıkış</p><div class="value"><strong id="stockMonthlyExits">0</strong><span>miktar</span></div><div class="note">Ay içindeki toplam çıkış</div></article>
+              </div>
+
+              <div class="module-filters stock-filters" aria-label="Stok filtreleri">
+                <label>
+                  Kaynak
+                  <select id="stockSourceFilter">
+                    <option value="Tümü">Tümü</option>
+                    <option>Kurum Bütçesi</option>
+                    <option>Personel Ortak Alımı</option>
+                  </select>
+                </label>
+                <label>
+                  Kategori
+                  <select id="stockCategoryFilter">
+                    <option value="Tümü">Tümü</option>
+                  </select>
+                </label>
+                <label>
+                  Durum
+                  <select id="stockStatusFilter">
+                    <option value="Tümü">Tümü</option>
+                    <option>Normal</option>
+                    <option>Kritik</option>
+                    <option>Tükendi</option>
+                  </select>
+                </label>
+                <label class="wide-filter">
+                  Arama
+                  <input id="stockSearchInput" placeholder="Ürün, kategori, kaynak veya depolama yeri ara..." />
+                </label>
+                <button class="btn secondary" id="clearStockFilters" type="button">Temizle</button>
+              </div>
+
+              <section class="stock-alerts" id="stockCriticalPanel" hidden>
+                <div class="sub-panel-head compact-head">
+                  <div><h3>Kritik Stoklar</h3><p class="eyebrow">Yenilenmesi gereken ürünler</p></div>
+                  <span class="panel-count"><strong id="stockCriticalPanelCount">0</strong> ürün</span>
+                </div>
+                <div class="stock-alert-list" id="stockCriticalList"></div>
+              </section>
+
+              <div class="table-wrap">
+                <table class="stock-table">
+                  <thead>
+                    <tr>
+                      <th>Ürün Adı</th>
+                      <th>Kategori</th>
+                      <th>Stok Kaynağı</th>
+                      <th>Birim</th>
+                      <th>Mevcut Stok</th>
+                      <th>Kritik Seviye</th>
+                      <th>Depolama Yeri</th>
+                      <th>Durum</th>
+                      <th>İşlemler</th>
+                    </tr>
+                  </thead>
+                  <tbody id="stockRows"></tbody>
+                </table>
+              </div>
+              <div class="empty-state" id="stockEmptyState" hidden>
+                <strong>Stok ürünü bulunamadı</strong>
+                <span>Yeni ürün ekleyebilir veya filtreleri değiştirebilirsin.</span>
               </div>
             </section>
 
@@ -1814,6 +1885,57 @@
         <div class="modal-actions">
           <button class="btn secondary" id="cancelBudgetExpense" type="button">Vazgeç</button>
           <button class="btn primary" id="saveBudgetExpenseBtn" type="submit">Kaydet</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="stockProductModal">
+      <form class="modal-card" id="stockProductForm" method="dialog">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow" id="stockProductModalMode">Yeni ürün</p>
+            <h2 id="stockProductModalTitle">Ürün Ekle</h2>
+          </div>
+          <button class="icon-btn" id="closeStockProductModal" type="button">×</button>
+        </div>
+        <div class="form-grid">
+          <label>Ürün Adı<input name="name" required /></label>
+          <label>Kategori<select name="category" required><option>Kırtasiye</option><option>Bilgisayar / Elektronik</option><option>Temizlik</option><option>Mutfak / İkram</option><option>Sarf Malzemesi</option><option>Diğer</option></select></label>
+          <label>Stok Kaynağı<select name="source" required><option>Kurum Bütçesi</option><option>Personel Ortak Alımı</option></select></label>
+          <label>Ölçü Birimi<select name="unit" required><option>Adet</option><option>Paket</option><option>Kutu</option><option>Koli</option><option>Kg</option><option>Litre</option><option>Top</option><option>Diğer</option></select></label>
+          <label>Kritik Stok Seviyesi<input name="critical" type="number" min="0" step="0.01" value="0" /></label>
+          <label>Depolama Yeri<input name="storage" placeholder="Örn. Depo Dolabı 2" /></label>
+          <label class="span-2">Açıklama<textarea name="note" placeholder="Gerekirse kısa açıklama"></textarea></label>
+        </div>
+        <div class="modal-actions">
+          <button class="btn secondary" id="cancelStockProduct" type="button">Vazgeç</button>
+          <button class="btn primary" type="submit">Kaydet</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="stockMovementModal">
+      <form class="modal-card" id="stockMovementForm" method="dialog">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow" id="stockMovementModalMode">Stok hareketi</p>
+            <h2 id="stockMovementModalTitle">Stok Hareketi</h2>
+          </div>
+          <button class="icon-btn" id="closeStockMovementModal" type="button">×</button>
+        </div>
+        <div class="form-grid">
+          <label class="span-2">Ürün<select name="productId" required></select></label>
+          <label id="stockMovementTypeLabel">İşlem Türü<select name="movementKind" required></select></label>
+          <label>Miktar<input name="quantity" type="number" min="0.01" step="0.01" required /></label>
+          <label>İşlem Tarihi<input name="date" type="date" required /></label>
+          <label>Belge / Fatura No<input name="documentNo" /></label>
+          <label>Personel<select name="person"><option value="">Personel seç</option></select></label>
+          <label>Kullanım Yeri<input name="usagePlace" placeholder="Örn. Mutfak, Fotokopi Alanı" /></label>
+          <label class="span-2">Açıklama<textarea name="note" placeholder="Gerekirse kısa açıklama"></textarea></label>
+        </div>
+        <div class="modal-actions">
+          <button class="btn secondary" id="cancelStockMovement" type="button">Vazgeç</button>
+          <button class="btn primary" type="submit">Kaydet</button>
         </div>
       </form>
     </dialog>

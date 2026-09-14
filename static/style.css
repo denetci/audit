@@ -1288,6 +1288,101 @@
         min-width: 920px;
       }
 
+      .stock-stats {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        padding: 16px;
+        border-bottom: 1px solid #edf2f7;
+      }
+
+      .stock-filters {
+        grid-template-columns: 170px 190px 150px minmax(260px, 1fr) auto;
+      }
+
+      .stock-alerts {
+        margin: 16px;
+        overflow: hidden;
+        border: 1px solid #f2d49b;
+        border-radius: var(--radius);
+        background: #fffaf0;
+      }
+
+      .stock-alert-list {
+        display: grid;
+        gap: 8px;
+        padding: 0 16px 16px;
+      }
+
+      .stock-alert-list article {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border: 1px solid #f4d69f;
+        border-radius: 8px;
+        background: #fffdf7;
+        padding: 10px 12px;
+      }
+
+      .stock-alert-list span {
+        color: #7c4a03;
+        font-size: 12px;
+        font-weight: 750;
+        text-align: right;
+      }
+
+      .stock-table {
+        min-width: 1080px;
+      }
+
+      .stock-detail-row td {
+        background: #f8fbff;
+        padding: 0;
+      }
+
+      .stock-movement-panel {
+        display: grid;
+        gap: 12px;
+        padding: 16px;
+        border-top: 1px solid #e2eaf4;
+      }
+
+      .stock-movement-panel h3 {
+        margin: 0;
+        color: #0f172a;
+        font-size: 15px;
+      }
+
+      .stock-movement-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .stock-movement-list article {
+        display: grid;
+        grid-template-columns: 110px 120px minmax(130px, 1fr) minmax(140px, 1fr);
+        gap: 10px;
+        align-items: center;
+        border: 1px solid #dce8f7;
+        border-radius: 8px;
+        background: white;
+        padding: 10px 12px;
+      }
+
+      .stock-movement-list small {
+        grid-column: 1 / -1;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .positive-stock {
+        color: #11875d;
+      }
+
+      .negative-stock {
+        color: #b42318;
+      }
+
       .leave-overview {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));

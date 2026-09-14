@@ -18,11 +18,11 @@ function permissionsEditor(user) {
   return `<details class="module-permissions"><summary>Modül Yetkileri</summary><div class="permission-grid">${Object.entries(MODULE_LABELS).map(([key,label]) => `<label>${label}<select data-permission="${key}" ${user.owner ? "disabled" : ""}>${[["none","Erişim yok"],["view","Görüntüleme"],["edit","Görüntüleme ve değişiklik"]].map(([value,text]) => `<option value="${value}" ${(user.owner ? "edit" : user.permissions?.[key] || "none") === value ? "selected" : ""}>${text}</option>`).join("")}</select></label>`).join("")}</div></details>`;
 }
 function mutationModule(element) {
-  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
+  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
   if (ids[element.id]) return ids[element.id];
-  for (const [attr,module] of [["data-action","audits"],["data-approval-action","approvals"],["data-leave-action","leaves"],["data-leave-right-action","leaves"],["data-duty-action","duties"],["data-budget-item-action","budget"],["data-budget-expense-action","budget"],["data-monitoring-document-action","monitoring"],["data-report-document-action","reports"],["data-personnel-action","personnel"]]) {
+  for (const [attr,module] of [["data-action","audits"],["data-approval-action","approvals"],["data-leave-action","leaves"],["data-leave-right-action","leaves"],["data-duty-action","duties"],["data-budget-item-action","budget"],["data-budget-expense-action","budget"],["data-stock-action","stock"],["data-monitoring-document-action","monitoring"],["data-report-document-action","reports"],["data-personnel-action","personnel"]]) {
     const action = element.getAttribute(attr);
-    if (["edit","delete","cancel","return","rename","save-link","monitoring","toggle-menu"].includes(action)) return action === "monitoring" ? "monitoring" : module;
+    if (["edit","delete","cancel","return","rename","save-link","monitoring","toggle-menu","entry","exit"].includes(action)) return action === "monitoring" ? "monitoring" : module;
   }
   if (element.matches("[data-restore-audit]")) return "audits";
   if (element.matches("[data-personnel-delete]")) return "personnel";
@@ -230,6 +230,37 @@ const budgetSections = Array.from(document.querySelectorAll('[data-view="budget"
 const budgetDetailSections = Array.from(document.querySelectorAll('[data-view="budgetDetail"]'));
 const stockSections = Array.from(document.querySelectorAll('[data-view="stock"]'));
 const reportSections = Array.from(document.querySelectorAll('[data-view="reports"]'));
+const stockProductCount = document.querySelector("#stockProductCount");
+const stockTotalProducts = document.querySelector("#stockTotalProducts");
+const stockCriticalCount = document.querySelector("#stockCriticalCount");
+const stockMonthlyEntries = document.querySelector("#stockMonthlyEntries");
+const stockMonthlyExits = document.querySelector("#stockMonthlyExits");
+const stockSourceFilter = document.querySelector("#stockSourceFilter");
+const stockCategoryFilter = document.querySelector("#stockCategoryFilter");
+const stockStatusFilter = document.querySelector("#stockStatusFilter");
+const stockSearchInput = document.querySelector("#stockSearchInput");
+const clearStockFilters = document.querySelector("#clearStockFilters");
+const stockRows = document.querySelector("#stockRows");
+const stockEmptyState = document.querySelector("#stockEmptyState");
+const stockCriticalPanel = document.querySelector("#stockCriticalPanel");
+const stockCriticalPanelCount = document.querySelector("#stockCriticalPanelCount");
+const stockCriticalList = document.querySelector("#stockCriticalList");
+const newStockProductBtn = document.querySelector("#newStockProductBtn");
+const newStockEntryBtn = document.querySelector("#newStockEntryBtn");
+const newStockExitBtn = document.querySelector("#newStockExitBtn");
+const stockProductModal = document.querySelector("#stockProductModal");
+const stockProductForm = document.querySelector("#stockProductForm");
+const stockProductModalMode = document.querySelector("#stockProductModalMode");
+const stockProductModalTitle = document.querySelector("#stockProductModalTitle");
+const closeStockProductModal = document.querySelector("#closeStockProductModal");
+const cancelStockProduct = document.querySelector("#cancelStockProduct");
+const stockMovementModal = document.querySelector("#stockMovementModal");
+const stockMovementForm = document.querySelector("#stockMovementForm");
+const stockMovementModalMode = document.querySelector("#stockMovementModalMode");
+const stockMovementModalTitle = document.querySelector("#stockMovementModalTitle");
+const closeStockMovementModal = document.querySelector("#closeStockMovementModal");
+const cancelStockMovement = document.querySelector("#cancelStockMovement");
+
 const monitoringSections = Array.from(document.querySelectorAll('[data-view="monitoring"]'));
 const adminSections = Array.from(document.querySelectorAll('[data-view="admin"]'));
 const approvalRows = document.querySelector("#approvalRows");
@@ -462,6 +493,9 @@ let editingDutyId = null;
 let editingBudgetItemId = null;
 let editingBudgetExpenseId = null;
 let selectedBudgetItemId = null;
+let editingStockProductId = null;
+let stockMovementMode = "GIRIS";
+let selectedStockProductId = null;
 let editingMonitoringAudit = null;
 let selectedReportAuditKey = "";
 let toastTimer = null;
@@ -2980,6 +3014,7 @@ function setActiveModule(moduleName, options = {}) {
   if (showStock) {
     document.querySelector(".topbar h1").textContent = "Stok İşlemleri";
     topbarSubtitle.textContent = "Stok kartları ve taşınır hareketleri";
+    renderStock();
     return;
   }
 
@@ -3145,6 +3180,196 @@ function renderBudget() {
   }).join("");
 
   applyModulePermissions();
+}
+
+
+function normalizeStockProduct(product) {
+  return {
+    id: Number(product.id) || Date.now(),
+    name: product.name || product.urun_adi || "",
+    category: product.category || product.kategori || "Diğer",
+    source: product.source || product.stok_kaynagi || "Kurum Bütçesi",
+    unit: product.unit || product.birim || "Adet",
+    critical: Number(product.critical ?? product.kritik_stok ?? 0),
+    storage: product.storage || product.depolama_yeri || "",
+    note: product.note || product.aciklama || "",
+    active: product.active !== false,
+    createdAt: product.createdAt || new Date().toISOString(),
+    updatedAt: product.updatedAt || new Date().toISOString(),
+    movements: Array.isArray(product.movements) ? product.movements : [],
+  };
+}
+
+function saveStockRecords() {
+  stockItems = stockItems.map(normalizeStockProduct);
+  localStorage.setItem("ic-denetim-stock", JSON.stringify({ version: "2026-09-14-stock-v1", stockItems }));
+  scheduleSharedStateSave();
+}
+
+function stockQuantity(product) {
+  return (product.movements || []).reduce((sum, movement) => {
+    const quantity = Number(movement.quantity || 0);
+    return sum + (movement.type === "GIRIS" ? quantity : -quantity);
+  }, 0);
+}
+
+function stockStatus(product) {
+  const quantity = stockQuantity(product);
+  if (quantity <= 0) return "Tükendi";
+  if (quantity <= Number(product.critical || 0)) return "Kritik";
+  return "Normal";
+}
+
+function stockStatusClass(status) {
+  return status === "Normal" ? "done" : status === "Kritik" ? "waiting" : "danger";
+}
+
+function stockMovementLabel(movement) {
+  const labels = {
+    SATIN_ALMA: "Satın Alma",
+    STOK_DEVRI: "Mevcut Stok Devri",
+    IADE: "İade",
+    PERSONELE_TESLIM: "Personele Teslim",
+    TUKETIME_SUNMA: "Tüketime Sunma",
+    ORTAK_KULLANIM: "Ortak Kullanıma Verme",
+    FIRE_ZAYI: "Fire / Zayi",
+    DIGER: "Diğer",
+  };
+  return labels[movement.kind] || movement.kind || "-";
+}
+
+function getVisibleStockProducts() {
+  const source = stockSourceFilter.value;
+  const category = stockCategoryFilter.value;
+  const status = stockStatusFilter.value;
+  const query = normalizeText(stockSearchInput.value || "");
+  return stockItems.map(normalizeStockProduct).filter((product) => {
+    const productStatus = stockStatus(product);
+    const matchesSource = source === "Tümü" || product.source === source;
+    const matchesCategory = category === "Tümü" || product.category === category;
+    const matchesStatus = status === "Tümü" || productStatus === status;
+    const matchesSearch = !query || normalizeText([product.name, product.category, product.source, product.unit, product.storage, product.note].join(" ")).includes(query);
+    return product.active !== false && matchesSource && matchesCategory && matchesStatus && matchesSearch;
+  }).sort((a,b) => String(a.name).localeCompare(String(b.name), "tr"));
+}
+
+function updateStockCategoryFilter() {
+  const current = stockCategoryFilter.value || "Tümü";
+  const categories = [...new Set(stockItems.map((product) => normalizeStockProduct(product).category).filter(Boolean))].sort((a,b) => a.localeCompare(b, "tr"));
+  stockCategoryFilter.innerHTML = `<option value="Tümü">Tümü</option>${categories.map((category) => `<option>${escapeHtml(category)}</option>`).join("")}`;
+  stockCategoryFilter.value = categories.includes(current) ? current : "Tümü";
+}
+
+function renderStock() {
+  stockItems = stockItems.map(normalizeStockProduct);
+  updateStockCategoryFilter();
+  const visibleProducts = getVisibleStockProducts();
+  const activeProducts = stockItems.filter((product) => normalizeStockProduct(product).active !== false);
+  const criticalProducts = activeProducts.filter((product) => ["Kritik", "Tükendi"].includes(stockStatus(normalizeStockProduct(product))));
+  const monthPrefix = new Date().toISOString().slice(0, 7);
+  const monthlyTotals = activeProducts.flatMap((product) => normalizeStockProduct(product).movements || []).reduce((acc, movement) => {
+    if (String(movement.date || "").slice(0, 7) === monthPrefix) {
+      if (movement.type === "GIRIS") acc.entries += Number(movement.quantity || 0);
+      if (movement.type === "CIKIS") acc.exits += Number(movement.quantity || 0);
+    }
+    return acc;
+  }, { entries: 0, exits: 0 });
+
+  stockProductCount.textContent = visibleProducts.length;
+  stockTotalProducts.textContent = activeProducts.length;
+  stockCriticalCount.textContent = criticalProducts.length;
+  stockMonthlyEntries.textContent = formatNumber(monthlyTotals.entries);
+  stockMonthlyExits.textContent = formatNumber(monthlyTotals.exits);
+  stockCriticalPanel.hidden = criticalProducts.length === 0;
+  stockCriticalPanelCount.textContent = criticalProducts.length;
+  stockCriticalList.innerHTML = criticalProducts.slice(0, 6).map((product) => {
+    const normalized = normalizeStockProduct(product);
+    return `<article><strong>${escapeHtml(normalized.name)}</strong><span>Mevcut stok: ${formatNumber(stockQuantity(normalized))} ${escapeHtml(normalized.unit)} · Kritik seviye: ${formatNumber(normalized.critical)}</span></article>`;
+  }).join("");
+
+  stockRows.innerHTML = visibleProducts.map((product) => {
+    const quantity = stockQuantity(product);
+    const status = stockStatus(product);
+    const active = String(product.id) === String(selectedStockProductId);
+    const movementRows = active ? stockMovementRows(product) : "";
+    return `
+      <tr class="${active ? "selected-row" : ""}">
+        <td><strong>${escapeHtml(product.name)}</strong>${product.note ? `<small class="table-note">${escapeHtml(product.note)}</small>` : ""}</td>
+        <td>${escapeHtml(product.category)}</td>
+        <td>${escapeHtml(product.source)}</td>
+        <td>${escapeHtml(product.unit)}</td>
+        <td><strong>${formatNumber(quantity)}</strong></td>
+        <td>${formatNumber(product.critical)}</td>
+        <td>${escapeHtml(product.storage || "-")}</td>
+        <td><span class="status ${stockStatusClass(status)}">${escapeHtml(status)}</span></td>
+        <td><div class="inline-actions"><button class="btn secondary small" data-stock-action="detail" data-id="${product.id}" type="button">Detay</button><button class="btn secondary small" data-stock-action="edit" data-id="${product.id}" type="button">Düzenle</button><button class="btn secondary small" data-stock-action="entry" data-id="${product.id}" type="button">Giriş</button><button class="btn secondary small" data-stock-action="exit" data-id="${product.id}" type="button">Çıkış</button></div></td>
+      </tr>
+      ${movementRows}
+    `;
+  }).join("");
+  stockEmptyState.hidden = visibleProducts.length > 0;
+  applyModulePermissions();
+}
+
+function stockMovementRows(product) {
+  const movements = [...(product.movements || [])].sort((a,b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+  if (!movements.length) return `<tr class="stock-detail-row"><td colspan="9"><div class="empty-inline">Bu ürün için stok hareketi yok.</div></td></tr>`;
+  return `<tr class="stock-detail-row"><td colspan="9"><div class="stock-movement-panel"><h3>${escapeHtml(product.name)} hareketleri</h3><div class="stock-movement-list">${movements.map((movement) => `<article><time>${formatDate(movement.date)}</time><strong class="${movement.type === "GIRIS" ? "positive-stock" : "negative-stock"}">${movement.type === "GIRIS" ? "+" : "-"}${formatNumber(movement.quantity)} ${escapeHtml(product.unit)}</strong><span>${escapeHtml(stockMovementLabel(movement))}</span><span>${escapeHtml(movement.person || movement.usagePlace || "-")}</span><small>${escapeHtml(movement.note || movement.documentNo || "-")} · ${escapeHtml(movement.user || "-")} · ${movement.createdAt ? new Date(movement.createdAt).toLocaleString("tr-TR") : "-"}</small></article>`).join("")}</div></div></td></tr>`;
+}
+
+function openStockProductModal(product = null) {
+  stockProductForm.reset();
+  editingStockProductId = product ? product.id : null;
+  stockProductModalMode.textContent = product ? product.name : "Yeni ürün";
+  stockProductModalTitle.textContent = product ? "Ürünü Düzenle" : "Ürün Ekle";
+  if (product) {
+    stockProductForm.elements.name.value = product.name;
+    stockProductForm.elements.category.value = product.category;
+    stockProductForm.elements.source.value = product.source;
+    stockProductForm.elements.unit.value = product.unit;
+    stockProductForm.elements.critical.value = product.critical;
+    stockProductForm.elements.storage.value = product.storage || "";
+    stockProductForm.elements.note.value = product.note || "";
+  }
+  stockProductModal.showModal();
+}
+
+function closeStockProductDialog() {
+  editingStockProductId = null;
+  stockProductModal.close();
+}
+
+function renderStockProductOptions(selectedId = "") {
+  stockMovementForm.elements.productId.innerHTML = stockItems.filter((product) => normalizeStockProduct(product).active !== false).map((product) => `<option value="${product.id}" ${String(product.id) === String(selectedId) ? "selected" : ""}>${escapeHtml(normalizeStockProduct(product).name)}</option>`).join("");
+}
+
+function renderStockMovementKindOptions(type) {
+  const options = type === "GIRIS" ? [["SATIN_ALMA","Satın Alma"],["STOK_DEVRI","Mevcut Stok Devri"],["IADE","İade"],["DIGER","Diğer"]] : [["PERSONELE_TESLIM","Personele Teslim"],["TUKETIME_SUNMA","Tüketime Sunma"],["ORTAK_KULLANIM","Ortak Kullanıma Verme"],["FIRE_ZAYI","Fire / Zayi"],["DIGER","Diğer"]];
+  stockMovementForm.elements.movementKind.innerHTML = options.map(([value,label]) => `<option value="${value}">${label}</option>`).join("");
+}
+
+function openStockMovementModal(type, productId = "") {
+  if (!stockItems.filter((product) => normalizeStockProduct(product).active !== false).length) {
+    showToast("Önce stok ürünü eklemelisin.");
+    return;
+  }
+  stockMovementMode = type;
+  stockMovementForm.reset();
+  renderStockProductOptions(productId);
+  renderStockMovementKindOptions(type);
+  renderPersonnelOptions(stockMovementForm.elements.person, "", "Personel seç");
+  stockMovementForm.elements.date.value = new Date().toISOString().slice(0, 10);
+  stockMovementModalMode.textContent = type === "GIRIS" ? "Stok girişi" : "Stok çıkışı";
+  stockMovementModalTitle.textContent = type === "GIRIS" ? "Stok Girişi" : "Stok Çıkışı";
+  stockMovementModal.showModal();
+}
+
+function closeStockMovementDialog() {
+  stockMovementModal.close();
+}
+
+function formatNumber(value) {
+  return new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 2 }).format(Number(value || 0));
 }
 
 function selectedBudgetItem() {
@@ -5053,6 +5278,13 @@ closeLeaveRightModal.addEventListener("click", closeLeaveRightDialog);
 cancelLeaveRight.addEventListener("click", closeLeaveRightDialog);
 closeDutyModal.addEventListener("click", closeDutyDialog);
 cancelDuty.addEventListener("click", closeDutyDialog);
+newStockProductBtn.addEventListener("click", () => openStockProductModal());
+newStockEntryBtn.addEventListener("click", () => openStockMovementModal("GIRIS"));
+newStockExitBtn.addEventListener("click", () => openStockMovementModal("CIKIS"));
+closeStockProductModal.addEventListener("click", closeStockProductDialog);
+cancelStockProduct.addEventListener("click", closeStockProductDialog);
+closeStockMovementModal.addEventListener("click", closeStockMovementDialog);
+cancelStockMovement.addEventListener("click", closeStockMovementDialog);
 newBudgetItemBtn.addEventListener("click", () => openBudgetItemModal());
 closeBudgetItemModal.addEventListener("click", closeBudgetItemDialog);
 cancelBudgetItem.addEventListener("click", closeBudgetItemDialog);
@@ -5105,6 +5337,35 @@ function handleBudgetExpenseAction(event) {
     showToast("Harcama kaydı silindi.");
   }
 }
+
+[stockSourceFilter, stockCategoryFilter, stockStatusFilter, stockSearchInput].forEach((control) => {
+  control.addEventListener("input", renderStock);
+  control.addEventListener("change", renderStock);
+});
+
+clearStockFilters.addEventListener("click", () => {
+  stockSourceFilter.value = "Tümü";
+  stockCategoryFilter.value = "Tümü";
+  stockStatusFilter.value = "Tümü";
+  stockSearchInput.value = "";
+  renderStock();
+});
+
+stockRows.addEventListener("click", (event) => {
+  const actionButton = event.target.closest("[data-stock-action]");
+  if (!actionButton) return;
+  const product = stockItems.map(normalizeStockProduct).find((item) => String(item.id) === String(actionButton.dataset.id));
+  if (!product) return;
+  const action = actionButton.dataset.stockAction;
+  if (action === "detail") {
+    selectedStockProductId = String(selectedStockProductId) === String(product.id) ? null : product.id;
+    renderStock();
+    return;
+  }
+  if (action === "edit") openStockProductModal(product);
+  if (action === "entry") openStockMovementModal("GIRIS", product.id);
+  if (action === "exit") openStockMovementModal("CIKIS", product.id);
+});
 
 [budgetYearFilter, budgetSearchInput].forEach((control) => {
   control.addEventListener("input", renderBudget);
@@ -5864,6 +6125,94 @@ leaveForm.addEventListener("submit", (event) => {
   saveLeaves();
   renderLeaves();
   closeLeaveDialog();
+});
+
+stockProductForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const formData = new FormData(stockProductForm);
+  const product = {
+    id: editingStockProductId || Date.now(),
+    name: String(formData.get("name") || "").trim(),
+    category: formData.get("category"),
+    source: formData.get("source"),
+    unit: formData.get("unit"),
+    critical: Number(formData.get("critical") || 0),
+    storage: String(formData.get("storage") || "").trim(),
+    note: String(formData.get("note") || "").trim(),
+    active: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    movements: [],
+  };
+  if (!product.name) {
+    showToast("Ürün adı gerekli.");
+    return;
+  }
+  const existing = stockItems.map(normalizeStockProduct).find((item) => String(item.id) === String(editingStockProductId));
+  if (existing) {
+    product.createdAt = existing.createdAt;
+    product.movements = existing.movements || [];
+    stockItems = stockItems.map((item) => String(item.id) === String(product.id) ? product : item);
+  } else {
+    stockItems.push(product);
+  }
+  saveStockRecords();
+  closeStockProductDialog();
+  renderStock();
+  showToast("Stok ürünü kaydedildi.");
+});
+
+stockMovementForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const formData = new FormData(stockMovementForm);
+  const productId = formData.get("productId");
+  const product = stockItems.map(normalizeStockProduct).find((item) => String(item.id) === String(productId));
+  if (!product) {
+    showToast("Ürün seçmelisin.");
+    return;
+  }
+  const quantity = Number(formData.get("quantity") || 0);
+  if (quantity <= 0) {
+    showToast("Miktar sıfırdan büyük olmalı.");
+    return;
+  }
+  const kind = String(formData.get("movementKind") || "");
+  const person = String(formData.get("person") || "").trim();
+  if (stockMovementMode === "CIKIS" && kind === "PERSONELE_TESLIM" && !person) {
+    showToast("Personele teslim işleminde personel seçmelisin.");
+    return;
+  }
+  const currentQuantity = stockQuantity(product);
+  if (stockMovementMode === "CIKIS" && quantity > currentQuantity) {
+    showToast(`Yetersiz stok. Mevcut stok: ${formatNumber(currentQuantity)} ${product.unit}.`);
+    return;
+  }
+  const movement = {
+    id: Date.now(),
+    type: stockMovementMode,
+    kind,
+    quantity,
+    date: formData.get("date") || new Date().toISOString().slice(0, 10),
+    documentNo: String(formData.get("documentNo") || "").trim(),
+    person,
+    usagePlace: String(formData.get("usagePlace") || "").trim(),
+    note: String(formData.get("note") || "").trim(),
+    user: currentUser?.displayName || currentUser?.username || "-",
+    userId: currentUser?.id || "",
+    createdAt: new Date().toISOString(),
+  };
+  stockItems = stockItems.map((item) => {
+    const normalized = normalizeStockProduct(item);
+    if (String(normalized.id) !== String(productId)) return item;
+    normalized.movements = [...(normalized.movements || []), movement];
+    normalized.updatedAt = new Date().toISOString();
+    return normalized;
+  });
+  selectedStockProductId = productId;
+  saveStockRecords();
+  closeStockMovementDialog();
+  renderStock();
+  showToast(stockMovementMode === "GIRIS" ? "Stok girişi kaydedildi." : "Stok çıkışı kaydedildi.");
 });
 
 budgetItemForm.addEventListener("submit", (event) => {
