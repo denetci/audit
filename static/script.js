@@ -203,6 +203,7 @@ const leaveModuleButtons = Array.from(document.querySelectorAll("[data-leave-mod
 const topbarSubtitle = document.querySelector("#topbarSubtitle");
 const layout = document.querySelector(".layout");
 const toast = document.querySelector("#toast");
+const bootScreen = document.querySelector("#bootScreen");
 const authScreen = document.querySelector("#authScreen");
 const loginForm = document.querySelector("#loginForm");
 const loginError = document.querySelector("#loginError");
@@ -1138,6 +1139,7 @@ async function readApiJson(response, fallbackMessage) {
 function renderAuthState() {
   const isLoggedIn = Boolean(currentUser);
 
+  if (bootScreen) bootScreen.hidden = true;
   authScreen.hidden = isLoggedIn;
   currentUserBox.hidden = !isLoggedIn;
   adminNav.hidden = !currentUser?.owner;
