@@ -18,7 +18,7 @@
       .budget-detail-summary-strip article.good{border-left-color:#16824a}.budget-detail-summary-strip article.danger{border-left-color:#c93434}.budget-detail-summary-strip article.quiet{border-left-color:#c47a08}
       .budget-detail-summary-strip span,.budget-detail-dashboard span{color:#64748b;font-size:11px;font-weight:900;text-transform:uppercase}
       .budget-detail-summary-strip strong{color:#0f172a;font-size:15px}
-      .budget-detail-dashboard{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:16px 22px}
+      .budget-detail-dashboard{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;padding:16px 22px}
       .budget-detail-dashboard article{display:grid;gap:9px;border:1px solid #dbe6f3;border-radius:8px;background:#fff;box-shadow:0 10px 24px rgba(15,23,42,.04);padding:16px}
       .budget-detail-dashboard strong{color:#0f172a;font-size:24px;line-height:1}
       .budget-progress-block{display:grid;gap:8px;border-block:1px solid #edf2f7;background:#fff;padding:15px 22px}
@@ -47,7 +47,7 @@
       #butce-kalem-detay-panel .budget-detail-summary-strip article.good{border-left-color:#16824a!important}#butce-kalem-detay-panel .budget-detail-summary-strip article.danger{border-left-color:#c93434!important}#butce-kalem-detay-panel .budget-detail-summary-strip article.quiet{border-left-color:#c47a08!important}
       #butce-kalem-detay-panel .budget-detail-summary-strip span,#butce-kalem-detay-panel .budget-detail-dashboard span{display:block!important;color:#64748b!important;font-size:11px!important;font-weight:900!important;text-transform:uppercase!important}
       #butce-kalem-detay-panel .budget-detail-summary-strip strong{display:block!important;color:#0f172a!important;font-size:15px!important}
-      #butce-kalem-detay-panel .budget-detail-dashboard{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:12px!important;padding:16px 22px!important}
+      #butce-kalem-detay-panel .budget-detail-dashboard{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:12px!important;padding:16px 22px!important}
       #butce-kalem-detay-panel .budget-detail-dashboard article{display:grid!important;gap:9px!important;background:#fff!important;border:1px solid #dbe6f3!important;border-radius:8px!important;box-shadow:0 10px 24px rgba(15,23,42,.04)!important;padding:16px!important}
       #butce-kalem-detay-panel .budget-detail-dashboard strong{display:block!important;color:#0f172a!important;font-size:24px!important;line-height:1!important}
       #butce-kalem-detay-panel .budget-progress-block{display:grid!important;gap:8px!important;background:#fff!important;border-top:1px solid #edf2f7!important;border-bottom:1px solid #edf2f7!important;padding:15px 22px!important}
@@ -633,12 +633,18 @@
               <div class="stats budget-stats" aria-label="Bütçe özetleri">
                 <article class="card">
                   <div class="stat-top"><div class="stat-icon bg-blue">₺</div></div>
-                  <p>Alınan Ödenek</p>
+                  <p>Tahsis Edilen Ödenek</p>
                   <div class="value"><strong id="budgetTotalAllocated">0</strong><span>TL</span></div>
-                  <div class="note">Seçili yıl ana ödenek toplamı</div>
+                  <div class="note">Seçili yıl tahsis edilen ödenek toplamı</div>
                 </article>
                 <article class="card">
-                  <div class="stat-top"><div class="stat-icon bg-green">＋</div></div>
+                  <div class="stat-top"><div class="stat-icon bg-green">✓</div></div>
+                  <p>Serbest Bırakılan Ödenek</p>
+                  <div class="value"><strong id="budgetTotalReleased">0</strong><span>TL</span></div>
+                  <div class="note">Harcamaya açılan ödenek toplamı</div>
+                </article>
+                <article class="card">
+                  <div class="stat-top"><div class="stat-icon bg-blue">＋</div></div>
                   <p>Ek Ödenek</p>
                   <div class="value"><strong id="budgetTotalAdditional">0</strong><span>TL</span></div>
                   <div class="note">Yıl içinde eklenen ödenekler</div>
@@ -653,7 +659,7 @@
                   <div class="stat-top"><div class="stat-icon bg-cyan">=</div></div>
                   <p>Kullanılabilir</p>
                   <div class="value"><strong id="budgetTotalAvailable">0</strong><span>TL</span></div>
-                  <div class="note">Alınan ve ek ödenekten kalan tutar</div>
+                  <div class="note">Serbest bırakılan ve ek ödenekten kalan tutar</div>
                 </article>
               </div>
 
@@ -681,7 +687,8 @@
                     <thead>
                       <tr>
                         <th>Ödenek Kalemi</th>
-                        <th>Alınan Ödenek</th>
+                        <th>Tahsis Edilen Ödenek</th>
+                        <th>Serbest Bırakılan Ödenek</th>
                         <th>Ek Ödenek</th>
                         <th>Kullanılan Ödenek</th>
                         <th>Kullanılabilir Ödenek</th>
@@ -801,8 +808,12 @@
 
               <div class="budget-detail-dashboard">
                 <article>
-                  <span>Alınan Ödenek</span>
+                  <span>Tahsis Edilen Ödenek</span>
                   <strong id="detailAllocated">0,00 TL</strong>
+                </article>
+                <article>
+                  <span>Serbest Bırakılan Ödenek</span>
+                  <strong id="detailReleased">0,00 TL</strong>
                 </article>
                 <article>
                   <span>Ek Ödenek</span>
@@ -1832,8 +1843,12 @@
             </select>
           </label>
           <label>
-            Alınan Ödenek
+            Tahsis Edilen Ödenek
             <input name="allocated" inputmode="decimal" value="0,00" required />
+          </label>
+          <label>
+            Serbest Bırakılan Ödenek
+            <input name="released" inputmode="decimal" value="0,00" required />
           </label>
           <label>
             Ek Ödenek

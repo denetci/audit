@@ -930,7 +930,7 @@
       }
 
       .budget-stats {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         border-bottom: 1px solid #edf2f7;
         padding: 16px;
       }
@@ -1111,7 +1111,7 @@
 
       .budget-detail-dashboard {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 12px;
         padding: 16px 22px;
       }
@@ -1289,7 +1289,7 @@
       }
 
       .stock-stats {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         padding: 16px;
         border-bottom: 1px solid #edf2f7;
       }
@@ -1684,7 +1684,7 @@
       }
 
       .duty-stats {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         border-bottom: 1px solid #edf2f7;
         padding: 16px;
       }
@@ -2249,7 +2249,7 @@
 
       .personnel-kpis {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 12px;
       }
 

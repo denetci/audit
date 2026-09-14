@@ -136,6 +136,7 @@ const defaultBudgetItems = ["2026", "2025", "2024"].flatMap((year) =>
     year,
     code,
     allocated: 0,
+    released: 0,
     additional: 0,
     note: "",
   })),
@@ -381,6 +382,7 @@ const saveLeaveRightBtn = document.querySelector("#saveLeaveRightBtn");
 const budgetRows = document.querySelector("#budgetRows");
 const budgetItemCount = document.querySelector("#budgetItemCount");
 const budgetTotalAllocated = document.querySelector("#budgetTotalAllocated");
+const budgetTotalReleased = document.querySelector("#budgetTotalReleased");
 const budgetTotalAdditional = document.querySelector("#budgetTotalAdditional");
 const budgetTotalUsed = document.querySelector("#budgetTotalUsed");
 const budgetTotalAvailable = document.querySelector("#budgetTotalAvailable");
@@ -411,6 +413,7 @@ const detailBudgetExpenseBtn = document.querySelector("#detailBudgetExpenseBtn")
 const downloadBudgetExcel = document.querySelector("#downloadBudgetExcel");
 const printBudgetReport = document.querySelector("#printBudgetReport");
 const detailAllocated = document.querySelector("#detailAllocated");
+const detailReleased = document.querySelector("#detailReleased");
 const detailAdditional = document.querySelector("#detailAdditional");
 const detailUsed = document.querySelector("#detailUsed");
 const detailAvailable = document.querySelector("#detailAvailable");
@@ -1648,8 +1651,13 @@ function budgetUsedAmount(itemId) {
   return budgetItemExpenses(itemId).reduce((sum, expense) => sum + numberValue(expense.amount), 0);
 }
 
+function budgetReleasedAmount(item) {
+  const released = numberValue(item.released);
+  return item.released === undefined || item.released === null || item.released === "" ? numberValue(item.allocated) : released;
+}
+
 function budgetAvailableAmount(item) {
-  return numberValue(item.allocated) + numberValue(item.additional) - budgetUsedAmount(item.id);
+  return budgetReleasedAmount(item) + numberValue(item.additional) - budgetUsedAmount(item.id);
 }
 
 function formatMoneyField(input) {
@@ -3121,22 +3129,24 @@ function renderBudget() {
   const totals = summaryItems.reduce(
     (acc, item) => {
       acc.allocated += numberValue(item.allocated);
+      acc.released += budgetReleasedAmount(item);
       acc.additional += numberValue(item.additional);
       acc.used += budgetUsedAmount(item.id);
       return acc;
     },
-    { allocated: 0, additional: 0, used: 0 },
+    { allocated: 0, released: 0, additional: 0, used: 0 },
   );
 
   budgetItemCount.textContent = selectedItem ? "1" : filteredItems.length;
   budgetTotalAllocated.textContent = formatMoney(totals.allocated);
+  budgetTotalReleased.textContent = formatMoney(totals.released);
   budgetTotalAdditional.textContent = formatMoney(totals.additional);
   budgetTotalUsed.textContent = formatMoney(totals.used);
-  budgetTotalAvailable.textContent = formatMoney(totals.allocated + totals.additional - totals.used);
+  budgetTotalAvailable.textContent = formatMoney(totals.released + totals.additional - totals.used);
   newBudgetItemBtn.disabled = !canEditBudget;
   budgetEmptyState.hidden = filteredItems.length > 0;
   const overBudgetItems = filteredItems.filter((item) => budgetAvailableAmount(item) < 0);
-  const unusedItems = filteredItems.filter((item) => numberValue(item.allocated) + numberValue(item.additional) > 0 && budgetUsedAmount(item.id) === 0);
+  const unusedItems = filteredItems.filter((item) => budgetReleasedAmount(item) + numberValue(item.additional) > 0 && budgetUsedAmount(item.id) === 0);
   const highestExpense = [...budgetExpenses]
     .filter((expense) => String(expense.year) === String(budgetYearFilter.value))
     .sort((a, b) => numberValue(b.amount) - numberValue(a.amount))[0];
@@ -3169,6 +3179,7 @@ function renderBudget() {
           </div>
         </td>
         <td><strong>${formatMoney(item.allocated)}</strong> TL</td>
+        <td>${formatMoney(budgetReleasedAmount(item))} TL</td>
         <td>${formatMoney(item.additional)} TL</td>
         <td>${formatMoney(used)} TL</td>
         <td><strong class="${available < 0 ? "negative-money" : ""}">${formatMoney(available)}</strong> TL</td>
@@ -3419,10 +3430,11 @@ function renderBudgetDetailPage() {
   renderBudgetDetailPersonOptions(expenses);
   const visibleExpenses = getFilteredBudgetDetailExpenses(item.id);
   const allocated = numberValue(item.allocated);
+  const released = budgetReleasedAmount(item);
   const additional = numberValue(item.additional);
   const used = budgetUsedAmount(item.id);
   const available = budgetAvailableAmount(item);
-  const totalBudget = allocated + additional;
+  const totalBudget = released + additional;
   const usageRate = totalBudget > 0 ? Math.min(999, Math.round((used / totalBudget) * 100)) : 0;
   const lastExpense = expenses[0];
   const statusText = available < 0 ? "Ödenek aşımı var" : used === 0 ? "Henüz harcama yok" : "Denge uygun";
@@ -3446,6 +3458,7 @@ function renderBudgetDetailPage() {
     </article>
   `;
   detailAllocated.textContent = `${formatMoney(allocated)} TL`;
+  detailReleased.textContent = `${formatMoney(released)} TL`;
   detailAdditional.textContent = `${formatMoney(additional)} TL`;
   detailUsed.textContent = `${formatMoney(used)} TL`;
   detailAvailable.textContent = `${formatMoney(available)} TL`;
@@ -3500,8 +3513,8 @@ function downloadBudgetCsv() {
   if (!item) return;
   const expenses = getFilteredBudgetDetailExpenses(item.id);
   const rows = [
-    ["Yıl", "Ödenek Kalemi", "Alınan Ödenek", "Ek Ödenek", "Kullanılan", "Kullanılabilir"],
-    [item.year, item.code, item.allocated, item.additional, budgetUsedAmount(item.id), budgetAvailableAmount(item)],
+    ["Yıl", "Ödenek Kalemi", "Tahsis Edilen Ödenek", "Serbest Bırakılan Ödenek", "Ek Ödenek", "Kullanılan", "Kullanılabilir"],
+    [item.year, item.code, item.allocated, budgetReleasedAmount(item), item.additional, budgetUsedAmount(item.id), budgetAvailableAmount(item)],
     [],
     ["Tarih", "Ne İçin", "Kime Ödendi", "Tutar", "Not"],
     ...expenses.map((expense) => [expense.date, expense.purpose, expense.payee, expense.amount, expense.note || ""]),
@@ -4661,11 +4674,13 @@ function openBudgetItemModal(item = null) {
     budgetItemForm.elements.year.value = item.year;
     budgetItemForm.elements.code.value = item.code;
     budgetItemForm.elements.allocated.value = formatMoney(item.allocated);
+    budgetItemForm.elements.released.value = formatMoney(budgetReleasedAmount(item));
     budgetItemForm.elements.additional.value = formatMoney(item.additional);
     budgetItemForm.elements.note.value = item.note || "";
   } else {
     budgetItemForm.elements.year.value = budgetYearFilter.value || yearSelect.value;
     budgetItemForm.elements.allocated.value = "0,00";
+    budgetItemForm.elements.released.value = "0,00";
     budgetItemForm.elements.additional.value = "0,00";
   }
   budgetItemModal.showModal();
@@ -5372,7 +5387,7 @@ stockRows.addEventListener("click", (event) => {
   control.addEventListener("change", renderBudget);
 });
 
-[budgetItemForm.elements.allocated, budgetItemForm.elements.additional, budgetExpenseForm.elements.amount].forEach((input) => {
+[budgetItemForm.elements.allocated, budgetItemForm.elements.released, budgetItemForm.elements.additional, budgetExpenseForm.elements.amount].forEach((input) => {
   input.addEventListener("focus", () => clearMoneyFieldForEditing(input));
   input.addEventListener("blur", () => formatMoneyField(input));
 });
@@ -6228,6 +6243,7 @@ budgetItemForm.addEventListener("submit", (event) => {
     year,
     code,
     allocated: numberValue(formData.get("allocated")),
+    released: numberValue(formData.get("released")),
     additional: numberValue(formData.get("additional")),
     note: String(formData.get("note")).trim(),
   };
