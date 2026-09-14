@@ -144,6 +144,7 @@ const defaultBudgetExpenses = [];
 
 const reportArchiveLinkType = "Rapor Arşivi Bulut Linki";
 const ACTIVE_VIEW_KEY = "ic-denetim-active-view";
+const LOGIN_START_KEY = "ic-denetim-start-dashboard-after-login";
 
 const defaultPersonnelRecords = [];
 
@@ -1194,12 +1195,19 @@ async function login(username, password) {
   renderAuthState();
   sharedStateLoaded = false;
   await loadSharedState();
-  restoreActiveView();
+  if (localStorage.getItem(LOGIN_START_KEY) === "1") {
+    localStorage.removeItem(LOGIN_START_KEY);
+    activeModule = "dashboard";
+    activeLeaveDetail = { source: "leave", type: "active" };
+    setActiveModule("dashboard");
+  } else {
+    restoreActiveView();
+  }
 }
 
 async function logout() {
   await apiFetch("/api/logout", { method: "POST" });
-  localStorage.removeItem(ACTIVE_VIEW_KEY);
+  localStorage.setItem(LOGIN_START_KEY, "1");
   activeModule = "dashboard";
   activeLeaveDetail = { source: "leave", type: "active" };
   currentUser = null;
