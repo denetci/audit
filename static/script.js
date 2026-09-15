@@ -1728,7 +1728,19 @@ function formatDate(value) {
 
 function formatDateTime(value) {
   if (!value) return "";
-  const [datePart, timePart = ""] = String(value).split(/[T ]/);
+  const raw = String(value).trim();
+  const utcLike = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}$/.test(raw);
+  const date = utcLike ? new Date(`${raw.replace(" ", "T")}Z`) : new Date(raw);
+  if (!Number.isNaN(date.getTime())) {
+    return date.toLocaleString("tr-TR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+  const [datePart, timePart = ""] = raw.split(/[T ]/);
   const formattedDate = formatDate(datePart);
   const formattedTime = timePart.slice(0, 5);
   return formattedTime ? `${formattedDate} ${formattedTime}` : formattedDate;
