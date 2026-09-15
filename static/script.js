@@ -1770,7 +1770,21 @@ function formatMoney(value) {
 function budgetItemExpenses(itemId) {
   return budgetExpenses
     .filter((expense) => String(expense.itemId) === String(itemId))
-    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || compareBudgetExpenseEntryTime(b, a));
+}
+
+function budgetExpenseEntryTime(expense) {
+  const value = expense?.updatedAt || expense?.createdAt;
+  const time = value ? new Date(value).getTime() : NaN;
+  return Number.isFinite(time) ? time : Number(expense?.id) || 0;
+}
+
+function compareBudgetExpenseEntryTime(a, b) {
+  return budgetExpenseEntryTime(a) - budgetExpenseEntryTime(b);
+}
+
+function lastEnteredBudgetExpense(expenses) {
+  return [...expenses].sort((a, b) => compareBudgetExpenseEntryTime(b, a))[0] || null;
 }
 
 function budgetUsedAmount(itemId) {
@@ -3562,7 +3576,7 @@ function renderBudgetDetailPage() {
   const available = budgetAvailableAmount(item);
   const totalBudget = released + additional;
   const usageRate = totalBudget > 0 ? Math.min(999, Math.round((used / totalBudget) * 100)) : 0;
-  const lastExpense = expenses[0];
+  const lastExpense = lastEnteredBudgetExpense(expenses);
   const statusText = available < 0 ? "Ödenek aşımı var" : used === 0 ? "Henüz harcama yok" : "Denge uygun";
   const statusClass = available < 0 ? "danger" : used === 0 ? "quiet" : "good";
 
@@ -3579,7 +3593,7 @@ function renderBudgetDetailPage() {
       <strong>${expenses.length} kayıt</strong>
     </article>
     <article>
-      <span>Son Harcama</span>
+      <span>Son Girilen Harcama</span>
       <strong>${lastExpense ? `${formatDate(lastExpense.date)} · ${formatMoney(lastExpense.amount)} TL` : "Kayıt yok"}</strong>
     </article>
   `;
@@ -6513,8 +6527,12 @@ budgetExpenseForm.addEventListener("submit", (event) => {
   }
   const formData = new FormData(budgetExpenseForm);
   const selectedItem = budgetItems.find((item) => String(item.id) === String(selectedBudgetItemId));
+  const now = new Date().toISOString();
+  const expenseId = editingBudgetExpenseId || Math.max(...budgetExpenses.map((record) => Number(record.id) || 0), 0) + 1;
+  const existingIndex = budgetExpenses.findIndex((record) => String(record.id) === String(expenseId));
+  const existingExpense = existingIndex >= 0 ? budgetExpenses[existingIndex] : null;
   const expense = {
-    id: editingBudgetExpenseId || Math.max(...budgetExpenses.map((record) => Number(record.id) || 0), 0) + 1,
+    id: expenseId,
     itemId: selectedBudgetItemId,
     year: selectedItem?.year || budgetYearFilter.value,
     date: String(formData.get("date")),
@@ -6522,8 +6540,9 @@ budgetExpenseForm.addEventListener("submit", (event) => {
     payee: String(formData.get("payee")).trim(),
     purpose: String(formData.get("purpose")).trim(),
     note: String(formData.get("note")).trim(),
+    createdAt: existingExpense?.createdAt || now,
+    updatedAt: now,
   };
-  const existingIndex = budgetExpenses.findIndex((record) => String(record.id) === String(expense.id));
   if (existingIndex >= 0) budgetExpenses[existingIndex] = expense;
   else budgetExpenses.push(expense);
   saveBudgetRecords();
