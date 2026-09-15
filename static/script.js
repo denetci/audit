@@ -118,18 +118,24 @@ const defaultLeaveRights = [];
 
 const defaultDutyRecords = [];
 const defaultBudgetCodes = [
-  "01 PERSONEL GİDERLERİ",
-  "01.01 MEMURLAR",
-  "02 SOSYAL GÜVENLİK KURUMLARINA DEVLET PRİMİ GİDERLER",
-  "02.01 MEMURLAR",
-  "03.1 ÜRETİME YÖNELİK MAL VE MALZEME ALIMLARI",
+  "01.01 MEMUR MAAŞ ÖDEMELERİ",
+  "02.01 SOSYAL GÜVENLİK KURUM ÖDEMELERİ",
   "03.2 TÜKETİME YÖNELİK MAL VE MALZEME ALIMLARI",
   "03.3 YOLLUKLAR",
   "03.5 HİZMET ALIMLARI",
   "03.6 TEMSİL VE TANITMA GİDERLERİ",
   "03.7 MENKUL MAL, GAYRİMADDİ HAK ALIM, BAKIM VE ONARIM GİDERLERİ",
-  "03.8 GAYRİMENKUL MAL BAKIM VE ONARIM GİDERLERİ",
 ];
+const removedBudgetCodes = new Set([
+  "01 PERSONEL GİDERLERİ",
+  "02 SOSYAL GÜVENLİK KURUMLARINA DEVLET PRİMİ GİDERLER",
+  "03.1 ÜRETİME YÖNELİK MAL VE MALZEME ALIMLARI",
+  "03.8 GAYRİMENKUL MAL BAKIM VE ONARIM GİDERLERİ",
+]);
+const budgetCodeAliases = {
+  "01.01 MEMURLAR": "01.01 MEMUR MAAŞ ÖDEMELERİ",
+  "02.01 MEMURLAR": "02.01 SOSYAL GÜVENLİK KURUM ÖDEMELERİ",
+};
 const defaultBudgetItems = ["2026", "2025", "2024"].flatMap((year) =>
   defaultBudgetCodes.map((code, index) => ({
     id: Number(`${year}${String(index + 1).padStart(2, "0")}`),
@@ -684,14 +690,37 @@ function saveDutyRecords() {
   scheduleSharedStateSave();
 }
 
+function normalizeBudgetItem(item) {
+  const code = budgetCodeAliases[item.code] || item.code;
+  return {
+    ...item,
+    code,
+    released: item.released === undefined || item.released === null || item.released === "" ? item.allocated : item.released,
+  };
+}
+
 function mergeDefaultBudgetItems(items) {
-  const merged = Array.isArray(items) ? [...items] : [];
-  const keys = new Set(merged.map((item) => `${item.year}-${item.code}`));
-  defaultBudgetItems.forEach((item) => {
-    if (!keys.has(`${item.year}-${item.code}`)) {
-      merged.push({ ...item });
+  const merged = [];
+  const byKey = new Map();
+  (Array.isArray(items) ? items : []).forEach((item) => {
+    if (removedBudgetCodes.has(item.code)) return;
+    const normalized = normalizeBudgetItem(item);
+    const key = `${normalized.year}-${normalized.code}`;
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.allocated = numberValue(existing.allocated) + numberValue(normalized.allocated);
+      existing.released = numberValue(existing.released) + budgetReleasedAmount(normalized);
+      existing.additional = numberValue(existing.additional) + numberValue(normalized.additional);
+      existing.note = existing.note || normalized.note || "";
+      return;
     }
+    byKey.set(key, { ...normalized });
   });
+  defaultBudgetItems.forEach((item) => {
+    const key = `${item.year}-${item.code}`;
+    if (!byKey.has(key)) byKey.set(key, { ...item });
+  });
+  byKey.forEach((item) => merged.push(item));
   return merged;
 }
 
