@@ -332,6 +332,12 @@ const dutyRecordCount = document.querySelector("#dutyRecordCount");
 const dutyTotalDays = document.querySelector("#dutyTotalDays");
 const dutyUpcomingLeaveCount = document.querySelector("#dutyUpcomingLeaveCount");
 const dutyUpcomingLeaveNames = document.querySelector("#dutyUpcomingLeaveNames");
+const dutyAttentionCount = document.querySelector("#dutyAttentionCount");
+const dutyAttentionList = document.querySelector("#dutyAttentionList");
+const dutyActivePreviewCount = document.querySelector("#dutyActivePreviewCount");
+const dutyActivePreviewList = document.querySelector("#dutyActivePreviewList");
+const dutyReturnedPreviewCount = document.querySelector("#dutyReturnedPreviewCount");
+const dutyReturnedPreviewList = document.querySelector("#dutyReturnedPreviewList");
 const dutyYearFilter = document.querySelector("#dutyYearFilter");
 const dutyStatusFilter = document.querySelector("#dutyStatusFilter");
 const dutySearchInput = document.querySelector("#dutySearchInput");
@@ -4309,6 +4315,48 @@ function makePersonnelStatusSearchText(record) {
   ].join(" ");
 }
 
+function dutyDuplicateKey(duty) {
+  return [duty.person, duty.dutyName, duty.dutyPlace, duty.start, duty.returnDate].map((value) => normalizeText(value || "")).join("|");
+}
+
+function getDuplicateDutyIds(records) {
+  const seen = new Set();
+  const duplicates = new Set();
+  records.forEach((duty) => {
+    const key = dutyDuplicateKey(duty);
+    if (seen.has(key)) duplicates.add(duty.id);
+    else seen.add(key);
+  });
+  return duplicates;
+}
+
+function createDutyPreviewItem(duty, options = {}) {
+  const person = findPersonnelByName(duty.person);
+  const duplicateBadge = options.duplicate ? '<span class="status waiting">Çift kayıt olabilir</span>' : "";
+  const returnText = duty.returnDate ? `Dönüş ${formatDate(duty.returnDate)}` : "Dönüş bekleniyor";
+  return `
+    <article class="duty-preview-item">
+      <div>
+        <strong>${escapeHtml(duty.person || "Personel")}</strong>
+        <span>${escapeHtml(person?.title || duty.title || "-")} · ${escapeHtml(duty.dutyPlace || "-")}</span>
+        <small>${escapeHtml(duty.dutyName || "Görev")} · ${formatDate(duty.start)} · ${returnText}</small>
+      </div>
+      <div class="duty-preview-actions">
+        ${duplicateBadge}
+        <button class="btn secondary small" data-duty-action="history" data-person="${escapeHtml(duty.person)}" type="button">Geçmiş</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderDutyPreviewList(element, records, emptyText, options = {}) {
+  if (!element) return;
+  const limited = records.slice(0, options.limit || 4);
+  element.innerHTML = limited.length
+    ? limited.map((duty) => createDutyPreviewItem(duty, { duplicate: options.duplicateIds?.has(duty.id) })).join("")
+    : `<div class="empty-inline">${emptyText}</div>`;
+}
+
 function getVisiblePersonnelStatuses() {
   const selectedStatus = dutyStatusFilter.value;
   const query = normalizeText(dutySearchInput.value);
@@ -4446,6 +4494,24 @@ function renderDutyRecords() {
     const key = normalizeText(leave.person);
     if (!people.has(key)) people.set(key, leave);
   });
+  const yearDuties = dutyRecords.filter((duty) => matchesSelectedRecordYear(duty, dutyYearFilter.value));
+  const duplicateDutyIds = getDuplicateDutyIds(yearDuties);
+  const today = getTodayDateOnly();
+  const soon = new Date(today);
+  soon.setDate(soon.getDate() + 7);
+  const attentionDuties = yearDuties
+    .filter((duty) => duplicateDutyIds.has(duty.id) || (duty.status === "Görevde" && duty.returnDate && parseDateOnly(duty.returnDate) <= soon))
+    .sort((a, b) => String(b.start).localeCompare(String(a.start)));
+  const returnedDuties = yearDuties
+    .filter((duty) => duty.status === "Döndü")
+    .sort((a, b) => String(b.returnDate || b.start).localeCompare(String(a.returnDate || a.start)));
+
+  dutyAttentionCount.textContent = attentionDuties.length;
+  dutyActivePreviewCount.textContent = activeDuties.length;
+  dutyReturnedPreviewCount.textContent = returnedDuties.length;
+  renderDutyPreviewList(dutyAttentionList, attentionDuties, "Çift kayıt veya yaklaşan dönüş bulunmuyor.", { duplicateIds: duplicateDutyIds, limit: 5 });
+  renderDutyPreviewList(dutyActivePreviewList, activeDuties.sort((a, b) => String(a.returnDate || a.start).localeCompare(String(b.returnDate || b.start))), "Aktif görev kaydı yok.", { limit: 5 });
+  renderDutyPreviewList(dutyReturnedPreviewList, returnedDuties, "Henüz dönüşü yapılan görev yok.", { limit: 5 });
 
   dutyRows.innerHTML = "";
   visibleStatuses.forEach((record) => dutyRows.append(createDutyRow(record)));
