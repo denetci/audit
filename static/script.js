@@ -332,8 +332,6 @@ const dutyRecordCount = document.querySelector("#dutyRecordCount");
 const dutyTotalDays = document.querySelector("#dutyTotalDays");
 const dutyUpcomingLeaveCount = document.querySelector("#dutyUpcomingLeaveCount");
 const dutyUpcomingLeaveNames = document.querySelector("#dutyUpcomingLeaveNames");
-const dutyAttentionCount = document.querySelector("#dutyAttentionCount");
-const dutyAttentionList = document.querySelector("#dutyAttentionList");
 const dutyActivePreviewCount = document.querySelector("#dutyActivePreviewCount");
 const dutyActivePreviewList = document.querySelector("#dutyActivePreviewList");
 const dutyReturnedPreviewCount = document.querySelector("#dutyReturnedPreviewCount");
@@ -4502,23 +4500,14 @@ function renderDutyRecords() {
     if (!people.has(key)) people.set(key, leave);
   });
   const yearDuties = dutyRecords.filter((duty) => matchesSelectedRecordYear(duty, dutyYearFilter.value));
-  const duplicateDutyIds = getDuplicateDutyIds(yearDuties);
-  const today = getTodayDateOnly();
-  const soon = new Date(today);
-  soon.setDate(soon.getDate() + 7);
-  const attentionDuties = yearDuties
-    .filter((duty) => duplicateDutyIds.has(duty.id) || (duty.status === "Görevde" && duty.returnDate && parseDateOnly(duty.returnDate) <= soon))
-    .sort((a, b) => String(b.start).localeCompare(String(a.start)));
   const returnedDuties = yearDuties
     .filter((duty) => duty.status === "Döndü")
     .sort((a, b) => String(b.returnDate || b.start).localeCompare(String(a.returnDate || a.start)));
 
-  dutyAttentionCount.textContent = attentionDuties.length;
   dutyActivePreviewCount.textContent = activeDuties.length;
   dutyReturnedPreviewCount.textContent = returnedDuties.length;
-  renderDutyPreviewList(dutyAttentionList, attentionDuties, "Çift kayıt veya yaklaşan dönüş bulunmuyor.", { duplicateIds: duplicateDutyIds, limit: 5 });
-  renderDutyPreviewList(dutyActivePreviewList, activeDuties.sort((a, b) => String(a.returnDate || a.start).localeCompare(String(b.returnDate || b.start))), "Aktif görev kaydı yok.", { limit: 5 });
-  renderDutyPreviewList(dutyReturnedPreviewList, returnedDuties, "Henüz dönüşü yapılan görev yok.", { limit: 5 });
+  renderDutyPreviewList(dutyActivePreviewList, activeDuties.sort((a, b) => String(a.returnDate || a.start).localeCompare(String(b.returnDate || b.start))), "Aktif görev kaydı yok.", { limit: 6 });
+  renderDutyPreviewList(dutyReturnedPreviewList, returnedDuties, "Henüz dönüşü yapılan görev yok.", { limit: 6 });
 
   dutyRows.innerHTML = "";
   visibleStatuses.forEach((record) => dutyRows.append(createDutyRow(record)));
