@@ -4388,14 +4388,34 @@ function showDutyHistory(personName) {
     return;
   }
 
-  const lines = history.map(
-    (duty, index) =>
-      `${index + 1}. ${duty.dutyName || "Görev"} - ${duty.dutyPlace || "-"} (${formatDate(duty.start)} - ${
-        duty.returnDate ? formatDate(duty.returnDate) : "Devam ediyor"
-      }, ${getDutyDayCount(duty)} gün)`,
-  );
-
-  alert(`${personName} görev geçmişi\n\n${lines.join("\n")}`);
+  dutyHistoryTitle.textContent = `${personName} görev geçmişi`;
+  const totalDays = history.reduce((sum, duty) => sum + getDutyDayCount(duty), 0);
+  const duplicateCount = history.reduce((count, duty, index, list) => {
+    const key = `${duty.dutyName || ""}|${duty.dutyPlace || ""}|${duty.start || ""}|${duty.returnDate || ""}`.toLocaleLowerCase("tr-TR");
+    const firstIndex = list.findIndex((item) => `${item.dutyName || ""}|${item.dutyPlace || ""}|${item.start || ""}|${item.returnDate || ""}`.toLocaleLowerCase("tr-TR") === key);
+    return count + (firstIndex !== index ? 1 : 0);
+  }, 0);
+  dutyHistorySummary.innerHTML = `
+    <article><span>Kayıt</span><strong>${history.length}</strong></article>
+    <article><span>Toplam gün</span><strong>${totalDays}</strong></article>
+    <article><span>Olası çift kayıt</span><strong>${duplicateCount}</strong></article>
+  `;
+  dutyHistoryList.innerHTML = history.map((duty, index) => `
+    <article class="duty-history-item">
+      <div class="duty-history-index">${index + 1}</div>
+      <div>
+        <strong>${escapeHtml(duty.dutyName || "Görev")}</strong>
+        <span>${escapeHtml(duty.dutyPlace || "-")}</span>
+        <small>${formatDate(duty.start)} - ${duty.returnDate ? formatDate(duty.returnDate) : "Devam ediyor"} · ${getDutyDayCount(duty)} gün</small>
+      </div>
+      <div class="inline-actions">
+        <button class="btn secondary small" data-duty-action="edit" data-duty-history-action="edit" data-id="${duty.id}" type="button">Düzenle</button>
+        <button class="btn secondary small danger" data-duty-action="delete" data-duty-history-action="delete" data-id="${duty.id}" type="button">Sil</button>
+      </div>
+    </article>
+  `).join("");
+  applyModulePermissions();
+  dutyHistoryModal.showModal();
 }
 
 function getUpcomingDutyLeaves() {
@@ -5592,6 +5612,47 @@ reportAuditRows.addEventListener("click", (event) => {
     reportDocuments.splice(documentIndex, 1);
     saveReportDocuments();
     renderReportArchive();
+  }
+});
+
+
+function closeDutyHistory() {
+  dutyHistoryModal.close();
+}
+
+closeDutyHistoryModal.addEventListener("click", closeDutyHistory);
+closeDutyHistoryFooter.addEventListener("click", closeDutyHistory);
+dutyHistoryModal.addEventListener("click", (event) => {
+  if (event.target === dutyHistoryModal) closeDutyHistory();
+});
+
+dutyHistoryList.addEventListener("click", async (event) => {
+  const actionButton = event.target.closest("[data-duty-history-action]");
+  if (!actionButton) return;
+  const duty = dutyRecords.find((item) => item.id === Number(actionButton.dataset.id));
+  if (!duty) return;
+  if (actionButton.dataset.dutyHistoryAction === "edit") {
+    closeDutyHistory();
+    openDutyModal(duty);
+    return;
+  }
+  if (actionButton.dataset.dutyHistoryAction !== "delete" || actionButton.dataset.saving) return;
+  if (!confirm(`${duty.person} adlı personele ait bu görev geçmişi kaydı silinsin mi?`)) return;
+  actionButton.dataset.saving = "true";
+  actionButton.disabled = true;
+  try {
+    await persistDutyChange(duty, true);
+    showToast("Görev geçmişi kaydı silindi.");
+    const person = duty.person;
+    renderDutyRecords();
+    closeDutyHistory();
+    const remaining = getDutyHistoryForPerson(person, dutyYearFilter.value);
+    if (remaining.length) showDutyHistory(person);
+  } catch (error) {
+    showToast(error.message || "Görev geçmişi kaydı silinemedi.");
+  } finally {
+    delete actionButton.dataset.saving;
+    actionButton.disabled = false;
   }
 });
 
