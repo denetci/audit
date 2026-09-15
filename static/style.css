@@ -3787,3 +3787,69 @@
 .permission-grid label { display:grid; gap:6px; }
 .module-permissions { margin-top:12px; }
 button:disabled { opacity:.45; cursor:not-allowed; }
+
+
+.duty-history-modal-card {
+  max-width: 760px;
+}
+
+.duty-history-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 18px 20px 0;
+}
+
+.duty-history-summary article {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 12px 14px;
+}
+
+.duty-history-summary span,
+.duty-history-item small,
+.duty-history-item span {
+  display: block;
+  color: var(--muted);
+}
+
+.duty-history-summary strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.25rem;
+}
+
+.duty-history-list {
+  display: grid;
+  gap: 10px;
+  max-height: 430px;
+  overflow: auto;
+  padding: 18px 20px;
+}
+
+.duty-history-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+  padding: 14px;
+}
+
+.duty-history-index {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #eaf2ff;
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.btn.danger {
+  color: #b42318;
+}
