@@ -3967,3 +3967,49 @@ button:disabled { opacity:.45; cursor:not-allowed; }
     flex-wrap: wrap;
   }
 }
+
+
+.admin-users-head {
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.admin-user-search-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: min(100%, 420px);
+}
+
+.admin-user-search-wrap input {
+  width: min(100%, 280px);
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  padding: 0 12px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.admin-user-search-wrap span {
+  border: 1px solid #d8e5f5;
+  border-radius: 999px;
+  background: #f8fbff;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+@media (max-width: 900px) {
+  .admin-user-search-wrap {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .admin-user-search-wrap input {
+    width: 100%;
+  }
+}

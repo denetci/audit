@@ -486,6 +486,7 @@ const downloadDbBackup = document.querySelector("#downloadDbBackup");
 const adminUserForm = document.querySelector("#adminUserForm");
 const adminPasswordForm = document.querySelector("#adminPasswordForm");
 const adminUsersRows = document.querySelector("#adminUsersRows");
+const adminUserSearch = document.querySelector("#adminUserSearch");
 const adminUserCount = document.querySelector("#adminUserCount");
 const adminLogRows = document.querySelector("#adminLogRows");
 const ownerPanelName = document.querySelector("#ownerPanelName");
@@ -1395,8 +1396,16 @@ async function loadAdminDashboard() {
       control.disabled = userManagementDisabled;
     });
 
-  adminUserCount.textContent = `${users.length} kayıt`;
-  adminUsersRows.innerHTML = users
+  const userSearchQuery = normalizeText(adminUserSearch?.value || "");
+  const visibleUsers = users.filter((user) => normalizeText([
+    user.displayName,
+    user.username,
+    user.email,
+    user.owner ? "Ana Yönetici" : roleLabel(user.role),
+    user.active ? "Aktif" : "Pasif",
+  ].join(" ")).includes(userSearchQuery));
+  adminUserCount.textContent = userSearchQuery ? `${visibleUsers.length} / ${users.length} kayıt` : `${users.length} kayıt`;
+  adminUsersRows.innerHTML = visibleUsers.length ? visibleUsers
     .map(
       (user) => `
         <article class="admin-user-row" data-admin-user-id="${user.id}">
@@ -1430,7 +1439,7 @@ async function loadAdminDashboard() {
         </article>
       `,
     )
-    .join("");
+    .join("") : `<div class="side-empty">Aramaya uygun kullanıcı bulunamadı.</div>`;
 
   adminLogRows.innerHTML = logs.length
     ? logs
@@ -5081,6 +5090,10 @@ logoutBtn.addEventListener("click", async () => {
 
 downloadDbBackup?.addEventListener("click", () => {
   window.location.href = "/api/admin/db/backup";
+});
+
+adminUserSearch?.addEventListener("input", () => {
+  loadAdminDashboard();
 });
 
 adminUserForm?.addEventListener("submit", async (event) => {

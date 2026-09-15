@@ -1343,9 +1343,15 @@
                 </section>
 
                 <section class="admin-block">
-                  <div class="admin-block-head">
-                    <h3>Kullanıcılar</h3>
-                    <span id="adminUserCount">0 kayıt</span>
+                  <div class="admin-block-head admin-users-head">
+                    <div>
+                      <h3>Kullanıcılar</h3>
+                      <p class="eyebrow">Ad, kullanıcı adı, e-posta veya yetkiye göre hızlı erişim</p>
+                    </div>
+                    <div class="admin-user-search-wrap">
+                      <input id="adminUserSearch" type="search" placeholder="Kullanıcı ara..." autocomplete="off" />
+                      <span id="adminUserCount">0 kayıt</span>
+                    </div>
                   </div>
                   <div class="admin-list" id="adminUsersRows"></div>
                 </section>
