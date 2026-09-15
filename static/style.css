@@ -3173,34 +3173,53 @@
       .admin-list,
       .admin-log-list {
         display: grid;
-        gap: 8px;
+        gap: 12px;
       }
 
       .admin-list {
-        max-height: 312px;
+        max-height: 520px;
         overflow: auto;
-        padding-right: 4px;
+        padding-right: 6px;
       }
 
       .admin-user-row,
       .admin-log-row {
         display: grid;
-        gap: 4px;
-        border: 1px solid #e5edf7;
-        border-radius: var(--radius);
-        background: white;
-        padding: 11px 12px;
+        gap: 12px;
+        border: 1px solid #d8e5f5;
+        border-radius: 18px;
+        background: #fff;
+        padding: 16px;
+        box-shadow: 0 14px 32px rgba(16, 58, 105, 0.06);
+      }
+
+      .admin-user-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #edf3fb;
       }
 
       .admin-user-row strong,
       .admin-log-row strong {
-        font-size: 13px;
+        font-size: 15px;
       }
 
       .admin-user-row small,
       .admin-log-row small {
         color: var(--muted);
         font-size: 12px;
+      }
+
+      .admin-user-badges,
+      .admin-user-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        flex-wrap: wrap;
       }
 
       .role-pill {
@@ -3224,35 +3243,42 @@
 
       .user-edit-grid {
         display: grid;
-        grid-template-columns: minmax(180px, 1fr) 150px minmax(190px, 1fr) 132px minmax(130px, 0.7fr) auto auto;
-        gap: 8px;
-        align-items: center;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .user-edit-grid label {
+        display: grid;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
       }
 
       .user-edit-grid input,
       .user-edit-grid select {
         width: 100%;
-        height: 34px;
-        border: 1px solid var(--line);
-        border-radius: var(--radius);
-        background: white;
-        padding: 0 9px;
-        color: var(--ink);
-        font-size: 12px;
-        outline: 0;
-      }
-
-      .user-edit-grid .user-main {
-        display: grid;
-        gap: 3px;
         min-width: 0;
+        height: 38px;
       }
 
-      .user-edit-grid .user-main strong,
-      .user-edit-grid .user-main small {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+      .admin-user-actions {
+        padding-top: 2px;
+      }
+
+      @media (max-width: 900px) {
+        .admin-user-head {
+          display: grid;
+        }
+
+        .admin-user-badges,
+        .admin-user-actions {
+          justify-content: flex-start;
+        }
+
+        .user-edit-grid {
+          grid-template-columns: 1fr;
+        }
       }
 
       .admin-log-block {
@@ -3783,9 +3809,11 @@
         border-color: #185abd;
       }
 
-.permission-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; padding:14px 0; }
-.permission-grid label { display:grid; gap:6px; }
-.module-permissions { margin-top:12px; }
+.permission-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; padding:14px 0 4px; }
+.permission-grid label { display:grid; gap:6px; color:var(--muted); font-size:12px; font-weight:800; }
+.permission-grid select { min-width:0; width:100%; }
+.module-permissions { margin-top:4px; border:1px solid #edf3fb; border-radius:14px; padding:10px 12px; background:#f8fbff; }
+.module-permissions summary { cursor:pointer; font-weight:900; }
 button:disabled { opacity:.45; cursor:not-allowed; }
 
 

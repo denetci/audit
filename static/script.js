@@ -1401,28 +1401,35 @@ async function loadAdminDashboard() {
   adminUsersRows.innerHTML = users
     .map(
       (user) => `
-        <div class="admin-user-row" data-admin-user-id="${user.id}">
-          <div class="user-edit-grid">
+        <article class="admin-user-row" data-admin-user-id="${user.id}">
+          <div class="admin-user-head">
             <div class="user-main">
-            <strong>${escapeHtml(user.displayName || user.username)}</strong>
-            <small>${escapeHtml(user.username)} · ${escapeHtml(user.email || "E-posta yok")} · ${user.active ? "Aktif" : "Pasif"}</small>
+              <strong>${escapeHtml(user.displayName || user.username)}</strong>
+              <small>${escapeHtml(user.username)} · ${escapeHtml(user.email || "E-posta yok")}</small>
+            </div>
+            <div class="admin-user-badges">
+              <span class="role-pill ${escapeHtml(user.owner ? "admin" : user.role)}">${user.owner ? "Ana Yönetici" : roleLabel(user.role)}</span>
+              <span class="status ${user.active ? "done" : "waiting"}">${user.active ? "Aktif" : "Pasif"}</span>
+            </div>
           </div>
-            <input data-user-field="displayName" value="${escapeHtml(user.displayName || "")}" aria-label="Ad soyad" ${userManagementDisabled ? "disabled" : ""} />
-            <input data-user-field="email" type="email" value="${escapeHtml(user.email || "")}" aria-label="E-posta" ${userManagementDisabled ? "disabled" : ""} />
-            <select data-user-field="role" aria-label="Yetki" ${user.owner || userManagementDisabled ? "disabled" : ""}>
+          <div class="user-edit-grid">
+            <label>Ad Soyad<input data-user-field="displayName" value="${escapeHtml(user.displayName || "")}" aria-label="Ad soyad" ${userManagementDisabled ? "disabled" : ""} /></label>
+            <label>E-posta<input data-user-field="email" type="email" value="${escapeHtml(user.email || "")}" aria-label="E-posta" ${userManagementDisabled ? "disabled" : ""} /></label>
+            <label>Yetki<select data-user-field="role" aria-label="Yetki" ${user.owner || userManagementDisabled ? "disabled" : ""}>
               ${renderRoleOptions(user.role, user.owner)}
-            </select>
-            <select data-user-field="active" aria-label="Durum" ${user.owner || userManagementDisabled ? "disabled" : ""}>
+            </select></label>
+            <label>Durum<select data-user-field="active" aria-label="Durum" ${user.owner || userManagementDisabled ? "disabled" : ""}>
               <option value="1" ${user.active ? "selected" : ""}>Aktif</option>
               <option value="0" ${!user.active ? "selected" : ""}>Pasif</option>
-            </select>
-            <input data-user-field="password" type="password" placeholder="Yeni parola" aria-label="Yeni parola" ${userManagementDisabled ? "disabled" : ""} />
+            </select></label>
+            <label>Yeni Parola<input data-user-field="password" type="password" placeholder="Değişmeyecekse boş bırak" aria-label="Yeni parola" ${userManagementDisabled ? "disabled" : ""} /></label>
+          </div>
+          ${permissionsEditor(user)}
+          <div class="admin-user-actions">
             <button class="btn small secondary" data-user-action="save" type="button" ${userManagementDisabled ? "disabled" : ""}>Kaydet</button>
             <button class="btn small secondary danger-soft" data-user-action="delete" type="button" ${user.owner || userManagementDisabled ? "disabled" : ""}>Sil</button>
           </div>
-          ${permissionsEditor(user)}
-          <span class="role-pill ${escapeHtml(user.owner ? "admin" : user.role)}">${user.owner ? "Ana Yönetici" : roleLabel(user.role)}</span>
-        </div>
+        </article>
       `,
     )
     .join("");
