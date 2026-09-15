@@ -29,6 +29,58 @@ OWNER_USERNAME = os.environ.get("IDB_OWNER_USERNAME", "ramazan.orman")
 OWNER_DISPLAY_NAME = os.environ.get("IDB_OWNER_DISPLAY_NAME", "Ramazan ORMAN")
 OWNER_EMAIL = os.environ.get("IDB_OWNER_EMAIL", "ramazan.orman@tarimorman.gov.tr")
 
+
+COLLECTION_LABELS = {
+    "audits": "Denetimler",
+    "approvals": "Olurlar",
+    "leaves": "Personel izinleri",
+    "leaveRights": "İzin hakları",
+    "dutyRecords": "Görev durumu",
+    "budgetItems": "Bütçe kalemleri",
+    "budgetExpenses": "Bütçe harcamaları",
+    "stockItems": "Stok işlemleri",
+    "personnelRecords": "Personel",
+    "monitoringRecords": "İzleme faaliyetleri",
+    "reportDocuments": "Rapor arşivi",
+}
+
+
+def describe_record(record):
+    if not isinstance(record, dict):
+        return "kayıt"
+    for key in ("person", "name", "displayName", "code", "title", "scope", "subject", "purpose", "dutyName"):
+        value = record.get(key)
+        if value:
+            return str(value)
+    no = record.get("no") or record.get("id")
+    return f"#{no}" if no else "kayıt"
+
+
+def describe_state_change(collection, records, deletions, existing_count):
+    label = COLLECTION_LABELS.get(collection, collection)
+    additions = 0
+    updates = 0
+    names = []
+    for record in records:
+        if record_key(collection, record) in existing_count:
+            updates += 1
+        else:
+            additions += 1
+        if len(names) < 3:
+            names.append(describe_record(record))
+    deleted = [item for item in deletions if item.get("collection") == collection]
+    pieces = []
+    if additions:
+        pieces.append(f"{additions} ekleme")
+    if updates:
+        pieces.append(f"{updates} güncelleme")
+    if deleted:
+        pieces.append(f"{len(deleted)} silme")
+    detail = f"{label}: {', '.join(pieces) if pieces else 'güncellendi'}"
+    if names:
+        detail += f" ({', '.join(names)})"
+    return detail
+
 COLLECTIONS = (
     "audits",
     "approvals",
@@ -1088,6 +1140,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 return
             try:
                 checked = {}
+                existing_keys = {}
                 for collection in COLLECTIONS:
                     records = payload.get(collection, [])
                     if isinstance(records, dict):
@@ -1095,11 +1148,15 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                     if not isinstance(records, list):
                         raise ValueError("Geçersiz kayıt listesi")
                     checked[collection] = []
+                    existing_keys[collection] = set()
                     for record in records:
                         if not isinstance(record, dict) or not record_key(collection, record):
                             raise ValueError("Geçersiz kayıt")
-                        row = connection.execute("SELECT value FROM records WHERE collection=? AND record_key=?", (collection, record_key(collection, record))).fetchone()
+                        key = record_key(collection, record)
+                        row = connection.execute("SELECT value FROM records WHERE collection=? AND record_key=?", (collection, key)).fetchone()
                         existing = json.loads(row[0]) if row else None
+                        if existing:
+                            existing_keys[collection].add(key)
                         checked[collection].append(authorize_record(user, collection, record, existing))
                 deletions = payload.get("deletedRecords", [])
                 if not isinstance(deletions, list):
@@ -1122,7 +1179,16 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 for collection in COLLECTIONS
                 if isinstance(payload.get(collection), (list, dict))
             ]
-            detail = ", ".join(collections) if collections else "Kayıt güncellendi"
+            changed_details = [
+                describe_state_change(collection, checked.get(collection, []), deletions, existing_keys.get(collection, set()))
+                for collection in collections
+            ]
+            deletion_only_collections = sorted({item.get("collection") for item in deletions if item.get("collection") in COLLECTIONS and item.get("collection") not in collections})
+            changed_details.extend(
+                describe_state_change(collection, [], deletions, existing_keys.get(collection, set()))
+                for collection in deletion_only_collections
+            )
+            detail = "; ".join(changed_details) if changed_details else "Kayıt güncellendi"
             log_action(connection, user, "state_save", detail)
 
         self.send_json({"ok": True})

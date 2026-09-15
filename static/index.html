@@ -1373,9 +1373,15 @@
               </div>
 
               <section class="admin-block admin-log-block">
-                <div class="admin-block-head">
-                  <h3>İşlem Geçmişi</h3>
-                  <span>Son 120 işlem</span>
+                <div class="admin-block-head admin-log-head">
+                  <div>
+                    <h3>İşlem Geçmişi</h3>
+                    <p class="eyebrow">Kullanıcı, işlem, modül veya açıklamaya göre ara</p>
+                  </div>
+                  <div class="admin-user-search-wrap">
+                    <input id="adminLogSearch" type="search" placeholder="İşlem geçmişinde ara..." autocomplete="off" />
+                    <span id="adminLogCount">Son 120 işlem</span>
+                  </div>
                 </div>
                 <div class="admin-log-list" id="adminLogRows"></div>
               </section>

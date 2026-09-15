@@ -4013,3 +4013,24 @@ button:disabled { opacity:.45; cursor:not-allowed; }
     width: 100%;
   }
 }
+
+
+.admin-log-head {
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.admin-log-title-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-log-row p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.45;
+}

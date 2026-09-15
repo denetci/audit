@@ -489,6 +489,8 @@ const adminUsersRows = document.querySelector("#adminUsersRows");
 const adminUserSearch = document.querySelector("#adminUserSearch");
 const adminUserCount = document.querySelector("#adminUserCount");
 const adminLogRows = document.querySelector("#adminLogRows");
+const adminLogSearch = document.querySelector("#adminLogSearch");
+const adminLogCount = document.querySelector("#adminLogCount");
 const ownerPanelName = document.querySelector("#ownerPanelName");
 const ownerPanelMeta = document.querySelector("#ownerPanelMeta");
 let activeTypeFilter = "Tümü";
@@ -1369,6 +1371,53 @@ function renderRoleOptions(selectedRole, isOwner) {
     .join("");
 }
 
+
+const auditLogActionLabels = {
+  login: "Oturum açtı",
+  user_create: "Kullanıcı oluşturdu",
+  permissions_update: "Kullanıcı yetkilerini güncelledi",
+  user_update: "Kullanıcı bilgilerini güncelledi",
+  user_delete: "Kullanıcı sildi",
+  password_change: "Parola değiştirdi",
+  account_update: "Hesap bilgilerini güncelledi",
+  database_backup: "Veritabanı yedeği indirdi",
+  database_restore: "Veritabanı yedeği geri yükledi",
+  state_save: "Kayıt güncelledi",
+};
+
+const auditLogCollectionLabels = {
+  audits: "Denetimler",
+  approvals: "Olurlar",
+  leaves: "Personel izinleri",
+  leaveRights: "İzin hakları",
+  dutyRecords: "Görev durumu",
+  budgetItems: "Bütçe kalemleri",
+  budgetExpenses: "Bütçe harcamaları",
+  stockItems: "Stok işlemleri",
+  personnelRecords: "Personel",
+  monitoringRecords: "İzleme faaliyetleri",
+  reportDocuments: "Rapor arşivi",
+};
+
+function formatAuditLogDetail(item) {
+  const actionLabel = auditLogActionLabels[item.action] || item.action || "İşlem yaptı";
+  if (item.action !== "state_save") {
+    return { title: actionLabel, detail: item.detail || "Ayrıntı yok" };
+  }
+  const parts = String(item.detail || "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const readableParts = parts.map((part) => auditLogCollectionLabels[part] || part);
+  const title = readableParts.length ? `${readableParts.join(", ")} güncellendi` : "Kayıt güncellendi";
+  return { title, detail: readableParts.length ? `Etkilenen alan: ${readableParts.join(", ")}` : "Sistem kaydı güncellendi" };
+}
+
+function makeAuditLogSearchText(item) {
+  const formatted = formatAuditLogDetail(item);
+  return [item.username, item.action, item.detail, formatted.title, formatted.detail, item.createdAt].join(" ");
+}
+
 async function loadAdminDashboard() {
   if (!currentUser?.owner) {
     return;
@@ -1441,18 +1490,26 @@ async function loadAdminDashboard() {
     )
     .join("") : `<div class="side-empty">Aramaya uygun kullanıcı bulunamadı.</div>`;
 
-  adminLogRows.innerHTML = logs.length
-    ? logs
-        .map(
-          (item) => `
+  const logSearchQuery = normalizeText(adminLogSearch?.value || "");
+  const visibleLogs = logs.filter((item) => normalizeText(makeAuditLogSearchText(item)).includes(logSearchQuery));
+  if (adminLogCount) adminLogCount.textContent = logSearchQuery ? `${visibleLogs.length} / ${logs.length} işlem` : `Son ${logs.length} işlem`;
+  adminLogRows.innerHTML = visibleLogs.length
+    ? visibleLogs
+        .map((item) => {
+          const formatted = formatAuditLogDetail(item);
+          return `
             <div class="admin-log-row">
-              <strong>${escapeHtml(item.detail)}</strong>
-              <small>${escapeHtml(item.username)} · ${escapeHtml(item.action)} · ${escapeHtml(item.createdAt)}</small>
+              <div class="admin-log-title-line">
+                <strong>${escapeHtml(formatted.title)}</strong>
+                <span class="role-pill">${escapeHtml(auditLogActionLabels[item.action] || item.action || "İşlem")}</span>
+              </div>
+              <p>${escapeHtml(formatted.detail)}</p>
+              <small>${escapeHtml(item.username)} · ${escapeHtml(formatDateTime(item.createdAt) || item.createdAt)}</small>
             </div>
-          `,
-        )
+          `;
+        })
         .join("")
-    : `<div class="side-empty">Henüz işlem kaydı yok.</div>`;
+    : `<div class="side-empty">Aramaya uygun işlem kaydı bulunamadı.</div>`;
 }
 
 function renderEverything() {
@@ -1667,6 +1724,14 @@ function formatDate(value) {
 
   const [year, month, day] = value.split("-");
   return `${day}.${month}.${year}`;
+}
+
+function formatDateTime(value) {
+  if (!value) return "";
+  const [datePart, timePart = ""] = String(value).split(/[T ]/);
+  const formattedDate = formatDate(datePart);
+  const formattedTime = timePart.slice(0, 5);
+  return formattedTime ? `${formattedDate} ${formattedTime}` : formattedDate;
 }
 
 function numberValue(value) {
@@ -5093,6 +5158,10 @@ downloadDbBackup?.addEventListener("click", () => {
 });
 
 adminUserSearch?.addEventListener("input", () => {
+  loadAdminDashboard();
+});
+
+adminLogSearch?.addEventListener("input", () => {
   loadAdminDashboard();
 });
 
