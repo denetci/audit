@@ -56,30 +56,102 @@ def describe_record(record):
     return f"#{no}" if no else "kayıt"
 
 
-def describe_state_change(collection, records, deletions, existing_count):
-    label = COLLECTION_LABELS.get(collection, collection)
-    additions = 0
-    updates = 0
+FIELD_LABELS = {
+    "name": "Ad soyad",
+    "title": "Unvan",
+    "unit": "Birim",
+    "group": "Personel grubu",
+    "extension": "Dahili",
+    "status": "Durum",
+    "person": "Personel",
+    "start": "Başlangıç",
+    "returnDate": "Dönüş tarihi",
+    "date": "Tarih",
+    "amount": "Tutar",
+    "payee": "Kime ödendi",
+    "purpose": "Ne için",
+    "note": "Not",
+    "code": "Kalem",
+    "allocated": "Tahsis edilen ödenek",
+    "released": "Serbest bırakılan ödenek",
+    "additional": "Ek ödenek",
+    "dutyName": "Görev adı",
+    "dutyPlace": "Görev yeri",
+    "year": "Yıl",
+    "type": "Tür",
+    "scope": "Kapsam",
+    "subject": "Konu",
+    "documentType": "Belge türü",
+}
+
+IGNORED_DIFF_FIELDS = {"updatedAt", "createdAt", "id"}
+
+
+def format_change_value(value):
+    if value is None or value == "":
+        return "boş"
+    if isinstance(value, bool):
+        return "Evet" if value else "Hayır"
+    if isinstance(value, (dict, list)):
+        return "çoklu bilgi"
+    text = str(value)
+    return text if len(text) <= 80 else text[:77] + "..."
+
+
+def describe_record_diff(collection, existing, record):
+    if not isinstance(existing, dict) or not isinstance(record, dict):
+        return ""
+    changes = []
+    for key in sorted(set(existing) | set(record)):
+        if key in IGNORED_DIFF_FIELDS:
+            continue
+        old = existing.get(key)
+        new = record.get(key)
+        if old == new:
+            continue
+        label = FIELD_LABELS.get(key, key)
+        changes.append(f"{label}: {format_change_value(old)} → {format_change_value(new)}")
+        if len(changes) == 4:
+            break
+    if not changes:
+        return "alan değişikliği görünmüyor"
+    return "; ".join(changes)
+
+
+def describe_deleted_records(collection, deletions, existing_records):
     names = []
+    for item in deletions:
+        if item.get("collection") != collection:
+            continue
+        key = str(item.get("key", ""))
+        names.append(describe_record(existing_records.get(key) or {"id": key}))
+        if len(names) == 3:
+            break
+    return names
+
+
+def describe_state_change(collection, records, deletions, existing_records):
+    label = COLLECTION_LABELS.get(collection, collection)
+    additions = []
+    updates = []
     for record in records:
-        if record_key(collection, record) in existing_count:
-            updates += 1
+        key = record_key(collection, record)
+        existing = existing_records.get(key)
+        if existing:
+            diff = describe_record_diff(collection, existing, record)
+            updates.append(f"{describe_record(record)} [{diff}]")
         else:
-            additions += 1
-        if len(names) < 3:
-            names.append(describe_record(record))
-    deleted = [item for item in deletions if item.get("collection") == collection]
+            additions.append(describe_record(record))
+    deleted_items = [item for item in deletions if item.get("collection") == collection]
     pieces = []
     if additions:
-        pieces.append(f"{additions} ekleme")
+        pieces.append(f"{len(additions)} ekleme ({', '.join(additions[:3])})")
     if updates:
-        pieces.append(f"{updates} güncelleme")
-    if deleted:
-        pieces.append(f"{len(deleted)} silme")
-    detail = f"{label}: {', '.join(pieces) if pieces else 'güncellendi'}"
-    if names:
-        detail += f" ({', '.join(names)})"
-    return detail
+        pieces.append(f"{len(updates)} güncelleme ({'; '.join(updates[:2])})")
+    if deleted_items:
+        deleted_names = describe_deleted_records(collection, deletions, existing_records)
+        pieces.append(f"{len(deleted_items)} silme ({', '.join(deleted_names)})" if deleted_names else f"{len(deleted_items)} silme")
+    return f"{label}: {', '.join(pieces) if pieces else 'güncellendi'}"
 
 COLLECTIONS = (
     "audits",
@@ -1140,7 +1212,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 return
             try:
                 checked = {}
-                existing_keys = {}
+                existing_records = {}
                 for collection in COLLECTIONS:
                     records = payload.get(collection, [])
                     if isinstance(records, dict):
@@ -1148,7 +1220,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                     if not isinstance(records, list):
                         raise ValueError("Geçersiz kayıt listesi")
                     checked[collection] = []
-                    existing_keys[collection] = set()
+                    existing_records[collection] = {}
                     for record in records:
                         if not isinstance(record, dict) or not record_key(collection, record):
                             raise ValueError("Geçersiz kayıt")
@@ -1156,7 +1228,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                         row = connection.execute("SELECT value FROM records WHERE collection=? AND record_key=?", (collection, key)).fetchone()
                         existing = json.loads(row[0]) if row else None
                         if existing:
-                            existing_keys[collection].add(key)
+                            existing_records[collection][key] = existing
                         checked[collection].append(authorize_record(user, collection, record, existing))
                 deletions = payload.get("deletedRecords", [])
                 if not isinstance(deletions, list):
@@ -1180,12 +1252,12 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 if isinstance(payload.get(collection), (list, dict))
             ]
             changed_details = [
-                describe_state_change(collection, checked.get(collection, []), deletions, existing_keys.get(collection, set()))
+                describe_state_change(collection, checked.get(collection, []), deletions, existing_records.get(collection, {}))
                 for collection in collections
             ]
             deletion_only_collections = sorted({item.get("collection") for item in deletions if item.get("collection") in COLLECTIONS and item.get("collection") not in collections})
             changed_details.extend(
-                describe_state_change(collection, [], deletions, existing_keys.get(collection, set()))
+                describe_state_change(collection, [], deletions, existing_records.get(collection, {}))
                 for collection in deletion_only_collections
             )
             detail = "; ".join(changed_details) if changed_details else "Kayıt güncellendi"
