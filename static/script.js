@@ -4665,6 +4665,7 @@ function createDutyPreviewItem(duty, options = {}) {
       </div>
       <div class="duty-preview-actions">
         ${duplicateBadge}
+        <button class="btn secondary small" data-duty-action="edit" data-id="${duty.id}" type="button">Düzenle</button>
         <button class="btn secondary small" data-duty-action="history" data-person="${escapeHtml(duty.person)}" type="button">Geçmiş</button>
       </div>
     </article>
@@ -6027,6 +6028,24 @@ dutyHistoryModal.addEventListener("click", (event) => {
   if (event.target === dutyHistoryModal) closeDutyHistory();
 });
 
+function handleDutyPreviewAction(event) {
+  const actionButton = event.target.closest("[data-duty-action]");
+  if (!actionButton) return;
+  const action = actionButton.dataset.dutyAction;
+  if (action === "history") {
+    showDutyHistory(actionButton.dataset.person);
+    return;
+  }
+  if (action === "edit") {
+    const duty = dutyRecords.find((item) => item.id === Number(actionButton.dataset.id));
+    if (duty) openDutyModal(duty);
+  }
+}
+
+[dutyActivePreviewList, dutyReturnedPreviewList].forEach((list) => {
+  list?.addEventListener("click", handleDutyPreviewAction);
+});
+
 dutyHistoryList.addEventListener("click", async (event) => {
   const actionButton = event.target.closest("[data-duty-history-action]");
   if (!actionButton) return;
@@ -6832,7 +6851,11 @@ dutyForm.addEventListener("submit", async (event) => {
   const selectedPerson = findPersonnelByName(formData.get("person"));
   const start = String(formData.get("start"));
   let returnDate = String(formData.get("returnDate"));
-  const status = String(formData.get("status"));
+  const todayIso = new Date().toISOString().slice(0, 10);
+  let status = String(formData.get("status"));
+  if (returnDate && returnDate <= todayIso) {
+    status = "Döndü";
+  }
 
   if (!selectedPerson) {
     showToast("Lütfen listeden geçerli bir personel seç.");
