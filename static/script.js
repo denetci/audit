@@ -1399,23 +1399,39 @@ const auditLogCollectionLabels = {
   reportDocuments: "Rapor arşivi",
 };
 
+function normalizeAuditLogText(text) {
+  return String(text || "").replace(/ güncellendi$/i, "").trim();
+}
+
 function formatAuditLogDetail(item) {
   const actionLabel = auditLogActionLabels[item.action] || item.action || "İşlem yaptı";
   if (item.action !== "state_save") {
-    return { title: actionLabel, detail: item.detail || "Ayrıntı yok" };
+    return { title: actionLabel, details: [item.detail || "Ayrıntı yok"] };
   }
-  const parts = String(item.detail || "")
-    .split(",")
-    .map((part) => part.trim())
+  const raw = String(item.detail || "").trim();
+  if (!raw) return { title: "Kayıt güncellendi", details: ["Sistem kaydı güncellendi"] };
+
+  const separator = raw.includes(";") ? ";" : ",";
+  const parts = raw
+    .split(separator)
+    .map((part) => normalizeAuditLogText(part))
     .filter(Boolean);
-  const readableParts = parts.map((part) => auditLogCollectionLabels[part] || part);
-  const title = readableParts.length ? `${readableParts.join(", ")} güncellendi` : "Kayıt güncellendi";
-  return { title, detail: readableParts.length ? `Etkilenen alan: ${readableParts.join(", ")}` : "Sistem kaydı güncellendi" };
+  const normalizedParts = parts.map((part) => {
+    const [collection, rest] = part.split(/:(.*)/s).map((piece) => piece?.trim()).filter((piece) => piece !== undefined);
+    const label = auditLogCollectionLabels[collection] || collection;
+    return rest ? `${label}: ${rest}` : (auditLogCollectionLabels[part] || part);
+  });
+  const titleSource = normalizedParts[0] || raw;
+  const [firstCollection, firstAction = "güncellendi"] = titleSource.split(/:(.*)/s).map((piece) => piece?.trim()).filter((piece) => piece !== undefined);
+  const title = normalizedParts.length === 1
+    ? `${firstCollection}: ${firstAction}`
+    : `${firstCollection} ve ${normalizedParts.length - 1} alan daha güncellendi`;
+  return { title, details: normalizedParts };
 }
 
 function makeAuditLogSearchText(item) {
   const formatted = formatAuditLogDetail(item);
-  return [item.username, item.action, item.detail, formatted.title, formatted.detail, item.createdAt].join(" ");
+  return [item.username, item.action, item.detail, formatted.title, ...(formatted.details || []), item.createdAt].join(" ");
 }
 
 async function loadAdminDashboard() {
@@ -1503,7 +1519,9 @@ async function loadAdminDashboard() {
                 <strong>${escapeHtml(formatted.title)}</strong>
                 <span class="role-pill">${escapeHtml(auditLogActionLabels[item.action] || item.action || "İşlem")}</span>
               </div>
-              <p>${escapeHtml(formatted.detail)}</p>
+              <div class="admin-log-detail-list">
+                ${(formatted.details || []).map((detail) => `<p>${escapeHtml(detail)}</p>`).join("")}
+              </div>
               <small>${escapeHtml(item.username)} · ${escapeHtml(formatDateTime(item.createdAt) || item.createdAt)}</small>
             </div>
           `;

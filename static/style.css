@@ -4034,3 +4034,14 @@ button:disabled { opacity:.45; cursor:not-allowed; }
   font-size: 13px;
   line-height: 1.45;
 }
+
+
+.admin-log-detail-list {
+  display: grid;
+  gap: 5px;
+}
+
+.admin-log-detail-list p {
+  border-left: 3px solid #d8e5f5;
+  padding-left: 10px;
+}
