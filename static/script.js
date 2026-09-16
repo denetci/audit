@@ -18,7 +18,7 @@ function permissionsEditor(user) {
   return `<details class="module-permissions"><summary>Modül Yetkileri</summary><div class="permission-grid">${Object.entries(MODULE_LABELS).map(([key,label]) => `<label>${label}<select data-permission="${key}" ${user.owner ? "disabled" : ""}>${[["none","Erişim yok"],["view","Görüntüleme"],["edit","Görüntüleme ve değişiklik"]].map(([value,text]) => `<option value="${value}" ${(user.owner ? "edit" : user.permissions?.[key] || "none") === value ? "selected" : ""}>${text}</option>`).join("")}</select></label>`).join("")}</div></details>`;
 }
 function mutationModule(element) {
-  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",newStockCashIncomeBtn:"stock",newStockCashExpenseBtn:"stock",stockCashForm:"stock",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
+  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",stockCashIncomeForm:"stock",stockCashExpenseForm:"stock",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
   if (ids[element.id]) return ids[element.id];
   for (const [attr,module] of [["data-action","audits"],["data-approval-action","approvals"],["data-leave-action","leaves"],["data-leave-right-action","leaves"],["data-duty-action","duties"],["data-budget-item-action","budget"],["data-budget-expense-action","budget"],["data-stock-action","stock"],["data-monitoring-document-action","monitoring"],["data-report-document-action","reports"],["data-personnel-action","personnel"]]) {
     const action = element.getAttribute(attr);
@@ -264,10 +264,9 @@ const closeStockProductModal = document.querySelector("#closeStockProductModal")
 const cancelStockProduct = document.querySelector("#cancelStockProduct");
 const stockMovementModal = document.querySelector("#stockMovementModal");
 const stockMovementForm = document.querySelector("#stockMovementForm");
-const stockCashForm = document.querySelector("#stockCashForm");
+const stockCashIncomeForm = document.querySelector("#stockCashIncomeForm");
+const stockCashExpenseForm = document.querySelector("#stockCashExpenseForm");
 const stockCashRows = document.querySelector("#stockCashRows");
-const newStockCashIncomeBtn = document.querySelector("#newStockCashIncomeBtn");
-const newStockCashExpenseBtn = document.querySelector("#newStockCashExpenseBtn");
 const stockMovementModalMode = document.querySelector("#stockMovementModalMode");
 const stockMovementModalTitle = document.querySelector("#stockMovementModalTitle");
 const closeStockMovementModal = document.querySelector("#closeStockMovementModal");
@@ -3416,20 +3415,70 @@ function addStockCashRecord(record) {
   stockCashRecords.push({ id: Date.now() + Math.random(), createdAt: new Date().toISOString(), user: currentUser?.displayName || currentUser?.username || "-", ...record });
 }
 
+function resetStockCashForm(type = "income") {
+  const form = type === "expense" ? stockCashExpenseForm : stockCashIncomeForm;
+  if (!form) return;
+  form.reset();
+  form.elements.id.value = "";
+  form.elements.date.value = new Date().toISOString().slice(0, 10);
+}
+
 function ensureStockCashFormDefaults() {
-  if (!stockCashForm) return;
-  if (!stockCashForm.elements.date.value) {
-    stockCashForm.elements.date.value = new Date().toISOString().slice(0, 10);
+  [stockCashIncomeForm, stockCashExpenseForm].forEach((form) => {
+    if (form && !form.elements.date.value) {
+      form.elements.date.value = new Date().toISOString().slice(0, 10);
+    }
+  });
+}
+
+function populateStockCashForm(record) {
+  const form = record.type === "expense" ? stockCashExpenseForm : stockCashIncomeForm;
+  if (!form) return;
+  form.elements.id.value = record.id;
+  form.elements.date.value = record.date || new Date().toISOString().slice(0, 10);
+  form.elements.amount.value = formatMoney(record.amount);
+  form.elements.category.value = record.category || form.elements.category.value;
+  form.elements.title.value = record.title || "";
+  form.elements.note.value = record.note || "";
+  editingStockCashId = record.id;
+  form.scrollIntoView({ behavior: "smooth", block: "center" });
+  form.elements.amount.focus();
+}
+
+function submitStockCashForm(form, type) {
+  const formData = new FormData(form);
+  const amount = numberValue(formData.get("amount"));
+  if (amount <= 0) {
+    showToast("Tutar sıfırdan büyük olmalı.");
+    return;
   }
-  if (!stockCashForm.elements.type.value) {
-    stockCashForm.elements.type.value = "income";
+  const id = String(formData.get("id") || "");
+  const payload = {
+    type,
+    date: String(formData.get("date") || new Date().toISOString().slice(0, 10)),
+    amount,
+    category: String(formData.get("category") || "").trim(),
+    title: String(formData.get("title") || "").trim() || (type === "income" ? "Personel katkı geliri" : "Personel kasası harcaması"),
+    source: "Personel kasası",
+    note: String(formData.get("note") || "").trim(),
+  };
+  const existing = stockCashRecords.find((record) => String(record.id) === id);
+  if (existing) {
+    Object.assign(existing, payload, { updatedAt: new Date().toISOString(), updatedBy: currentUser?.displayName || currentUser?.username || "-" });
+  } else {
+    addStockCashRecord(payload);
   }
+  resetStockCashForm(type);
+  editingStockCashId = null;
+  saveStockRecords();
+  renderStock();
+  showToast(type === "income" ? "Gelir kaydedildi." : "Harcama kaydedildi.");
 }
 
 function renderStockCashRows() {
   if (!stockCashRows) return;
   const records = [...stockCashRecords].sort((a,b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.createdAt || "").localeCompare(String(a.createdAt || ""))).slice(0, 12);
-  stockCashRows.innerHTML = records.length ? records.map((record) => `<article class="stock-cash-row"><div><strong>${escapeHtml(record.title || (record.type === "income" ? "Gelir" : "Harcama"))}</strong><span>${formatDate(record.date)} · ${escapeHtml(record.category || "-")} · ${escapeHtml(record.source || "Personel kasası")}</span><small>${escapeHtml(record.note || record.user || "-")}</small></div><strong class="${record.type === "expense" ? "negative-stock" : "positive-stock"}">${record.type === "expense" ? "-" : "+"}${formatMoney(record.amount)} TL</strong></article>`).join("") : `<div class="empty-inline">Henüz personel kasası hareketi yok.</div>`;
+  stockCashRows.innerHTML = records.length ? records.map((record) => `<article class="stock-cash-row"><div><strong>${escapeHtml(record.title || (record.type === "income" ? "Gelir" : "Harcama"))}</strong><span>${formatDate(record.date)} · ${escapeHtml(record.category || "-")} · ${escapeHtml(record.source || "Personel kasası")}</span><small>${escapeHtml(record.note || record.user || "-")}</small></div><div class="stock-cash-amount"><strong class="${record.type === "expense" ? "negative-stock" : "positive-stock"}">${record.type === "expense" ? "-" : "+"}${formatMoney(record.amount)} TL</strong><div class="inline-actions"><button class="btn secondary small" data-stock-action="edit" data-cash-id="${record.id}" type="button">Düzenle</button><button class="btn ghost danger small" data-stock-action="delete" data-cash-id="${record.id}" type="button">Sil</button></div></div></article>`).join("") : `<div class="empty-inline">Henüz personel kasası hareketi yok.</div>`;
 }
 
 function stockQuantity(product) {
@@ -6569,34 +6618,40 @@ stockMovementForm.addEventListener("submit", (event) => {
 });
 
 
-stockCashForm?.addEventListener("submit", (event) => {
+stockCashIncomeForm?.addEventListener("submit", (event) => {
   event.preventDefault();
-  const formData = new FormData(stockCashForm);
-  const type = String(formData.get("type") || "income");
-  const amount = numberValue(formData.get("amount"));
-  if (amount <= 0) {
-    showToast("Tutar sıfırdan büyük olmalı.");
-    return;
-  }
-  addStockCashRecord({
-    type,
-    date: String(formData.get("date") || new Date().toISOString().slice(0, 10)),
-    amount,
-    category: String(formData.get("category") || "").trim(),
-    title: String(formData.get("title") || "").trim() || (type === "income" ? "Personel katkı geliri" : "Personel kasası harcaması"),
-    source: "Personel kasası",
-    note: String(formData.get("note") || "").trim(),
-  });
-  stockCashForm.reset();
-  stockCashForm.elements.date.value = new Date().toISOString().slice(0, 10);
-  stockCashForm.elements.type.value = "income";
-  saveStockRecords();
-  renderStock();
-  showToast(type === "income" ? "Gelir kaydedildi." : "Harcama kaydedildi.");
+  submitStockCashForm(stockCashIncomeForm, "income");
 });
 
-newStockCashIncomeBtn?.addEventListener("click", () => { stockCashForm.elements.type.value = "income"; stockCashForm.elements.title.focus(); });
-newStockCashExpenseBtn?.addEventListener("click", () => { stockCashForm.elements.type.value = "expense"; stockCashForm.elements.title.focus(); });
+stockCashExpenseForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  submitStockCashForm(stockCashExpenseForm, "expense");
+});
+
+stockCashRows?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-cash-id]");
+  if (!button) return;
+  const record = stockCashRecords.find((item) => String(item.id) === String(button.dataset.cashId));
+  if (!record) return;
+  if (button.dataset.stockAction === "edit") {
+    populateStockCashForm(record);
+    return;
+  }
+  if (button.dataset.stockAction === "delete") {
+    if (!confirm(`${record.title || "Kasa hareketi"} silinsin mi?`)) return;
+    stockCashRecords = stockCashRecords.filter((item) => String(item.id) !== String(record.id));
+    saveStockRecords();
+    renderStock();
+    showToast("Kasa hareketi silindi.");
+  }
+});
+
+document.querySelectorAll("[data-cash-reset]").forEach((button) => {
+  button.addEventListener("click", () => {
+    resetStockCashForm(button.dataset.cashReset || "income");
+    editingStockCashId = null;
+  });
+});
 
 budgetItemForm.addEventListener("submit", (event) => {
   event.preventDefault();

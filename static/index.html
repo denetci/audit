@@ -739,8 +739,6 @@
                   <span class="panel-count"><strong id="stockProductCount">0</strong> ürün</span>
                   <button class="btn secondary" id="newStockProductBtn" type="button">＋ Yeni Ürün</button>
                   <button class="btn secondary" id="newStockEntryBtn" type="button">＋ Stok Girişi</button>
-                  <button class="btn secondary" id="newStockCashIncomeBtn" type="button">＋ Gelir</button>
-                  <button class="btn secondary" id="newStockCashExpenseBtn" type="button">− Harcama</button>
                   <button class="btn primary" id="newStockExitBtn" type="button">− Stok Çıkışı</button>
                 </div>
               </div>
@@ -786,23 +784,37 @@
               </div>
 
 
-              <section class="stock-cash-panel">
-                <div class="stock-cash-card">
+              <section class="stock-cash-panel simple-cash-panel">
+                <div class="stock-cash-card income-card">
                   <div class="sub-panel-head compact-head">
-                    <div><h3>Personel Kasası</h3><p class="eyebrow">Personelden toplanan para, faiz geliri ve ortak harcamalar</p></div>
+                    <div><h3>Gelir Kaydı</h3><p class="eyebrow">Personel katkısı ve faiz gelirlerini buradan girin</p></div>
                   </div>
-                  <form class="stock-cash-form" id="stockCashForm">
-                    <select name="type"><option value="income">Gelir</option><option value="expense">Harcama</option></select>
-                    <input name="date" type="date" required />
-                    <input name="amount" inputmode="decimal" placeholder="Tutar" required />
-                    <select name="category"><option>Personel katkısı</option><option>Faiz geliri</option><option>Çay</option><option>Kahve</option><option>Maden suyu</option><option>Normal su</option><option>Temsil</option><option>Mutfak</option><option>Lavabo</option><option>İnşaat / malzeme</option><option>Diğer</option></select>
-                    <input name="title" placeholder="Açıklama / işlem adı" />
-                    <input name="note" placeholder="Not" />
-                    <button class="btn primary small" type="submit">Kaydet</button>
+                  <form class="stock-cash-form simple" id="stockCashIncomeForm">
+                    <input name="id" type="hidden" />
+                    <label>Tarih<input name="date" type="date" required /></label>
+                    <label>Tutar<input name="amount" inputmode="decimal" placeholder="Örn. 5.000,00" required /></label>
+                    <label>Gelir Türü<select name="category"><option>Personel katkısı</option><option>Faiz geliri</option><option>Diğer gelir</option></select></label>
+                    <label class="wide">Açıklama<input name="title" placeholder="Örn. Eylül ayı personel katkısı" /></label>
+                    <label class="wide">Not<input name="note" placeholder="İsteğe bağlı not" /></label>
+                    <div class="cash-form-actions"><button class="btn primary small" type="submit">Geliri Kaydet</button><button class="btn ghost small" data-cash-reset="income" type="button">Temizle</button></div>
                   </form>
                 </div>
-                <div class="stock-cash-card">
-                  <div class="sub-panel-head compact-head"><div><h3>Son Kasa Hareketleri</h3><p class="eyebrow">Personel kasasını etkileyen son işlemler</p></div></div>
+                <div class="stock-cash-card expense-card">
+                  <div class="sub-panel-head compact-head">
+                    <div><h3>Harcama Kaydı</h3><p class="eyebrow">Çay, kahve, su, temsil ve diğer ortak giderler</p></div>
+                  </div>
+                  <form class="stock-cash-form simple" id="stockCashExpenseForm">
+                    <input name="id" type="hidden" />
+                    <label>Tarih<input name="date" type="date" required /></label>
+                    <label>Tutar<input name="amount" inputmode="decimal" placeholder="Örn. 750,00" required /></label>
+                    <label>Harcama Türü<select name="category"><option>Çay</option><option>Kahve</option><option>Maden suyu</option><option>Normal su</option><option>Temsil</option><option>Mutfak</option><option>Lavabo</option><option>İnşaat / malzeme</option><option>Diğer harcama</option></select></label>
+                    <label class="wide">Nereye / Ne için<input name="title" placeholder="Örn. Mutfak çay alımı" /></label>
+                    <label class="wide">Not<input name="note" placeholder="İsteğe bağlı not" /></label>
+                    <div class="cash-form-actions"><button class="btn primary small" type="submit">Harcamayı Kaydet</button><button class="btn ghost small" data-cash-reset="expense" type="button">Temizle</button></div>
+                  </form>
+                </div>
+                <div class="stock-cash-card cash-history-card">
+                  <div class="sub-panel-head compact-head"><div><h3>Son Kasa Hareketleri</h3><p class="eyebrow">Gelir ve harcama kayıtları; düzenlenebilir veya silinebilir</p></div></div>
                   <div class="stock-cash-list" id="stockCashRows"></div>
                 </div>
               </section>

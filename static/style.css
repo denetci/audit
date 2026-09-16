@@ -4048,7 +4048,7 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 
 .stock-cash-panel {
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   padding: 16px;
   border-top: 1px solid #edf2f7;
@@ -4065,7 +4065,7 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 
 .stock-cash-form {
   display: grid;
-  grid-template-columns: 120px 150px 150px minmax(160px, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-top: 14px;
 }
@@ -4116,5 +4116,54 @@ button:disabled { opacity:.45; cursor:not-allowed; }
   .stock-cash-panel,
   .stock-cash-form {
     grid-template-columns: 1fr;
+  }
+}
+
+
+.simple-cash-panel .cash-history-card {
+  grid-column: 1 / -1;
+}
+
+.stock-cash-form.simple label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.stock-cash-form.simple .wide {
+  grid-column: span 3;
+}
+
+.cash-form-actions {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+}
+
+.income-card {
+  border-left: 4px solid #148a52;
+}
+
+.expense-card {
+  border-left: 4px solid #c2410c;
+}
+
+.stock-cash-amount {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.stock-cash-amount .inline-actions {
+  justify-content: flex-end;
+}
+
+@media (max-width: 900px) {
+  .stock-cash-form.simple,
+  .stock-cash-form.simple .wide {
+    grid-template-columns: 1fr;
+    grid-column: auto;
   }
 }
