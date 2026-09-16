@@ -4045,3 +4045,76 @@ button:disabled { opacity:.45; cursor:not-allowed; }
   border-left: 3px solid #d8e5f5;
   padding-left: 10px;
 }
+
+.stock-cash-panel {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 16px;
+  padding: 16px;
+  border-top: 1px solid #edf2f7;
+  background: #f8fbff;
+}
+
+.stock-cash-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fff;
+  padding: 16px;
+  box-shadow: 0 14px 34px rgba(16, 58, 105, 0.06);
+}
+
+.stock-cash-form {
+  display: grid;
+  grid-template-columns: 120px 150px 150px minmax(160px, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.stock-cash-form input,
+.stock-cash-form select {
+  min-width: 0;
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0 10px;
+  font-weight: 800;
+}
+
+.stock-cash-form button {
+  justify-self: start;
+}
+
+.stock-cash-list {
+  display: grid;
+  gap: 10px;
+  max-height: 260px;
+  overflow: auto;
+  margin-top: 14px;
+}
+
+.stock-cash-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid #d8e5f5;
+  border-radius: 14px;
+  background: #fbfdff;
+  padding: 12px;
+}
+
+.stock-cash-row span,
+.stock-cash-row small {
+  display: block;
+  color: var(--muted);
+}
+
+.positive-stock { color: #16834a; }
+.negative-stock { color: #b42318; }
+
+@media (max-width: 1100px) {
+  .stock-cash-panel,
+  .stock-cash-form {
+    grid-template-columns: 1fr;
+  }
+}

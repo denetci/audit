@@ -739,15 +739,17 @@
                   <span class="panel-count"><strong id="stockProductCount">0</strong> ürün</span>
                   <button class="btn secondary" id="newStockProductBtn" type="button">＋ Yeni Ürün</button>
                   <button class="btn secondary" id="newStockEntryBtn" type="button">＋ Stok Girişi</button>
+                  <button class="btn secondary" id="newStockCashIncomeBtn" type="button">＋ Gelir</button>
+                  <button class="btn secondary" id="newStockCashExpenseBtn" type="button">− Harcama</button>
                   <button class="btn primary" id="newStockExitBtn" type="button">− Stok Çıkışı</button>
                 </div>
               </div>
 
               <div class="stats stock-stats" aria-label="Stok özetleri">
-                <article class="card"><div class="stat-top"><div class="stat-icon bg-blue">▦</div></div><p>Toplam Ürün</p><div class="value"><strong id="stockTotalProducts">0</strong><span>ürün</span></div><div class="note">Aktif stok kartı sayısı</div></article>
+                <article class="card"><div class="stat-top"><div class="stat-icon bg-blue">₺</div></div><p>Kasa Bakiyesi</p><div class="value"><strong id="stockCashBalance">0,00 TL</strong></div><div class="note">Sadece personelden toplanan para</div></article>
+                <article class="card"><div class="stat-top"><div class="stat-icon bg-green">＋</div></div><p>Bu Ay Toplanan</p><div class="value"><strong id="stockMonthlyCollected">0,00 TL</strong></div><div class="note">Personel ortak para geliri</div></article>
+                <article class="card"><div class="stat-top"><div class="stat-icon bg-red">−</div></div><p>Bu Ay Harcanan</p><div class="value"><strong id="stockMonthlySpent">0,00 TL</strong></div><div class="note">Personel kasasından harcama</div></article>
                 <article class="card"><div class="stat-top"><div class="stat-icon bg-amber">⌛</div></div><p>Kritik Stok</p><div class="value"><strong id="stockCriticalCount">0</strong><span>ürün</span></div><div class="note">Kritik seviyede veya altında</div></article>
-                <article class="card"><div class="stat-top"><div class="stat-icon bg-green">＋</div></div><p>Bu Ay Giriş</p><div class="value"><strong id="stockMonthlyEntries">0</strong><span>miktar</span></div><div class="note">Ay içindeki toplam giriş</div></article>
-                <article class="card"><div class="stat-top"><div class="stat-icon bg-red">−</div></div><p>Bu Ay Çıkış</p><div class="value"><strong id="stockMonthlyExits">0</strong><span>miktar</span></div><div class="note">Ay içindeki toplam çıkış</div></article>
               </div>
 
               <div class="module-filters stock-filters" aria-label="Stok filtreleri">
@@ -755,8 +757,10 @@
                   Kaynak
                   <select id="stockSourceFilter">
                     <option value="Tümü">Tümü</option>
-                    <option>Kurum Bütçesi</option>
-                    <option>Personel Ortak Alımı</option>
+                    <option>Ödenek</option>
+                    <option>Personel parası</option>
+                    <option>Diğer birimden gelen</option>
+                    <option>Diğer</option>
                   </select>
                 </label>
                 <label>
@@ -780,6 +784,28 @@
                 </label>
                 <button class="btn secondary" id="clearStockFilters" type="button">Temizle</button>
               </div>
+
+
+              <section class="stock-cash-panel">
+                <div class="stock-cash-card">
+                  <div class="sub-panel-head compact-head">
+                    <div><h3>Personel Kasası</h3><p class="eyebrow">Personelden toplanan para, faiz geliri ve ortak harcamalar</p></div>
+                  </div>
+                  <form class="stock-cash-form" id="stockCashForm">
+                    <select name="type"><option value="income">Gelir</option><option value="expense">Harcama</option></select>
+                    <input name="date" type="date" required />
+                    <input name="amount" inputmode="decimal" placeholder="Tutar" required />
+                    <select name="category"><option>Personel katkısı</option><option>Faiz geliri</option><option>Çay</option><option>Kahve</option><option>Maden suyu</option><option>Normal su</option><option>Temsil</option><option>Mutfak</option><option>Lavabo</option><option>İnşaat / malzeme</option><option>Diğer</option></select>
+                    <input name="title" placeholder="Açıklama / işlem adı" />
+                    <input name="note" placeholder="Not" />
+                    <button class="btn primary small" type="submit">Kaydet</button>
+                  </form>
+                </div>
+                <div class="stock-cash-card">
+                  <div class="sub-panel-head compact-head"><div><h3>Son Kasa Hareketleri</h3><p class="eyebrow">Personel kasasını etkileyen son işlemler</p></div></div>
+                  <div class="stock-cash-list" id="stockCashRows"></div>
+                </div>
+              </section>
 
               <section class="stock-alerts" id="stockCriticalPanel" hidden>
                 <div class="sub-panel-head compact-head">
@@ -1966,7 +1992,7 @@
         <div class="form-grid">
           <label>Ürün Adı<input name="name" required /></label>
           <label>Kategori<select name="category" required><option>Kırtasiye</option><option>Bilgisayar / Elektronik</option><option>Temizlik</option><option>Mutfak / İkram</option><option>Sarf Malzemesi</option><option>Diğer</option></select></label>
-          <label>Stok Kaynağı<select name="source" required><option>Kurum Bütçesi</option><option>Personel Ortak Alımı</option></select></label>
+          <label>Stok Kaynağı<select name="source" required><option>Ödenek</option><option>Personel parası</option><option>Diğer birimden gelen</option><option>Diğer</option></select></label>
           <label>Ölçü Birimi<select name="unit" required><option>Adet</option><option>Paket</option><option>Kutu</option><option>Koli</option><option>Kg</option><option>Litre</option><option>Top</option><option>Diğer</option></select></label>
           <label>Kritik Stok Seviyesi<input name="critical" type="number" min="0" step="0.01" value="0" /></label>
           <label>Depolama Yeri<input name="storage" placeholder="Örn. Depo Dolabı 2" /></label>
@@ -1993,6 +2019,8 @@
           <label id="stockMovementTypeLabel">İşlem Türü<select name="movementKind" required></select></label>
           <label>Miktar<input name="quantity" type="number" min="0.01" step="0.01" required /></label>
           <label>İşlem Tarihi<input name="date" type="date" required /></label>
+          <label>Kaynak<select name="source"><option>Ödenek</option><option>Personel parası</option><option>Diğer birimden gelen</option><option>Diğer</option></select></label>
+          <label>Tutar<input name="amount" inputmode="decimal" placeholder="Personel parası ise kasadan düşer" /></label>
           <label>Belge / Fatura No<input name="documentNo" /></label>
           <label>Personel<select name="person"><option value="">Personel seç</option></select></label>
           <label>Kullanım Yeri<input name="usagePlace" placeholder="Örn. Mutfak, Fotokopi Alanı" /></label>

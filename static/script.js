@@ -18,7 +18,7 @@ function permissionsEditor(user) {
   return `<details class="module-permissions"><summary>Modül Yetkileri</summary><div class="permission-grid">${Object.entries(MODULE_LABELS).map(([key,label]) => `<label>${label}<select data-permission="${key}" ${user.owner ? "disabled" : ""}>${[["none","Erişim yok"],["view","Görüntüleme"],["edit","Görüntüleme ve değişiklik"]].map(([value,text]) => `<option value="${value}" ${(user.owner ? "edit" : user.permissions?.[key] || "none") === value ? "selected" : ""}>${text}</option>`).join("")}</select></label>`).join("")}</div></details>`;
 }
 function mutationModule(element) {
-  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
+  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",newStockCashIncomeBtn:"stock",newStockCashExpenseBtn:"stock",stockCashForm:"stock",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
   if (ids[element.id]) return ids[element.id];
   for (const [attr,module] of [["data-action","audits"],["data-approval-action","approvals"],["data-leave-action","leaves"],["data-leave-right-action","leaves"],["data-duty-action","duties"],["data-budget-item-action","budget"],["data-budget-expense-action","budget"],["data-stock-action","stock"],["data-monitoring-document-action","monitoring"],["data-report-document-action","reports"],["data-personnel-action","personnel"]]) {
     const action = element.getAttribute(attr);
@@ -162,6 +162,7 @@ let dutyRecords = [];
 let budgetItems = [];
 let budgetExpenses = [];
 let stockItems = [];
+let stockCashRecords = [];
 let reportDocuments = [];
 let personnelRecords = [];
 let leaveRights = [];
@@ -238,10 +239,10 @@ const budgetDetailSections = Array.from(document.querySelectorAll('[data-view="b
 const stockSections = Array.from(document.querySelectorAll('[data-view="stock"]'));
 const reportSections = Array.from(document.querySelectorAll('[data-view="reports"]'));
 const stockProductCount = document.querySelector("#stockProductCount");
-const stockTotalProducts = document.querySelector("#stockTotalProducts");
+const stockCashBalance = document.querySelector("#stockCashBalance");
+const stockMonthlyCollected = document.querySelector("#stockMonthlyCollected");
+const stockMonthlySpent = document.querySelector("#stockMonthlySpent");
 const stockCriticalCount = document.querySelector("#stockCriticalCount");
-const stockMonthlyEntries = document.querySelector("#stockMonthlyEntries");
-const stockMonthlyExits = document.querySelector("#stockMonthlyExits");
 const stockSourceFilter = document.querySelector("#stockSourceFilter");
 const stockCategoryFilter = document.querySelector("#stockCategoryFilter");
 const stockStatusFilter = document.querySelector("#stockStatusFilter");
@@ -263,6 +264,10 @@ const closeStockProductModal = document.querySelector("#closeStockProductModal")
 const cancelStockProduct = document.querySelector("#cancelStockProduct");
 const stockMovementModal = document.querySelector("#stockMovementModal");
 const stockMovementForm = document.querySelector("#stockMovementForm");
+const stockCashForm = document.querySelector("#stockCashForm");
+const stockCashRows = document.querySelector("#stockCashRows");
+const newStockCashIncomeBtn = document.querySelector("#newStockCashIncomeBtn");
+const newStockCashExpenseBtn = document.querySelector("#newStockCashExpenseBtn");
 const stockMovementModalMode = document.querySelector("#stockMovementModalMode");
 const stockMovementModalTitle = document.querySelector("#stockMovementModalTitle");
 const closeStockMovementModal = document.querySelector("#closeStockMovementModal");
@@ -530,6 +535,7 @@ const sharedCollections = [
   "budgetItems",
   "budgetExpenses",
   "stockItems",
+  "stockCashRecords",
   "reportDocuments",
   "personnelRecords",
 ];
@@ -907,6 +913,7 @@ function buildSharedState() {
     budgetItems,
     budgetExpenses,
     stockItems,
+    stockCashRecords,
     reportDocuments,
     personnelRecords,
     deletedRecords,
@@ -946,6 +953,10 @@ function getSharedCollectionRecords(collection) {
     return stockItems;
   }
 
+  if (collection === "stockCashRecords") {
+    return stockCashRecords;
+  }
+
   if (collection === "reportDocuments") {
     return reportDocuments;
   }
@@ -962,7 +973,7 @@ function recordKeyForCollection(collection, record) {
     return `${record.year}-${record.no}`;
   }
 
-  if (collection === "leaves" || collection === "leaveRights" || collection === "dutyRecords" || collection === "budgetItems" || collection === "budgetExpenses" || collection === "stockItems") {
+  if (collection === "leaves" || collection === "leaveRights" || collection === "dutyRecords" || collection === "budgetItems" || collection === "budgetExpenses" || collection === "stockItems" || collection === "stockCashRecords") {
     return String(record.id);
   }
 
@@ -1017,7 +1028,7 @@ function buildChangedSharedState() {
   };
 
   sharedCollections.forEach((collection) => {
-    const modules = {audits:"audits",approvals:"approvals",leaves:"leaves",leaveRights:"leaves",dutyRecords:"duties",budgetItems:"budget",budgetExpenses:"budget",stockItems:"stock",reportDocuments:"reports",personnelRecords:"personnel"};
+    const modules = {audits:"audits",approvals:"approvals",leaves:"leaves",leaveRights:"leaves",dutyRecords:"duties",budgetItems:"budget",budgetExpenses:"budget",stockItems:"stock",stockCashRecords:"stock",reportDocuments:"reports",personnelRecords:"personnel"};
     if (!hasAccess(modules[collection], true) && !(collection === "audits" && hasAccess("monitoring", true)) && !(collection === "reportDocuments" && hasAccess("monitoring", true))) return;
     const changedRecords = [];
     const previousRecords = lastSharedRecordJson[collection] || {};
@@ -1094,6 +1105,7 @@ function buildLocalStorageState() {
       ? storedBudget.budgetExpenses
       : [...defaultBudgetExpenses],
     stockItems: [],
+    stockCashRecords: [],
     leaveRights: Array.isArray(storedLeaveRights.leaveRights)
       ? storedLeaveRights.leaveRights
       : [...defaultLeaveRights],
@@ -1122,6 +1134,7 @@ function hasSharedState(payload) {
       Array.isArray(payload.budgetItems) ||
       Array.isArray(payload.budgetExpenses) ||
       Array.isArray(payload.stockItems) ||
+      Array.isArray(payload.stockCashRecords) ||
       Array.isArray(payload.reportDocuments) ||
       Array.isArray(payload.personnelRecords))
   );
@@ -1155,6 +1168,10 @@ function applySharedState(payload) {
 
   if (Array.isArray(payload.stockItems)) {
     stockItems = hasAccess("stock") ? payload.stockItems : [];
+  }
+
+  if (Array.isArray(payload.stockCashRecords)) {
+    stockCashRecords = hasAccess("stock") ? payload.stockCashRecords : [];
   }
 
   if (Array.isArray(payload.leaveRights)) {
@@ -1288,7 +1305,7 @@ async function logout() {
   currentUser = null;
   sharedStateLoaded = false;
   clearTimeout(sharedStateSaveTimer);
-  audits = []; approvals = []; leaves = []; leaveRights = []; dutyRecords = []; budgetItems = []; budgetExpenses = []; stockItems = []; reportDocuments = []; personnelRecords = [];
+  audits = []; approvals = []; leaves = []; leaveRights = []; dutyRecords = []; budgetItems = []; budgetExpenses = []; stockItems = []; stockCashRecords = []; reportDocuments = []; personnelRecords = [];
   deletedRecords = [];
   document.querySelectorAll("dialog[open]").forEach(dialog => dialog.close());
   renderEverything();
@@ -1394,6 +1411,7 @@ const auditLogCollectionLabels = {
   budgetItems: "Bütçe kalemleri",
   budgetExpenses: "Bütçe harcamaları",
   stockItems: "Stok işlemleri",
+  stockCashRecords: "Personel kasası",
   personnelRecords: "Personel",
   monitoringRecords: "İzleme faaliyetleri",
   reportDocuments: "Rapor arşivi",
@@ -3357,7 +3375,7 @@ function normalizeStockProduct(product) {
     id: Number(product.id) || Date.now(),
     name: product.name || product.urun_adi || "",
     category: product.category || product.kategori || "Diğer",
-    source: product.source || product.stok_kaynagi || "Kurum Bütçesi",
+    source: product.source || product.stok_kaynagi || "Ödenek",
     unit: product.unit || product.birim || "Adet",
     critical: Number(product.critical ?? product.kritik_stok ?? 0),
     storage: product.storage || product.depolama_yeri || "",
@@ -3371,8 +3389,47 @@ function normalizeStockProduct(product) {
 
 function saveStockRecords() {
   stockItems = stockItems.map(normalizeStockProduct);
-  localStorage.setItem("ic-denetim-stock", JSON.stringify({ version: "2026-09-14-stock-v1", stockItems }));
+  localStorage.setItem("ic-denetim-stock", JSON.stringify({ version: "2026-09-14-stock-v1", stockItems, stockCashRecords }));
   scheduleSharedStateSave();
+}
+
+function stockCashAmount(record) {
+  return numberValue(record.amount) * (record.type === "expense" ? -1 : 1);
+}
+
+function stockCashBalanceAmount() {
+  return stockCashRecords.reduce((sum, record) => sum + stockCashAmount(record), 0);
+}
+
+function stockCashMonthTotals() {
+  const monthPrefix = new Date().toISOString().slice(0, 7);
+  return stockCashRecords.reduce((acc, record) => {
+    if (String(record.date || "").slice(0, 7) === monthPrefix) {
+      if (record.type === "income") acc.income += numberValue(record.amount);
+      if (record.type === "expense") acc.expense += numberValue(record.amount);
+    }
+    return acc;
+  }, { income: 0, expense: 0 });
+}
+
+function addStockCashRecord(record) {
+  stockCashRecords.push({ id: Date.now() + Math.random(), createdAt: new Date().toISOString(), user: currentUser?.displayName || currentUser?.username || "-", ...record });
+}
+
+function ensureStockCashFormDefaults() {
+  if (!stockCashForm) return;
+  if (!stockCashForm.elements.date.value) {
+    stockCashForm.elements.date.value = new Date().toISOString().slice(0, 10);
+  }
+  if (!stockCashForm.elements.type.value) {
+    stockCashForm.elements.type.value = "income";
+  }
+}
+
+function renderStockCashRows() {
+  if (!stockCashRows) return;
+  const records = [...stockCashRecords].sort((a,b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.createdAt || "").localeCompare(String(a.createdAt || ""))).slice(0, 12);
+  stockCashRows.innerHTML = records.length ? records.map((record) => `<article class="stock-cash-row"><div><strong>${escapeHtml(record.title || (record.type === "income" ? "Gelir" : "Harcama"))}</strong><span>${formatDate(record.date)} · ${escapeHtml(record.category || "-")} · ${escapeHtml(record.source || "Personel kasası")}</span><small>${escapeHtml(record.note || record.user || "-")}</small></div><strong class="${record.type === "expense" ? "negative-stock" : "positive-stock"}">${record.type === "expense" ? "-" : "+"}${formatMoney(record.amount)} TL</strong></article>`).join("") : `<div class="empty-inline">Henüz personel kasası hareketi yok.</div>`;
 }
 
 function stockQuantity(product) {
@@ -3430,25 +3487,19 @@ function updateStockCategoryFilter() {
 }
 
 function renderStock() {
+  ensureStockCashFormDefaults();
   stockItems = stockItems.map(normalizeStockProduct);
   updateStockCategoryFilter();
   const visibleProducts = getVisibleStockProducts();
   const activeProducts = stockItems.filter((product) => normalizeStockProduct(product).active !== false);
   const criticalProducts = activeProducts.filter((product) => ["Kritik", "Tükendi"].includes(stockStatus(normalizeStockProduct(product))));
-  const monthPrefix = new Date().toISOString().slice(0, 7);
-  const monthlyTotals = activeProducts.flatMap((product) => normalizeStockProduct(product).movements || []).reduce((acc, movement) => {
-    if (String(movement.date || "").slice(0, 7) === monthPrefix) {
-      if (movement.type === "GIRIS") acc.entries += Number(movement.quantity || 0);
-      if (movement.type === "CIKIS") acc.exits += Number(movement.quantity || 0);
-    }
-    return acc;
-  }, { entries: 0, exits: 0 });
+  const cashTotals = stockCashMonthTotals();
 
   stockProductCount.textContent = visibleProducts.length;
-  stockTotalProducts.textContent = activeProducts.length;
+  stockCashBalance.textContent = `${formatMoney(stockCashBalanceAmount())} TL`;
+  stockMonthlyCollected.textContent = `${formatMoney(cashTotals.income)} TL`;
+  stockMonthlySpent.textContent = `${formatMoney(cashTotals.expense)} TL`;
   stockCriticalCount.textContent = criticalProducts.length;
-  stockMonthlyEntries.textContent = formatNumber(monthlyTotals.entries);
-  stockMonthlyExits.textContent = formatNumber(monthlyTotals.exits);
   stockCriticalPanel.hidden = criticalProducts.length === 0;
   stockCriticalPanelCount.textContent = criticalProducts.length;
   stockCriticalList.innerHTML = criticalProducts.slice(0, 6).map((product) => {
@@ -3477,6 +3528,7 @@ function renderStock() {
     `;
   }).join("");
   stockEmptyState.hidden = visibleProducts.length > 0;
+  renderStockCashRows();
   applyModulePermissions();
 }
 
@@ -3528,6 +3580,8 @@ function openStockMovementModal(type, productId = "") {
   renderStockMovementKindOptions(type);
   renderPersonnelOptions(stockMovementForm.elements.person, "", "Personel seç");
   stockMovementForm.elements.date.value = new Date().toISOString().slice(0, 10);
+  stockMovementForm.elements.source.value = "Ödenek";
+  stockMovementForm.elements.amount.value = "";
   stockMovementModalMode.textContent = type === "GIRIS" ? "Stok girişi" : "Stok çıkışı";
   stockMovementModalTitle.textContent = type === "GIRIS" ? "Stok Girişi" : "Stok Çıkışı";
   stockMovementModal.showModal();
@@ -6490,10 +6544,16 @@ stockMovementForm.addEventListener("submit", (event) => {
     person,
     usagePlace: String(formData.get("usagePlace") || "").trim(),
     note: String(formData.get("note") || "").trim(),
+    amount: numberValue(formData.get("amount")),
+    source: String(formData.get("source") || product.source || "").trim(),
     user: currentUser?.displayName || currentUser?.username || "-",
     userId: currentUser?.id || "",
     createdAt: new Date().toISOString(),
   };
+  if (stockMovementMode === "GIRIS" && movement.source === "Personel parası" && movement.amount > 0) {
+    addStockCashRecord({ type: "expense", date: movement.date, amount: movement.amount, category: product.category, title: `${product.name} alımı`, source: "Personel kasası", note: movement.note || movement.documentNo || "Stok alımı" });
+  }
+
   stockItems = stockItems.map((item) => {
     const normalized = normalizeStockProduct(item);
     if (String(normalized.id) !== String(productId)) return item;
@@ -6507,6 +6567,36 @@ stockMovementForm.addEventListener("submit", (event) => {
   renderStock();
   showToast(stockMovementMode === "GIRIS" ? "Stok girişi kaydedildi." : "Stok çıkışı kaydedildi.");
 });
+
+
+stockCashForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const formData = new FormData(stockCashForm);
+  const type = String(formData.get("type") || "income");
+  const amount = numberValue(formData.get("amount"));
+  if (amount <= 0) {
+    showToast("Tutar sıfırdan büyük olmalı.");
+    return;
+  }
+  addStockCashRecord({
+    type,
+    date: String(formData.get("date") || new Date().toISOString().slice(0, 10)),
+    amount,
+    category: String(formData.get("category") || "").trim(),
+    title: String(formData.get("title") || "").trim() || (type === "income" ? "Personel katkı geliri" : "Personel kasası harcaması"),
+    source: "Personel kasası",
+    note: String(formData.get("note") || "").trim(),
+  });
+  stockCashForm.reset();
+  stockCashForm.elements.date.value = new Date().toISOString().slice(0, 10);
+  stockCashForm.elements.type.value = "income";
+  saveStockRecords();
+  renderStock();
+  showToast(type === "income" ? "Gelir kaydedildi." : "Harcama kaydedildi.");
+});
+
+newStockCashIncomeBtn?.addEventListener("click", () => { stockCashForm.elements.type.value = "income"; stockCashForm.elements.title.focus(); });
+newStockCashExpenseBtn?.addEventListener("click", () => { stockCashForm.elements.type.value = "expense"; stockCashForm.elements.title.focus(); });
 
 budgetItemForm.addEventListener("submit", (event) => {
   event.preventDefault();
