@@ -819,6 +819,22 @@
                 </div>
               </section>
 
+              <section class="stock-report-panel">
+                <div class="sub-panel-head compact-head">
+                  <div><h3>Stok ve Kasa Raporu</h3><p class="eyebrow">Ürün, kaynak ve tarih aralığına göre miktar ve tutarları karşılaştır</p></div>
+                </div>
+                <div class="stock-report-filters">
+                  <label>Başlangıç<input id="stockReportStart" type="date" /></label>
+                  <label>Bitiş<input id="stockReportEnd" type="date" /></label>
+                  <label>Ürün<select id="stockReportProduct"><option value="Tümü">Tüm ürünler</option></select></label>
+                  <label>Kaynak<select id="stockReportSource"><option value="Tümü">Tümü</option><option>Ödenek</option><option>Personel parası</option><option>Diğer birimden gelen</option><option>Diğer</option></select></label>
+                  <label>Kasa Türü<select id="stockReportCashCategory"><option value="Tümü">Tüm kasa türleri</option><option>Personel katkısı</option><option>Faiz geliri</option><option>Çay</option><option>Kahve</option><option>Maden suyu</option><option>Normal su</option><option>Temsil</option><option>Mutfak</option><option>Lavabo</option><option>İnşaat / malzeme</option><option>Diğer gelir</option><option>Diğer harcama</option></select></label>
+                  <button class="btn secondary" id="clearStockReportFilters" type="button">Temizle</button>
+                </div>
+                <div class="stock-report-grid" id="stockReportSummary"></div>
+                <div class="stock-report-breakdown" id="stockReportBreakdown"></div>
+              </section>
+
               <section class="stock-alerts" id="stockCriticalPanel" hidden>
                 <div class="sub-panel-head compact-head">
                   <div><h3>Kritik Stoklar</h3><p class="eyebrow">Yenilenmesi gereken ürünler</p></div>

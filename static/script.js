@@ -267,6 +267,14 @@ const stockMovementForm = document.querySelector("#stockMovementForm");
 const stockCashIncomeForm = document.querySelector("#stockCashIncomeForm");
 const stockCashExpenseForm = document.querySelector("#stockCashExpenseForm");
 const stockCashRows = document.querySelector("#stockCashRows");
+const stockReportStart = document.querySelector("#stockReportStart");
+const stockReportEnd = document.querySelector("#stockReportEnd");
+const stockReportProduct = document.querySelector("#stockReportProduct");
+const stockReportSource = document.querySelector("#stockReportSource");
+const stockReportCashCategory = document.querySelector("#stockReportCashCategory");
+const clearStockReportFilters = document.querySelector("#clearStockReportFilters");
+const stockReportSummary = document.querySelector("#stockReportSummary");
+const stockReportBreakdown = document.querySelector("#stockReportBreakdown");
 const stockMovementModalMode = document.querySelector("#stockMovementModalMode");
 const stockMovementModalTitle = document.querySelector("#stockMovementModalTitle");
 const closeStockMovementModal = document.querySelector("#closeStockMovementModal");
@@ -3475,6 +3483,92 @@ function submitStockCashForm(form, type) {
   showToast(type === "income" ? "Gelir kaydedildi." : "Harcama kaydedildi.");
 }
 
+function stockReportInDateRange(dateValue) {
+  const date = String(dateValue || "");
+  const start = stockReportStart?.value || "";
+  const end = stockReportEnd?.value || "";
+  if (start && date < start) return false;
+  if (end && date > end) return false;
+  return true;
+}
+
+function selectedStockReportProduct() {
+  return stockReportProduct?.value || "Tümü";
+}
+
+function updateStockReportProductFilter() {
+  if (!stockReportProduct) return;
+  const current = stockReportProduct.value || "Tümü";
+  const products = stockItems.map(normalizeStockProduct).filter((product) => product.active !== false).sort((a,b) => String(a.name).localeCompare(String(b.name), "tr"));
+  stockReportProduct.innerHTML = `<option value="Tümü">Tüm ürünler</option>${products.map((product) => `<option value="${product.id}">${escapeHtml(product.name)}</option>`).join("")}`;
+  stockReportProduct.value = products.some((product) => String(product.id) === String(current)) ? current : "Tümü";
+}
+
+function stockReportFilteredMovements() {
+  const selectedProduct = selectedStockReportProduct();
+  const selectedSource = stockReportSource?.value || "Tümü";
+  const rows = [];
+  stockItems.map(normalizeStockProduct).forEach((product) => {
+    if (product.active === false) return;
+    if (selectedProduct !== "Tümü" && String(product.id) !== String(selectedProduct)) return;
+    (product.movements || []).forEach((movement) => {
+      const source = movement.source || product.source || "-";
+      if (!stockReportInDateRange(movement.date)) return;
+      if (selectedSource !== "Tümü" && source !== selectedSource) return;
+      rows.push({ product, movement: { ...movement, source } });
+    });
+  });
+  return rows;
+}
+
+function stockReportFilteredCashRecords() {
+  const selectedCategory = stockReportCashCategory?.value || "Tümü";
+  return stockCashRecords.filter((record) => {
+    if (!stockReportInDateRange(record.date)) return false;
+    if (selectedCategory !== "Tümü" && record.category !== selectedCategory) return false;
+    return true;
+  });
+}
+
+function renderStockReport() {
+  if (!stockReportSummary || !stockReportBreakdown) return;
+  updateStockReportProductFilter();
+  const movementRows = stockReportFilteredMovements();
+  const cashRows = stockReportFilteredCashRecords();
+  const selectedProductId = selectedStockReportProduct();
+  const selectedProduct = stockItems.map(normalizeStockProduct).find((product) => String(product.id) === String(selectedProductId));
+  const currentStock = selectedProduct ? stockQuantity(selectedProduct) : stockItems.map(normalizeStockProduct).filter((product) => product.active !== false).reduce((sum, product) => sum + stockQuantity(product), 0);
+  const unit = selectedProduct ? selectedProduct.unit : "miktar";
+  const entries = movementRows.filter(({ movement }) => movement.type === "GIRIS").reduce((sum, { movement }) => sum + Number(movement.quantity || 0), 0);
+  const exits = movementRows.filter(({ movement }) => movement.type === "CIKIS").reduce((sum, { movement }) => sum + Number(movement.quantity || 0), 0);
+  const personnelPurchase = movementRows.filter(({ movement }) => movement.type === "GIRIS" && movement.source === "Personel parası").reduce((sum, { movement }) => sum + Number(movement.quantity || 0), 0);
+  const budgetPurchase = movementRows.filter(({ movement }) => movement.type === "GIRIS" && movement.source === "Ödenek").reduce((sum, { movement }) => sum + Number(movement.quantity || 0), 0);
+  const interestIncome = cashRows.filter((record) => record.type === "income" && record.category === "Faiz geliri").reduce((sum, record) => sum + numberValue(record.amount), 0);
+  const personnelIncome = cashRows.filter((record) => record.type === "income" && record.category === "Personel katkısı").reduce((sum, record) => sum + numberValue(record.amount), 0);
+  const cashExpense = cashRows.filter((record) => record.type === "expense").reduce((sum, record) => sum + numberValue(record.amount), 0);
+  stockReportSummary.innerHTML = [
+    [selectedProduct ? `Mevcut ${selectedProduct.name}` : "Toplam mevcut stok", `${formatNumber(currentStock)} ${escapeHtml(unit)}`],
+    ["Filtreli stok girişi", `${formatNumber(entries)} ${escapeHtml(unit)}`],
+    ["Filtreli stok çıkışı", `${formatNumber(exits)} ${escapeHtml(unit)}`],
+    ["Personel parasıyla alınan", `${formatNumber(personnelPurchase)} ${escapeHtml(unit)}`],
+    ["Ödenekle alınan", `${formatNumber(budgetPurchase)} ${escapeHtml(unit)}`],
+    ["Faiz geliri", `${formatMoney(interestIncome)} TL`],
+    ["Personel katkısı", `${formatMoney(personnelIncome)} TL`],
+    ["Kasa harcaması", `${formatMoney(cashExpense)} TL`],
+  ].map(([label, value]) => `<article><span>${label}</span><strong>${value}</strong></article>`).join("");
+
+  const bySource = movementRows.reduce((acc, { product, movement }) => {
+    const key = movement.source || product.source || "-";
+    if (!acc[key]) acc[key] = { entry: 0, exit: 0, amount: 0 };
+    if (movement.type === "GIRIS") acc[key].entry += Number(movement.quantity || 0);
+    if (movement.type === "CIKIS") acc[key].exit += Number(movement.quantity || 0);
+    acc[key].amount += numberValue(movement.amount || 0);
+    return acc;
+  }, {});
+  const sourceRows = Object.entries(bySource).map(([source, data]) => `<tr><td>${escapeHtml(source)}</td><td>${formatNumber(data.entry)} ${escapeHtml(unit)}</td><td>${formatNumber(data.exit)} ${escapeHtml(unit)}</td><td>${formatMoney(data.amount)} TL</td></tr>`).join("");
+  stockReportBreakdown.innerHTML = `<div class="table-wrap compact-report-table"><table><thead><tr><th>Kaynak</th><th>Giriş</th><th>Çıkış</th><th>Kayıtlı Tutar</th></tr></thead><tbody>${sourceRows || `<tr><td colspan="4"><div class="empty-inline">Seçilen filtrelerde stok hareketi yok.</div></td></tr>`}</tbody></table></div>`;
+}
+
 function renderStockCashRows() {
   if (!stockCashRows) return;
   const records = [...stockCashRecords].sort((a,b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.createdAt || "").localeCompare(String(a.createdAt || ""))).slice(0, 12);
@@ -3539,6 +3633,7 @@ function renderStock() {
   ensureStockCashFormDefaults();
   stockItems = stockItems.map(normalizeStockProduct);
   updateStockCategoryFilter();
+  updateStockReportProductFilter();
   const visibleProducts = getVisibleStockProducts();
   const activeProducts = stockItems.filter((product) => normalizeStockProduct(product).active !== false);
   const criticalProducts = activeProducts.filter((product) => ["Kritik", "Tükendi"].includes(stockStatus(normalizeStockProduct(product))));
@@ -3578,6 +3673,7 @@ function renderStock() {
   }).join("");
   stockEmptyState.hidden = visibleProducts.length > 0;
   renderStockCashRows();
+  renderStockReport();
   applyModulePermissions();
 }
 
@@ -5692,6 +5788,20 @@ function handleBudgetExpenseAction(event) {
     showToast("Harcama kaydı silindi.");
   }
 }
+
+[stockReportStart, stockReportEnd, stockReportProduct, stockReportSource, stockReportCashCategory].forEach((control) => {
+  control?.addEventListener("input", renderStockReport);
+  control?.addEventListener("change", renderStockReport);
+});
+
+clearStockReportFilters?.addEventListener("click", () => {
+  stockReportStart.value = "";
+  stockReportEnd.value = "";
+  stockReportProduct.value = "Tümü";
+  stockReportSource.value = "Tümü";
+  stockReportCashCategory.value = "Tümü";
+  renderStockReport();
+});
 
 [stockSourceFilter, stockCategoryFilter, stockStatusFilter, stockSearchInput].forEach((control) => {
   control.addEventListener("input", renderStock);
