@@ -3747,7 +3747,7 @@ function auditIncludesPerson(audit, person) {
 
 function monitoringIncludesPerson(audit, person) {
   const details = getMonitoringDetails(audit);
-  return textIncludesPerson(details.officer, person) || auditIncludesPerson(audit, person);
+  return textIncludesPerson(details.officer, person);
 }
 
 function getActivePersonnelAudits(person) {
