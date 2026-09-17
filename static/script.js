@@ -7051,6 +7051,7 @@ stockCashRows?.addEventListener("click", (event) => {
   }
   if (button.dataset.stockAction === "delete") {
     if (!confirm(`${record.title || "Kasa hareketi"} silinsin mi?`)) return;
+    markRecordDeleted("stockCashRecords", record);
     stockCashRecords = stockCashRecords.filter((item) => String(item.id) !== String(record.id));
     saveStockRecords();
     renderStock();
