@@ -3694,27 +3694,51 @@ function renderStockReport() {
   const interestIncome = cashRows.filter((record) => record.type === "income" && record.category === "Faiz geliri").reduce((sum, record) => sum + numberValue(record.amount), 0);
   const personnelIncome = cashRows.filter((record) => record.type === "income" && record.category === "Personel katkısı").reduce((sum, record) => sum + numberValue(record.amount), 0);
   const cashExpense = cashRows.filter((record) => record.type === "expense").reduce((sum, record) => sum + numberValue(record.amount), 0);
-  stockReportSummary.innerHTML = [
-    [selectedProduct ? `Mevcut ${selectedProduct.name}` : "Toplam mevcut stok", `${formatNumber(currentStock)} ${escapeHtml(unit)}`],
-    ["Filtreli stok girişi", `${formatNumber(entries)} ${escapeHtml(unit)}`],
-    ["Filtreli stok çıkışı", `${formatNumber(exits)} ${escapeHtml(unit)}`],
-    ["Personel parasıyla alınan", `${formatNumber(personnelPurchase)} ${escapeHtml(unit)}`],
-    ["Ödenekle alınan", `${formatNumber(budgetPurchase)} ${escapeHtml(unit)}`],
-    ["Faiz geliri", `${formatMoney(interestIncome)} TL`],
-    ["Personel katkısı", `${formatMoney(personnelIncome)} TL`],
-    ["Kasa harcaması", `${formatMoney(cashExpense)} TL`],
-  ].map(([label, value]) => `<article><span>${label}</span><strong>${value}</strong></article>`).join("");
+  const stockCards = [
+    [selectedProduct ? `Mevcut ${selectedProduct.name}` : "Toplam mevcut stok", `${formatNumber(currentStock)} ${unit}`, "primary"],
+    ["Giriş", `${formatNumber(entries)} ${unit}`, "positive"],
+    ["Çıkış", `${formatNumber(exits)} ${unit}`, "negative"],
+    ["Personel parasıyla alınan", `${formatNumber(personnelPurchase)} ${unit}`, "neutral"],
+    ["Ödenekle alınan", `${formatNumber(budgetPurchase)} ${unit}`, "neutral"],
+  ];
+  const cashCards = [
+    ["Personel katkısı", `${formatMoney(personnelIncome)} TL`, "positive"],
+    ["Faiz geliri", `${formatMoney(interestIncome)} TL`, "positive"],
+    ["Kasa harcaması", `${formatMoney(cashExpense)} TL`, "negative"],
+  ].filter(([, value]) => value !== "0,00 TL" || stockReportCashCategory.value !== "Tümü");
 
-  const bySource = movementRows.reduce((acc, { product, movement }) => {
-    const key = movement.source || product.source || "-";
-    if (!acc[key]) acc[key] = { entry: 0, exit: 0, amount: 0 };
-    if (movement.type === "GIRIS") acc[key].entry += Number(movement.quantity || 0);
-    if (movement.type === "CIKIS") acc[key].exit += Number(movement.quantity || 0);
-    acc[key].amount += numberValue(movement.amount || 0);
-    return acc;
-  }, {});
-  const sourceRows = Object.entries(bySource).map(([source, data]) => `<tr><td>${escapeHtml(source)}</td><td>${formatNumber(data.entry)} ${escapeHtml(unit)}</td><td>${formatNumber(data.exit)} ${escapeHtml(unit)}</td><td>${formatMoney(data.amount)} TL</td></tr>`).join("");
-  stockReportBreakdown.innerHTML = `<div class="table-wrap compact-report-table"><table><thead><tr><th>Kaynak</th><th>Giriş</th><th>Çıkış</th><th>Kayıtlı Tutar</th></tr></thead><tbody>${sourceRows || `<tr><td colspan="4"><div class="empty-inline">Seçilen filtrelerde stok hareketi yok.</div></td></tr>`}</tbody></table></div>`;
+  stockReportSummary.innerHTML = `
+    <div class="stock-report-summary-block">
+      <div class="stock-report-summary-title"><strong>Stok özeti</strong><span>${movementRows.length} hareket</span></div>
+      <div class="stock-report-card-row">${stockCards.map(([label, value, tone]) => `<article class="${tone}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join("")}</div>
+    </div>
+    <div class="stock-report-summary-block cash ${cashRows.length ? "" : "muted"}">
+      <div class="stock-report-summary-title"><strong>Personel kasası</strong><span>${cashRows.length} kayıt</span></div>
+      ${cashCards.length ? `<div class="stock-report-card-row">${cashCards.map(([label, value, tone]) => `<article class="${tone}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join("")}</div>` : `<div class="empty-inline compact">Seçilen filtrelerde kasa kaydı yok.</div>`}
+    </div>`;
+
+  const movementsHtml = movementRows.slice(0, 20).map(({ product, movement }) => {
+    const isEntry = movement.type === "GIRIS";
+    return `<article class="report-result-card ${isEntry ? "entry" : "exit"}">
+      <div><strong>${escapeHtml(product.name)}</strong><span>${formatDate(movement.date)} · ${escapeHtml(stockMovementLabel(movement))} · ${escapeHtml(movement.source || product.source || "-")}</span><small>${escapeHtml(stockMovementPersonPlace(movement))}</small></div>
+      <div class="report-result-amount"><strong>${isEntry ? "+" : "-"}${formatNumber(movement.quantity)} ${escapeHtml(product.unit)}</strong>${movement.amount ? `<span>${formatMoney(movement.amount)} TL</span>` : ""}</div>
+    </article>`;
+  }).join("");
+  const cashHtml = cashRows.slice(0, 20).map((record) => `<article class="report-result-card ${record.type === "expense" ? "exit" : "entry"}">
+    <div><strong>${escapeHtml(record.title || (record.type === "income" ? "Gelir" : "Harcama"))}</strong><span>${formatDate(record.date)} · ${escapeHtml(record.category || "-")}</span><small>${escapeHtml(record.note || record.user || "-")}</small></div>
+    <div class="report-result-amount"><strong>${record.type === "expense" ? "-" : "+"}${formatMoney(record.amount)} TL</strong></div>
+  </article>`).join("");
+  stockReportBreakdown.innerHTML = `
+    <div class="stock-report-results">
+      <section>
+        <div class="stock-report-list-head"><strong>Stok hareketleri</strong><span>${movementRows.length} kayıt</span></div>
+        <div class="report-result-list">${movementsHtml || `<div class="empty-inline compact">Seçilen filtrelerde stok hareketi yok.</div>`}</div>
+      </section>
+      <section>
+        <div class="stock-report-list-head"><strong>Kasa hareketleri</strong><span>${cashRows.length} kayıt</span></div>
+        <div class="report-result-list">${cashHtml || `<div class="empty-inline compact">Seçilen filtrelerde kasa hareketi yok.</div>`}</div>
+      </section>
+    </div>`;
 }
 
 function renderStockCashRows() {
