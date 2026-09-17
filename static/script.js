@@ -17,8 +17,14 @@ function isPastYearLocked(year) {
 function permissionsEditor(user) {
   return `<details class="module-permissions"><summary>Modül Yetkileri</summary><div class="permission-grid">${Object.entries(MODULE_LABELS).map(([key,label]) => `<label>${label}<select data-permission="${key}" ${user.owner ? "disabled" : ""}>${[["none","Erişim yok"],["view","Görüntüleme"],["edit","Görüntüleme ve değişiklik"]].map(([value,text]) => `<option value="${value}" ${(user.owner ? "edit" : user.permissions?.[key] || "none") === value ? "selected" : ""}>${text}</option>`).join("")}</select></label>`).join("")}</div></details>`;
 }
+function guardStockEditAction() {
+  if (canEditModule("stock")) return true;
+  showToast("Stok işlemlerinde değişiklik yapmak için düzenleme yetkisi gerekli.");
+  return false;
+}
+
 function mutationModule(element) {
-  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",stockCashIncomeForm:"stock",stockCashExpenseForm:"stock",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
+  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",carryStockYearBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",stockCashIncomeForm:"stock",stockCashExpenseForm:"stock",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
   if (ids[element.id]) return ids[element.id];
   for (const [attr,module] of [["data-action","audits"],["data-approval-action","approvals"],["data-leave-action","leaves"],["data-leave-right-action","leaves"],["data-duty-action","duties"],["data-budget-item-action","budget"],["data-budget-expense-action","budget"],["data-stock-action","stock"],["data-monitoring-document-action","monitoring"],["data-report-document-action","reports"],["data-personnel-action","personnel"]]) {
     const action = element.getAttribute(attr);
@@ -91,7 +97,7 @@ function applyModulePermissions() {
     }
 
     const disabled=!canEditModule(module) || lockedRecord || el.dataset.saving === "true" || (el.id === "saveDutyBtn" && dutyForm.dataset.saving === "true");
-    if(el.tagName === "FORM") el.querySelectorAll("input,select,textarea,button[type=submit]").forEach(input => {input.disabled=disabled;});
+    if(el.tagName === "FORM") el.querySelectorAll("input,select,textarea,button").forEach(input => {input.disabled=disabled;});
     else el.disabled=disabled;
   });
   // Placeholder navigation has no implemented module or data endpoint yet.
@@ -254,6 +260,7 @@ const stockCriticalPanel = document.querySelector("#stockCriticalPanel");
 const stockCriticalPanelCount = document.querySelector("#stockCriticalPanelCount");
 const stockCriticalList = document.querySelector("#stockCriticalList");
 const newStockProductBtn = document.querySelector("#newStockProductBtn");
+const carryStockYearBtn = document.querySelector("#carryStockYearBtn");
 const newStockEntryBtn = document.querySelector("#newStockEntryBtn");
 const newStockExitBtn = document.querySelector("#newStockExitBtn");
 const stockProductModal = document.querySelector("#stockProductModal");
@@ -3379,6 +3386,47 @@ function renderBudget() {
 }
 
 
+function selectedStockYear() {
+  return String(yearSelect?.value || new Date().getFullYear());
+}
+
+function stockYearStart(year = selectedStockYear()) {
+  return `${year}-01-01`;
+}
+
+function stockYearEnd(year = selectedStockYear()) {
+  return `${year}-12-31`;
+}
+
+function stockDateInSelectedYear(dateValue) {
+  const date = String(dateValue || "");
+  return date >= stockYearStart() && date <= stockYearEnd();
+}
+
+function stockMovementDate(movement) {
+  return String(movement?.date || "");
+}
+
+function productHasSelectedYearCarry(product) {
+  return (product.movements || []).some((movement) => movement.kind === "STOK_DEVRI" && stockMovementDate(movement).slice(0, 4) === selectedStockYear());
+}
+
+function movementCountsForSelectedStockYear(product, movement) {
+  const date = stockMovementDate(movement);
+  if (!date || date > stockYearEnd()) return false;
+  return productHasSelectedYearCarry(product) ? date >= stockYearStart() : true;
+}
+
+function previousYearStockQuantity(product, year = selectedStockYear()) {
+  const before = `${Number(year) || new Date().getFullYear()}-01-01`;
+  return (product.movements || []).reduce((sum, movement) => {
+    const date = stockMovementDate(movement);
+    if (!date || date >= before) return sum;
+    const quantity = Number(movement.quantity || 0);
+    return sum + (movement.type === "GIRIS" ? quantity : -quantity);
+  }, 0);
+}
+
 function normalizeStockProduct(product) {
   return {
     id: Number(product.id) || Date.now(),
@@ -3407,13 +3455,12 @@ function stockCashAmount(record) {
 }
 
 function stockCashBalanceAmount() {
-  return stockCashRecords.reduce((sum, record) => sum + stockCashAmount(record), 0);
+  return stockCashRecords.reduce((sum, record) => String(record.date || "") <= stockYearEnd() ? sum + stockCashAmount(record) : sum, 0);
 }
 
 function stockCashMonthTotals() {
-  const monthPrefix = new Date().toISOString().slice(0, 7);
   return stockCashRecords.reduce((acc, record) => {
-    if (String(record.date || "").slice(0, 7) === monthPrefix) {
+    if (String(record.date || "").slice(0, 4) === selectedStockYear()) {
       if (record.type === "income") acc.income += numberValue(record.amount);
       if (record.type === "expense") acc.expense += numberValue(record.amount);
     }
@@ -3430,18 +3477,19 @@ function resetStockCashForm(type = "income") {
   if (!form) return;
   form.reset();
   form.elements.id.value = "";
-  form.elements.date.value = new Date().toISOString().slice(0, 10);
+  form.elements.date.value = selectedStockYear() === new Date().getFullYear().toString() ? new Date().toISOString().slice(0, 10) : stockYearStart();
 }
 
 function ensureStockCashFormDefaults() {
   [stockCashIncomeForm, stockCashExpenseForm].forEach((form) => {
     if (form && !form.elements.date.value) {
-      form.elements.date.value = new Date().toISOString().slice(0, 10);
+      form.elements.date.value = selectedStockYear() === new Date().getFullYear().toString() ? new Date().toISOString().slice(0, 10) : stockYearStart();
     }
   });
 }
 
 function populateStockCashForm(record) {
+  if (!guardStockEditAction()) return;
   const form = record.type === "expense" ? stockCashExpenseForm : stockCashIncomeForm;
   if (!form) return;
   form.elements.id.value = record.id;
@@ -3456,6 +3504,7 @@ function populateStockCashForm(record) {
 }
 
 function submitStockCashForm(form, type) {
+  if (!guardStockEditAction()) return;
   const formData = new FormData(form);
   const amount = numberValue(formData.get("amount"));
   if (amount <= 0) {
@@ -3487,8 +3536,8 @@ function submitStockCashForm(form, type) {
 
 function stockReportInDateRange(dateValue) {
   const date = String(dateValue || "");
-  const start = stockReportStart?.value || "";
-  const end = stockReportEnd?.value || "";
+  const start = stockReportStart?.value || stockYearStart();
+  const end = stockReportEnd?.value || stockYearEnd();
   if (start && date < start) return false;
   if (end && date > end) return false;
   return true;
@@ -3663,12 +3712,13 @@ function renderStockReport() {
 
 function renderStockCashRows() {
   if (!stockCashRows) return;
-  const records = [...stockCashRecords].sort((a,b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.createdAt || "").localeCompare(String(a.createdAt || ""))).slice(0, 12);
+  const records = stockCashRecords.filter((record) => String(record.date || "").slice(0, 4) === selectedStockYear()).sort((a,b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.createdAt || "").localeCompare(String(a.createdAt || ""))).slice(0, 12);
   stockCashRows.innerHTML = records.length ? records.map((record) => `<article class="stock-cash-row"><div><strong>${escapeHtml(record.title || (record.type === "income" ? "Gelir" : "Harcama"))}</strong><span>${formatDate(record.date)} · ${escapeHtml(record.category || "-")} · ${escapeHtml(record.source || "Personel kasası")}</span><small>${escapeHtml(record.note || record.user || "-")}</small></div><div class="stock-cash-amount"><strong class="${record.type === "expense" ? "negative-stock" : "positive-stock"}">${record.type === "expense" ? "-" : "+"}${formatMoney(record.amount)} TL</strong><div class="inline-actions"><button class="btn secondary small" data-stock-action="edit" data-cash-id="${record.id}" type="button">Düzenle</button><button class="btn ghost danger small" data-stock-action="delete" data-cash-id="${record.id}" type="button">Sil</button></div></div></article>`).join("") : `<div class="empty-inline">Henüz personel kasası hareketi yok.</div>`;
 }
 
 function stockQuantity(product) {
   return (product.movements || []).reduce((sum, movement) => {
+    if (!movementCountsForSelectedStockYear(product, movement)) return sum;
     const quantity = Number(movement.quantity || 0);
     return sum + (movement.type === "GIRIS" ? quantity : -quantity);
   }, 0);
@@ -3770,7 +3820,7 @@ function renderStock() {
 }
 
 function stockMovementRows(product) {
-  const movements = [...(product.movements || [])].sort((a,b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+  const movements = [...(product.movements || [])].filter((movement) => stockReportInDateRange(movement.date)).sort((a,b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
   if (!movements.length) return `<tr class="stock-detail-row"><td colspan="9"><div class="empty-inline">Bu ürün için stok hareketi yok.</div></td></tr>`;
   return `<tr class="stock-detail-row"><td colspan="9"><div class="stock-movement-panel"><h3>${escapeHtml(product.name)} hareketleri</h3><div class="stock-movement-list">${movements.map((movement) => `<article><time>${formatDate(movement.date)}</time><strong class="${movement.type === "GIRIS" ? "positive-stock" : "negative-stock"}">${movement.type === "GIRIS" ? "+" : "-"}${formatNumber(movement.quantity)} ${escapeHtml(product.unit)}</strong><span>${escapeHtml(stockMovementLabel(movement))}</span><span>${escapeHtml(movement.person || movement.usagePlace || "-")}</span><small>${escapeHtml(movement.note || movement.documentNo || "-")} · ${escapeHtml(movement.user || "-")} · ${movement.createdAt ? new Date(movement.createdAt).toLocaleString("tr-TR") : "-"}</small></article>`).join("")}</div></div></td></tr>`;
 }
@@ -3797,6 +3847,50 @@ function closeStockProductDialog() {
   stockProductModal.close();
 }
 
+function carryStockToSelectedYear() {
+  if (!guardStockEditAction()) return;
+  const year = selectedStockYear();
+  if (year === "Tümü") {
+    showToast("Devir için belirli bir yıl seçmelisin.");
+    return;
+  }
+  const carryDate = stockYearStart(year);
+  let created = 0;
+  stockItems = stockItems.map((item) => {
+    const product = normalizeStockProduct(item);
+    if (product.active === false) return item;
+    if ((product.movements || []).some((movement) => movement.kind === "STOK_DEVRI" && movement.date === carryDate)) return product;
+    const quantity = previousYearStockQuantity(product, year);
+    if (quantity <= 0) return product;
+    product.movements = [...(product.movements || []), {
+      id: Date.now() + Math.random(),
+      type: "GIRIS",
+      kind: "STOK_DEVRI",
+      quantity,
+      date: carryDate,
+      documentNo: `${Number(year) - 1} yıl sonu devri`,
+      person: "",
+      usagePlace: "",
+      note: `${Number(year) - 1} yılından devreden stok`,
+      amount: 0,
+      source: product.source || "Devir",
+      user: currentUser?.displayName || currentUser?.username || "-",
+      userId: currentUser?.id || "",
+      createdAt: new Date().toISOString(),
+    }];
+    product.updatedAt = new Date().toISOString();
+    created += 1;
+    return product;
+  });
+  if (!created) {
+    showToast(`${year} yılı için devredilecek stok bulunamadı veya devir zaten yapılmış.`);
+    return;
+  }
+  saveStockRecords();
+  renderStock();
+  showToast(`${created} ürün için ${year} yılı stok devri oluşturuldu.`);
+}
+
 function renderStockProductOptions(selectedId = "") {
   stockMovementForm.elements.productId.innerHTML = stockItems.filter((product) => normalizeStockProduct(product).active !== false).map((product) => `<option value="${product.id}" ${String(product.id) === String(selectedId) ? "selected" : ""}>${escapeHtml(normalizeStockProduct(product).name)}</option>`).join("");
 }
@@ -3816,7 +3910,7 @@ function openStockMovementModal(type, productId = "") {
   renderStockProductOptions(productId);
   renderStockMovementKindOptions(type);
   renderPersonnelOptions(stockMovementForm.elements.person, "", "Personel seç");
-  stockMovementForm.elements.date.value = new Date().toISOString().slice(0, 10);
+  stockMovementForm.elements.date.value = selectedStockYear() === new Date().getFullYear().toString() ? new Date().toISOString().slice(0, 10) : stockYearStart();
   stockMovementForm.elements.source.value = "Ödenek";
   stockMovementForm.elements.amount.value = "";
   stockMovementModalMode.textContent = type === "GIRIS" ? "Stok girişi" : "Stok çıkışı";
@@ -5303,6 +5397,7 @@ yearSelect.addEventListener("change", (event) => {
   renderApprovals();
   renderLeaves();
   renderBudget();
+  renderStock();
   setActiveModule(activeModule);
 });
 
@@ -5822,9 +5917,10 @@ closeLeaveRightModal.addEventListener("click", closeLeaveRightDialog);
 cancelLeaveRight.addEventListener("click", closeLeaveRightDialog);
 closeDutyModal.addEventListener("click", closeDutyDialog);
 cancelDuty.addEventListener("click", closeDutyDialog);
-newStockProductBtn.addEventListener("click", () => openStockProductModal());
-newStockEntryBtn.addEventListener("click", () => openStockMovementModal("GIRIS"));
-newStockExitBtn.addEventListener("click", () => openStockMovementModal("CIKIS"));
+newStockProductBtn.addEventListener("click", () => { if (guardStockEditAction()) openStockProductModal(); });
+carryStockYearBtn?.addEventListener("click", carryStockToSelectedYear);
+newStockEntryBtn.addEventListener("click", () => { if (guardStockEditAction()) openStockMovementModal("GIRIS"); });
+newStockExitBtn.addEventListener("click", () => { if (guardStockEditAction()) openStockMovementModal("CIKIS"); });
 closeStockProductModal.addEventListener("click", closeStockProductDialog);
 cancelStockProduct.addEventListener("click", closeStockProductDialog);
 closeStockMovementModal.addEventListener("click", closeStockMovementDialog);
@@ -5923,6 +6019,7 @@ stockRows.addEventListener("click", (event) => {
     renderStock();
     return;
   }
+  if (["edit", "entry", "exit", "delete"].includes(action) && !guardStockEditAction()) return;
   if (action === "edit") openStockProductModal(product);
   if (action === "entry") openStockMovementModal("GIRIS", product.id);
   if (action === "exit") openStockMovementModal("CIKIS", product.id);
@@ -6761,6 +6858,7 @@ leaveForm.addEventListener("submit", (event) => {
 
 stockProductForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  if (!guardStockEditAction()) return;
   const formData = new FormData(stockProductForm);
   const product = {
     id: editingStockProductId || Date.now(),
@@ -6796,6 +6894,7 @@ stockProductForm.addEventListener("submit", (event) => {
 
 stockMovementForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  if (!guardStockEditAction()) return;
   const formData = new FormData(stockMovementForm);
   const productId = formData.get("productId");
   const product = stockItems.map(normalizeStockProduct).find((item) => String(item.id) === String(productId));
@@ -6867,6 +6966,7 @@ stockCashExpenseForm?.addEventListener("submit", (event) => {
 stockCashRows?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-cash-id]");
   if (!button) return;
+  if (!guardStockEditAction()) return;
   const record = stockCashRecords.find((item) => String(item.id) === String(button.dataset.cashId));
   if (!record) return;
   if (button.dataset.stockAction === "edit") {
