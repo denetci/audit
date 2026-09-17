@@ -3596,6 +3596,13 @@ function stockReportFileName(extension) {
   return `${stockReportSlug(parts.join("-"))}.${extension}`;
 }
 
+function stockMovementPersonPlace(movement) {
+  return [
+    movement.person ? `Personel: ${movement.person}` : "",
+    movement.usagePlace ? `Yer: ${movement.usagePlace}` : "",
+  ].filter(Boolean).join(" · ") || "-";
+}
+
 function buildStockReportRows() {
   const movementRows = stockReportFilteredMovements().map(({ product, movement }) => {
     const isEntry = movement.type === "GIRIS";
@@ -3609,7 +3616,7 @@ function buildStockReportRows() {
       !isEntry ? Number(movement.quantity || 0) : "",
       product.unit,
       movement.amount ? formatMoney(movement.amount) : "",
-      movement.person || movement.usagePlace || "-",
+      stockMovementPersonPlace(movement),
       movement.note || movement.documentNo || "",
     ];
   });
@@ -3822,7 +3829,7 @@ function renderStock() {
 function stockMovementRows(product) {
   const movements = [...(product.movements || [])].filter((movement) => stockReportInDateRange(movement.date)).sort((a,b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
   if (!movements.length) return `<tr class="stock-detail-row"><td colspan="9"><div class="empty-inline">Bu ürün için stok hareketi yok.</div></td></tr>`;
-  return `<tr class="stock-detail-row"><td colspan="9"><div class="stock-movement-panel"><h3>${escapeHtml(product.name)} hareketleri</h3><div class="stock-movement-list">${movements.map((movement) => `<article><time>${formatDate(movement.date)}</time><strong class="${movement.type === "GIRIS" ? "positive-stock" : "negative-stock"}">${movement.type === "GIRIS" ? "+" : "-"}${formatNumber(movement.quantity)} ${escapeHtml(product.unit)}</strong><span>${escapeHtml(stockMovementLabel(movement))}</span><span>${escapeHtml(movement.person || movement.usagePlace || "-")}</span><small>${escapeHtml(movement.note || movement.documentNo || "-")} · ${escapeHtml(movement.user || "-")} · ${movement.createdAt ? new Date(movement.createdAt).toLocaleString("tr-TR") : "-"}</small></article>`).join("")}</div></div></td></tr>`;
+  return `<tr class="stock-detail-row"><td colspan="9"><div class="stock-movement-panel"><h3>${escapeHtml(product.name)} hareketleri</h3><div class="stock-movement-list">${movements.map((movement) => `<article><time>${formatDate(movement.date)}</time><strong class="${movement.type === "GIRIS" ? "positive-stock" : "negative-stock"}">${movement.type === "GIRIS" ? "+" : "-"}${formatNumber(movement.quantity)} ${escapeHtml(product.unit)}</strong><span>${escapeHtml(stockMovementLabel(movement))}</span><span>${escapeHtml(stockMovementPersonPlace(movement))}</span><small>${escapeHtml(movement.note || movement.documentNo || "-")} · ${escapeHtml(movement.user || "-")} · ${movement.createdAt ? new Date(movement.createdAt).toLocaleString("tr-TR") : "-"}</small></article>`).join("")}</div></div></td></tr>`;
 }
 
 function openStockProductModal(product = null) {

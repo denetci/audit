@@ -34,7 +34,7 @@ def project_record(user, collection, record):
             return {k:v for k,v in record.items() if k in allowed}
         return None
     if collection == "personnelRecords" and not access(user, "personnel"):
-        if any(access(user, m) for m in ("leaves", "duties")):
+        if any(access(user, m) for m in ("leaves", "duties", "stock")):
             return {k:v for k,v in record.items() if k in DIRECTORY_FIELDS}
         return None
     return record if access(user, record_module(collection, record)) else None
