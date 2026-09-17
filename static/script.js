@@ -4051,6 +4051,49 @@ function renderBudgetDetailPage() {
   applyModulePermissions();
 }
 
+function budgetDetailReportName(item, extension) {
+  const filter = budgetDetailFilterLabel();
+  const parts = [item.year, "butce", item.code, filter, budgetDetailStartDate.value || "baslangic", budgetDetailEndDate.value || "bitis"];
+  const slug = parts.join("-").replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "").toLocaleLowerCase("tr-TR");
+  return `${slug}.${extension}`;
+}
+
+function budgetDetailReportRows(item) {
+  const expenses = getFilteredBudgetDetailExpenses(item.id);
+  return {
+    expenses,
+    total: expenses.reduce((sum, expense) => sum + numberValue(expense.amount), 0),
+    rows: expenses.map((expense) => [expense.date, expense.purpose, expense.payee, formatMoney(expense.amount), expense.note || ""]),
+  };
+}
+
+function printBudgetDetailReport() {
+  const item = selectedBudgetItem();
+  if (!item) return;
+  const report = budgetDetailReportRows(item);
+  if (!report.expenses.length) {
+    showToast("Raporlanacak harcama kaydı bulunamadı.");
+    return;
+  }
+  const filters = [
+    `Yıl: ${item.year}`,
+    `Kalem: ${item.code}`,
+    `Kişi/arama: ${budgetDetailFilterLabel()}`,
+    `Tarih: ${budgetDetailStartDate.value || "Başlangıç yok"} - ${budgetDetailEndDate.value || "Bitiş yok"}`,
+  ].join(" · ");
+  const tableRows = [
+    ["Tarih", "Ne İçin", "Kime Ödendi", "Tutar", "Not"],
+    ...report.rows,
+  ].map((row, index) => `<tr>${row.map((cell) => index === 0 ? `<th>${escapeHtml(cell)}</th>` : `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("");
+  const reportWindow = window.open("", "_blank");
+  if (!reportWindow) {
+    showToast("Yazdırma penceresi açılamadı.");
+    return;
+  }
+  reportWindow.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>Bütçe Harcama Raporu</title><style>body{font-family:Arial,sans-serif;color:#07142b;margin:24px}h1{font-size:22px;margin:0 0 6px}.filters{color:#52637a;font-size:12px;margin-bottom:16px}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:16px 0}.summary article{border:1px solid #d8e5f5;border-radius:10px;padding:10px}.summary span{display:block;color:#52637a;font-size:11px;font-weight:700}.summary strong{display:block;margin-top:5px;font-size:15px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #d8e5f5;padding:8px;text-align:left;vertical-align:top}th{background:#eef4fb}.amount{text-align:right}@media print{body{margin:10mm}.summary{grid-template-columns:repeat(4,1fr)}}</style></head><body><h1>${escapeHtml(item.code)} Harcama Raporu</h1><div class="filters">${escapeHtml(filters)}</div><div class="summary"><article><span>Kayıt</span><strong>${report.expenses.length}</strong></article><article><span>Toplam ödeme</span><strong>${formatMoney(report.total)} TL</strong></article><article><span>Tahsis edilen</span><strong>${formatMoney(item.allocated)} TL</strong></article><article><span>Kullanılabilir</span><strong>${formatMoney(budgetAvailableAmount(item))} TL</strong></article></div><table>${tableRows}</table><script>window.onload=()=>window.print();<\/script></body></html>`);
+  reportWindow.document.close();
+}
+
 function downloadBudgetCsv() {
   const item = selectedBudgetItem();
   if (!item) return;
@@ -4066,7 +4109,7 @@ function downloadBudgetCsv() {
   const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = `${item.year}-butce-${item.code.replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "").toLocaleLowerCase("tr-TR")}.csv`;
+  link.download = budgetDetailReportName(item, "csv");
   link.click();
   URL.revokeObjectURL(link.href);
 }
@@ -5933,7 +5976,7 @@ cancelBudgetExpense.addEventListener("click", closeBudgetExpenseDialog);
 backToBudget.addEventListener("click", () => setActiveModule("budget"));
 detailBudgetExpenseBtn.addEventListener("click", () => openBudgetExpenseModal());
 downloadBudgetExcel.addEventListener("click", downloadBudgetCsv);
-printBudgetReport.addEventListener("click", () => window.print());
+printBudgetReport.addEventListener("click", printBudgetDetailReport);
 
 budgetRows.addEventListener("click", (event) => {
   const detailButton = event.target.closest("[data-budget-open-detail]");
