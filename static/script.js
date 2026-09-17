@@ -3667,7 +3667,7 @@ function printStockReportWindow() {
     showToast("Yazdırma penceresi açılamadı.");
     return;
   }
-  reportWindow.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>Stok Raporu</title><style>body{font-family:Arial,sans-serif;color:#07142b;margin:24px}h1{font-size:22px;margin:0 0 6px}.filters{color:#52637a;font-size:12px;margin-bottom:16px}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:16px 0}.summary article{border:1px solid #d8e5f5;border-radius:10px;padding:10px}.summary span{display:block;color:#52637a;font-size:11px;font-weight:700}.summary strong{display:block;margin-top:5px;font-size:15px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #d8e5f5;padding:7px;text-align:left;vertical-align:top}th{background:#eef4fb}@media print{button{display:none}.summary{grid-template-columns:repeat(4,1fr)}body{margin:10mm}}</style></head><body><h1>Stok ve Kasa Raporu</h1><div class="filters">${escapeHtml(filters)}</div><div class="summary">${summaryHtml}</div><table>${tableRows}</table><script>window.onload=()=>window.print();<\/script></body></html>`);
+  reportWindow.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>Stok Raporu</title><style>body{font-family:Arial,sans-serif;color:#07142b;margin:24px}h1{font-size:22px;margin:0 0 6px}.filters{color:#52637a;font-size:12px;margin-bottom:16px}.summary{display:grid;grid-template-columns:repeat(2,180px);gap:8px;margin:16px 0}.summary article{border:1px solid #d8e5f5;border-radius:10px;padding:10px}.summary span{display:block;color:#52637a;font-size:11px;font-weight:700}.summary strong{display:block;margin-top:5px;font-size:15px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #d8e5f5;padding:7px;text-align:left;vertical-align:top}th{background:#eef4fb}@media print{button{display:none}.summary{grid-template-columns:repeat(4,1fr)}body{margin:10mm}}</style></head><body><h1>Stok ve Kasa Raporu</h1><div class="filters">${escapeHtml(filters)}</div><div class="summary">${summaryHtml}</div><table>${tableRows}</table><script>window.onload=()=>window.print();<\/script></body></html>`);
   reportWindow.document.close();
 }
 
@@ -4090,7 +4090,7 @@ function printBudgetDetailReport() {
     showToast("Yazdırma penceresi açılamadı.");
     return;
   }
-  reportWindow.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>Bütçe Harcama Raporu</title><style>body{font-family:Arial,sans-serif;color:#07142b;margin:24px}h1{font-size:22px;margin:0 0 6px}.filters{color:#52637a;font-size:12px;margin-bottom:16px}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:16px 0}.summary article{border:1px solid #d8e5f5;border-radius:10px;padding:10px}.summary span{display:block;color:#52637a;font-size:11px;font-weight:700}.summary strong{display:block;margin-top:5px;font-size:15px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #d8e5f5;padding:8px;text-align:left;vertical-align:top}th{background:#eef4fb}.amount{text-align:right}@media print{body{margin:10mm}.summary{grid-template-columns:repeat(4,1fr)}}</style></head><body><h1>${escapeHtml(item.code)} Harcama Raporu</h1><div class="filters">${escapeHtml(filters)}</div><div class="summary"><article><span>Kayıt</span><strong>${report.expenses.length}</strong></article><article><span>Toplam ödeme</span><strong>${formatMoney(report.total)} TL</strong></article><article><span>Tahsis edilen</span><strong>${formatMoney(item.allocated)} TL</strong></article><article><span>Kullanılabilir</span><strong>${formatMoney(budgetAvailableAmount(item))} TL</strong></article></div><table>${tableRows}</table><script>window.onload=()=>window.print();<\/script></body></html>`);
+  reportWindow.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>Bütçe Harcama Raporu</title><style>body{font-family:Arial,sans-serif;color:#07142b;margin:24px}h1{font-size:22px;margin:0 0 6px}.filters{color:#52637a;font-size:12px;margin-bottom:16px}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:16px 0}.summary article{border:1px solid #d8e5f5;border-radius:10px;padding:10px}.summary span{display:block;color:#52637a;font-size:11px;font-weight:700}.summary strong{display:block;margin-top:5px;font-size:15px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #d8e5f5;padding:8px;text-align:left;vertical-align:top}th{background:#eef4fb}.amount{text-align:right}@media print{body{margin:10mm}.summary{grid-template-columns:repeat(2,180px)}}</style></head><body><h1>${escapeHtml(item.code)} Harcama Raporu</h1><div class="filters">${escapeHtml(filters)}</div><div class="summary"><article><span>Kayıt</span><strong>${report.expenses.length}</strong></article><article><span>Toplam ödeme</span><strong>${formatMoney(report.total)} TL</strong></article></div><table>${tableRows}</table><script>window.onload=()=>window.print();<\/script></body></html>`);
   reportWindow.document.close();
 }
 
@@ -4099,8 +4099,10 @@ function downloadBudgetCsv() {
   if (!item) return;
   const expenses = getFilteredBudgetDetailExpenses(item.id);
   const rows = [
-    ["Yıl", "Ödenek Kalemi", "Tahsis Edilen Ödenek", "Serbest Bırakılan Ödenek", "Ek Ödenek", "Kullanılan", "Kullanılabilir"],
-    [item.year, item.code, item.allocated, budgetReleasedAmount(item), item.additional, budgetUsedAmount(item.id), budgetAvailableAmount(item)],
+    [`${item.code} filtreli harcama raporu`],
+    [`Kişi/arama`, budgetDetailFilterLabel()],
+    [`Kayıt`, expenses.length],
+    [`Toplam ödeme`, `${formatMoney(expenses.reduce((sum, expense) => sum + numberValue(expense.amount), 0))} TL`],
     [],
     ["Tarih", "Ne İçin", "Kime Ödendi", "Tutar", "Not"],
     ...expenses.map((expense) => [expense.date, expense.purpose, expense.payee, expense.amount, expense.note || ""]),
