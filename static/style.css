@@ -4177,7 +4177,7 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 
 .stock-report-filters {
   display: grid;
-  grid-template-columns: 160px 160px minmax(180px, 1fr) minmax(170px, 1fr) minmax(180px, 1fr) auto;
+  grid-template-columns: 150px 150px minmax(160px, 1fr) minmax(150px, 1fr) minmax(170px, 1fr) auto auto auto;
   gap: 10px;
   align-items: end;
   margin-top: 12px;

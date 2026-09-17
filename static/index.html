@@ -830,6 +830,8 @@
                   <label>Kaynak<select id="stockReportSource"><option value="Tümü">Tümü</option><option>Ödenek</option><option>Personel parası</option><option>Diğer birimden gelen</option><option>Diğer</option></select></label>
                   <label>Kasa Türü<select id="stockReportCashCategory"><option value="Tümü">Tüm kasa türleri</option><option>Personel katkısı</option><option>Faiz geliri</option><option>Çay</option><option>Kahve</option><option>Maden suyu</option><option>Normal su</option><option>Temsil</option><option>Mutfak</option><option>Lavabo</option><option>İnşaat / malzeme</option><option>Diğer gelir</option><option>Diğer harcama</option></select></label>
                   <button class="btn secondary" id="clearStockReportFilters" type="button">Temizle</button>
+                  <button class="btn secondary" id="downloadStockReportExcel" type="button">Excel İndir</button>
+                  <button class="btn primary" id="printStockReport" type="button">PDF / Yazdır</button>
                 </div>
                 <div class="stock-report-grid" id="stockReportSummary"></div>
                 <div class="stock-report-breakdown" id="stockReportBreakdown"></div>
@@ -2102,4 +2104,3 @@
     <script src="script.js?v=20260910-budget-detail"></script>
   </body>
 </html>
-

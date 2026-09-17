@@ -273,6 +273,8 @@ const stockReportProduct = document.querySelector("#stockReportProduct");
 const stockReportSource = document.querySelector("#stockReportSource");
 const stockReportCashCategory = document.querySelector("#stockReportCashCategory");
 const clearStockReportFilters = document.querySelector("#clearStockReportFilters");
+const downloadStockReportExcel = document.querySelector("#downloadStockReportExcel");
+const printStockReport = document.querySelector("#printStockReport");
 const stockReportSummary = document.querySelector("#stockReportSummary");
 const stockReportBreakdown = document.querySelector("#stockReportBreakdown");
 const stockMovementModalMode = document.querySelector("#stockMovementModalMode");
@@ -3530,6 +3532,96 @@ function stockReportFilteredCashRecords() {
   });
 }
 
+function stockReportSlug(value) {
+  return String(value || "rapor")
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-|-$/g, "")
+    .toLocaleLowerCase("tr-TR") || "rapor";
+}
+
+function stockReportFileName(extension) {
+  const selectedProductName = selectedStockReportProduct() === "Tümü"
+    ? "tum-urunler"
+    : stockItems.map(normalizeStockProduct).find((item) => String(item.id) === String(selectedStockReportProduct()))?.name || "urun";
+  const parts = ["stok-raporu", selectedProductName, stockReportSource?.value || "tum-kaynaklar", stockReportStart?.value || "baslangic", stockReportEnd?.value || "bitis"];
+  return `${stockReportSlug(parts.join("-"))}.${extension}`;
+}
+
+function buildStockReportRows() {
+  const movementRows = stockReportFilteredMovements().map(({ product, movement }) => {
+    const isEntry = movement.type === "GIRIS";
+    return [
+      "Stok hareketi",
+      formatDate(movement.date),
+      product.name,
+      movement.source || product.source || "-",
+      stockMovementLabel(movement),
+      isEntry ? Number(movement.quantity || 0) : "",
+      !isEntry ? Number(movement.quantity || 0) : "",
+      product.unit,
+      movement.amount ? formatMoney(movement.amount) : "",
+      movement.person || movement.usagePlace || "-",
+      movement.note || movement.documentNo || "",
+    ];
+  });
+  const cashRows = stockReportFilteredCashRecords().map((record) => [
+    record.type === "income" ? "Kasa geliri" : "Kasa harcaması",
+    formatDate(record.date),
+    record.title || (record.type === "income" ? "Gelir" : "Harcama"),
+    record.category || "-",
+    record.type === "income" ? "Gelir" : "Harcama",
+    "",
+    "",
+    "TL",
+    `${record.type === "expense" ? "-" : "+"}${formatMoney(record.amount)}`,
+    record.user || "-",
+    record.note || "",
+  ]);
+  return [
+    ["Kayıt Türü", "Tarih", "Ürün / İşlem", "Kaynak / Kategori", "İşlem", "Giriş", "Çıkış", "Birim", "Tutar", "Personel / Yer", "Not"],
+    ...movementRows,
+    ...cashRows,
+  ];
+}
+
+function downloadStockReportCsv() {
+  const rows = buildStockReportRows();
+  if (rows.length <= 1) {
+    showToast("Raporlanacak kayıt bulunamadı.");
+    return;
+  }
+  const csv = rows.map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
+  const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = stockReportFileName("csv");
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function printStockReportWindow() {
+  const rows = buildStockReportRows();
+  if (rows.length <= 1) {
+    showToast("Raporlanacak kayıt bulunamadı.");
+    return;
+  }
+  const summaryHtml = stockReportSummary?.innerHTML || "";
+  const tableRows = rows.map((row, index) => `<tr>${row.map((cell) => index === 0 ? `<th>${escapeHtml(cell)}</th>` : `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("");
+  const filters = [
+    `Tarih: ${stockReportStart?.value || "Başlangıç yok"} - ${stockReportEnd?.value || "Bitiş yok"}`,
+    `Ürün: ${stockReportProduct?.selectedOptions?.[0]?.textContent || "Tüm ürünler"}`,
+    `Kaynak: ${stockReportSource?.value || "Tümü"}`,
+    `Kasa türü: ${stockReportCashCategory?.value || "Tümü"}`,
+  ].join(" · ");
+  const reportWindow = window.open("", "_blank");
+  if (!reportWindow) {
+    showToast("Yazdırma penceresi açılamadı.");
+    return;
+  }
+  reportWindow.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>Stok Raporu</title><style>body{font-family:Arial,sans-serif;color:#07142b;margin:24px}h1{font-size:22px;margin:0 0 6px}.filters{color:#52637a;font-size:12px;margin-bottom:16px}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:16px 0}.summary article{border:1px solid #d8e5f5;border-radius:10px;padding:10px}.summary span{display:block;color:#52637a;font-size:11px;font-weight:700}.summary strong{display:block;margin-top:5px;font-size:15px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #d8e5f5;padding:7px;text-align:left;vertical-align:top}th{background:#eef4fb}@media print{button{display:none}.summary{grid-template-columns:repeat(4,1fr)}body{margin:10mm}}</style></head><body><h1>Stok ve Kasa Raporu</h1><div class="filters">${escapeHtml(filters)}</div><div class="summary">${summaryHtml}</div><table>${tableRows}</table><script>window.onload=()=>window.print();<\/script></body></html>`);
+  reportWindow.document.close();
+}
+
 function renderStockReport() {
   if (!stockReportSummary || !stockReportBreakdown) return;
   updateStockReportProductFilter();
@@ -5803,6 +5895,9 @@ clearStockReportFilters?.addEventListener("click", () => {
   stockReportCashCategory.value = "Tümü";
   renderStockReport();
 });
+
+downloadStockReportExcel?.addEventListener("click", downloadStockReportCsv);
+printStockReport?.addEventListener("click", printStockReportWindow);
 
 [stockSourceFilter, stockCategoryFilter, stockStatusFilter, stockSearchInput].forEach((control) => {
   control.addEventListener("input", renderStock);
