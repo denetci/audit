@@ -3666,7 +3666,7 @@ function renderStock() {
         <td>${formatNumber(product.critical)}</td>
         <td>${escapeHtml(product.storage || "-")}</td>
         <td><span class="status ${stockStatusClass(status)}">${escapeHtml(status)}</span></td>
-        <td><div class="inline-actions"><button class="btn secondary small" data-stock-action="detail" data-id="${product.id}" type="button">Detay</button><button class="btn secondary small" data-stock-action="edit" data-id="${product.id}" type="button">Düzenle</button><button class="btn secondary small" data-stock-action="entry" data-id="${product.id}" type="button">Giriş</button><button class="btn secondary small" data-stock-action="exit" data-id="${product.id}" type="button">Çıkış</button></div></td>
+        <td><div class="inline-actions"><button class="btn secondary small" data-stock-action="detail" data-id="${product.id}" type="button">Detay</button><button class="btn secondary small" data-stock-action="edit" data-id="${product.id}" type="button">Düzenle</button><button class="btn secondary small" data-stock-action="entry" data-id="${product.id}" type="button">Giriş</button><button class="btn secondary small" data-stock-action="exit" data-id="${product.id}" type="button">Çıkış</button><button class="btn ghost danger small" data-stock-action="delete" data-id="${product.id}" type="button">Sil</button></div></td>
       </tr>
       ${movementRows}
     `;
@@ -5831,6 +5831,18 @@ stockRows.addEventListener("click", (event) => {
   if (action === "edit") openStockProductModal(product);
   if (action === "entry") openStockMovementModal("GIRIS", product.id);
   if (action === "exit") openStockMovementModal("CIKIS", product.id);
+  if (action === "delete") {
+    if (!confirm(`${product.name} adlı stok ürünü silinsin mi?`)) return;
+    stockItems = stockItems.map((item) => {
+      const normalized = normalizeStockProduct(item);
+      if (String(normalized.id) !== String(product.id)) return item;
+      return { ...normalized, active: false, deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    });
+    if (String(selectedStockProductId) === String(product.id)) selectedStockProductId = null;
+    saveStockRecords();
+    renderStock();
+    showToast("Stok ürünü silindi.");
+  }
 });
 
 [budgetYearFilter, budgetSearchInput].forEach((control) => {
