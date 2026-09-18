@@ -24,7 +24,7 @@ function guardStockEditAction() {
 }
 
 function mutationModule(element) {
-  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",carryStockYearBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",stockCashIncomeForm:"stock",stockCashExpenseForm:"stock",membershipCreateForm:"membership",membershipTemplateForm:"membership",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
+  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",carryStockYearBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",stockCashIncomeForm:"stock",stockCashExpenseForm:"stock",membershipCreateForm:"membership",membershipTemplateForm:"membership",openMembershipTemplateModal:"membership",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
   if (ids[element.id]) return ids[element.id];
   for (const [attr,module] of [["data-action","audits"],["data-approval-action","approvals"],["data-leave-action","leaves"],["data-leave-right-action","leaves"],["data-duty-action","duties"],["data-budget-item-action","budget"],["data-budget-expense-action","budget"],["data-stock-action","stock"],["data-membership-action","membership"],["data-membership-template-action","membership"],["data-monitoring-document-action","monitoring"],["data-report-document-action","reports"],["data-personnel-action","personnel"]]) {
     const action = element.getAttribute(attr);
@@ -310,6 +310,10 @@ const membershipRows = document.querySelector("#membershipRows");
 const membershipEmptyState = document.querySelector("#membershipEmptyState");
 const downloadMembershipExcel = document.querySelector("#downloadMembershipExcel");
 const printMembershipReport = document.querySelector("#printMembershipReport");
+const openMembershipTemplateModal = document.querySelector("#openMembershipTemplateModal");
+const membershipTemplateModal = document.querySelector("#membershipTemplateModal");
+const closeMembershipTemplateModal = document.querySelector("#closeMembershipTemplateModal");
+const cancelMembershipTemplate = document.querySelector("#cancelMembershipTemplate");
 const membershipTemplateForm = document.querySelector("#membershipTemplateForm");
 const membershipTemplateRows = document.querySelector("#membershipTemplateRows");
 
@@ -1060,7 +1064,7 @@ function recordKeyForCollection(collection, record) {
   }
 
   if (collection === "membershipTemplates") {
-    return normalizeText(record.person || "");
+    return String(record.person || "").trim().toLowerCase();
   }
 
   if (collection === "reportDocuments") {
@@ -4011,15 +4015,22 @@ function updateMembershipSelectors() {
   if (membershipYearFilter && !membershipYearFilter.value) membershipYearFilter.value = yearSelect.value;
 }
 
+function getMembershipTemplateNameSet() {
+  return new Set(getMembershipTemplateList().map((item) => normalizeText(item.person)));
+}
+
 function getVisibleMembershipRecords() {
   const year = membershipYearFilter?.value || yearSelect.value;
   const month = membershipMonthFilter?.value || "Tümü";
   const status = membershipStatusFilter?.value || "Tümü";
   const query = normalizeText(membershipSearchInput?.value || "");
+  const templateNames = getMembershipTemplateNameSet();
   return uniqueMembershipRecords(membershipRecords).filter((record) => {
     const recordStatus = membershipStatus(record);
+    const personKey = normalizeText(record.person || "");
     const haystack = normalizeText([record.person, record.note, membershipPeriodLabel(record)].join(" "));
-    return (year === "Tümü" || String(record.year) === String(year))
+    return templateNames.has(personKey)
+      && (year === "Tümü" || String(record.year) === String(year))
       && (month === "Tümü" || String(record.month) === String(month))
       && (status === "Tümü" || recordStatus === status)
       && (!query || haystack.includes(query));
@@ -4033,7 +4044,7 @@ function renderMembershipTemplates() {
   membershipTemplateRows.innerHTML = rows.length ? rows.map((item, index) => `<article class="membership-template-row" data-template-index="${index}">
     <input data-membership-template-field="person" value="${escapeHtml(item.person)}"${inputState} />
     <input data-membership-template-field="due" inputmode="decimal" value="${escapeHtml(formatMoney(item.due))}"${inputState} />
-    <div class="inline-actions"><button class="btn secondary small" data-membership-template-action="save" data-index="${index}" type="button">Kaydet</button><button class="btn ghost danger small" data-membership-template-action="delete" data-index="${index}" type="button">Sil</button></div>
+    <div class="inline-actions"><button class="btn secondary small" data-membership-template-action="save" data-index="${index}" type="button"${inputState}>Kaydet</button><button class="btn ghost danger small" data-membership-template-action="delete" data-index="${index}" type="button"${inputState}>Sil</button></div>
   </article>`).join("") : `<div class="empty-inline compact">Hazır aidat listesinde kişi yok.</div>`;
 }
 
@@ -7434,6 +7445,16 @@ document.querySelectorAll("[data-cash-reset]").forEach((button) => {
   });
 });
 
+
+
+openMembershipTemplateModal?.addEventListener("click", () => {
+  renderMembershipTemplates();
+  membershipTemplateModal?.showModal();
+});
+
+[closeMembershipTemplateModal, cancelMembershipTemplate].forEach((button) => {
+  button?.addEventListener("click", () => membershipTemplateModal?.close());
+});
 
 membershipTemplateForm?.addEventListener("submit", (event) => {
   event.preventDefault();

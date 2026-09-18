@@ -740,6 +740,7 @@
                 </div>
                 <div class="panel-actions">
                   <span class="panel-count"><strong id="membershipRecordCount">0</strong> kayıt</span>
+                  <button class="btn secondary" id="openMembershipTemplateModal" type="button">+ Yeni Kişi Ekle</button>
                   <button class="btn secondary" id="downloadMembershipExcel" type="button">Excel İndir</button>
                   <button class="btn primary" id="printMembershipReport" type="button">PDF / Yazdır</button>
                 </div>
@@ -764,21 +765,6 @@
                   <button class="btn primary" type="submit">Hazır Listeyi Oluştur</button>
                 </form>
               </section>
-
-
-
-              <section class="membership-entry-panel membership-list-manager">
-                <div class="sub-panel-head compact-head">
-                  <div><h3>Hazır Aidat Listesi</h3><p class="eyebrow">Otomatik tahakkukta kullanılacak kişi ve aylık tutar listesi</p></div>
-                </div>
-                <form class="membership-create-form" id="membershipTemplateForm">
-                  <label>Personel<input name="person" id="membershipTemplatePerson" placeholder="Ad soyad" required /></label>
-                  <label>Aylık Tutar<input name="due" id="membershipTemplateDue" inputmode="decimal" placeholder="Örn. 500,00" required /></label>
-                  <button class="btn primary" type="submit">Kişiyi Listeye Ekle</button>
-                </form>
-                <div class="membership-template-list" id="membershipTemplateRows"></div>
-              </section>
-
               <div class="module-filters membership-filters" aria-label="Aidat filtreleri">
                 <label>Yıl<select id="membershipYearFilter"><option>2026</option><option>2025</option><option>2024</option><option value="Tümü">Tümü</option></select></label>
                 <label>Ay<select id="membershipMonthFilter"><option value="Tümü">Tüm aylar</option></select></label>
@@ -2142,6 +2128,31 @@
         <div class="modal-actions">
           <button class="btn secondary" id="cancelStockMovement" type="button">Vazgeç</button>
           <button class="btn primary" type="submit">Kaydet</button>
+        </div>
+      </form>
+    </dialog>
+
+
+    <dialog class="modal" id="membershipTemplateModal">
+      <form class="modal-card membership-template-modal-card" id="membershipTemplateForm" method="dialog">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow">Aidat hazır listesi</p>
+            <h2>Yeni Kişi Ekle</h2>
+          </div>
+          <button class="icon-btn" id="closeMembershipTemplateModal" type="button">×</button>
+        </div>
+        <p class="form-hint">Bu liste aylık tahakkuk oluştururken kullanılır. Buradan kişi ekleyebilir, tutarı düzeltebilir veya listeden silebilirsiniz.</p>
+        <div class="membership-template-modal-body">
+          <div class="membership-create-form modal-inline-form">
+            <label>Personel<input name="person" id="membershipTemplatePerson" placeholder="Ad soyad" required /></label>
+            <label>Aylık Tutar<input name="due" id="membershipTemplateDue" inputmode="decimal" placeholder="Örn. 500,00" required /></label>
+            <button class="btn primary" type="submit">Kişiyi Listeye Ekle</button>
+          </div>
+          <div class="membership-template-list" id="membershipTemplateRows"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn secondary" id="cancelMembershipTemplate" type="button">Kapat</button>
         </div>
       </form>
     </dialog>

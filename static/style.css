@@ -4530,3 +4530,19 @@ button:disabled { opacity:.45; cursor:not-allowed; }
     grid-template-columns: 1fr;
   }
 }
+
+.membership-template-modal-card {
+  width: min(920px, calc(100vw - 28px));
+}
+
+.membership-template-modal-body {
+  padding: 18px;
+}
+
+.modal-inline-form {
+  margin-bottom: 14px;
+}
+
+.membership-template-modal-card .membership-template-list {
+  max-height: min(48vh, 460px);
+}
