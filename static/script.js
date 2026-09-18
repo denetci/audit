@@ -7560,4 +7560,3 @@ document.querySelector("#restoreDatabaseForm")?.addEventListener("submit", async
     button.disabled = false;
   }
 });
-
