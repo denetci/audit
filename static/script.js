@@ -4114,10 +4114,10 @@ function getMembershipTemplateNameSet() {
   return new Set(getMembershipTemplateList().map((item) => normalizeText(item.person)));
 }
 
-function getVisibleMembershipRecords() {
+function getMembershipRecordsForView({ includeStatus = true } = {}) {
   const year = membershipYearFilter?.value || yearSelect.value;
   const month = membershipMonthFilter?.value || "Tümü";
-  const status = membershipStatusFilter?.value || "Tümü";
+  const status = includeStatus ? (membershipStatusFilter?.value || "Tümü") : "Tümü";
   const query = normalizeText(membershipSearchInput?.value || "");
   const templateNames = getMembershipTemplateNameSet();
   return uniqueMembershipRecords(membershipRecords).filter((record) => {
@@ -4130,6 +4130,10 @@ function getVisibleMembershipRecords() {
       && (status === "Tümü" || recordStatus === status)
       && (!query || haystack.includes(query));
   }).sort((a,b) => String(a.year).localeCompare(String(b.year)) || Number(a.month || 0) - Number(b.month || 0) || String(a.person).localeCompare(String(b.person), "tr"));
+}
+
+function getVisibleMembershipRecords() {
+  return getMembershipRecordsForView({ includeStatus: true });
 }
 
 function renderMembershipTemplates() {
@@ -4149,9 +4153,10 @@ function renderMembership() {
   updateMembershipSelectors();
   renderMembershipTemplates();
   const records = getVisibleMembershipRecords();
-  const totalDue = records.reduce((sum, record) => sum + membershipRecordDue(record), 0);
-  const totalPaid = records.reduce((sum, record) => sum + numberValue(record.paid), 0);
-  const debtors = new Set(records.filter((record) => membershipDebt(record) > 0).map((record) => normalizeText(record.person)));
+  const summaryRecords = getMembershipRecordsForView({ includeStatus: false });
+  const totalDue = summaryRecords.reduce((sum, record) => sum + membershipRecordDue(record), 0);
+  const totalPaid = summaryRecords.reduce((sum, record) => sum + numberValue(record.paid), 0);
+  const debtors = new Set(summaryRecords.filter((record) => membershipDebt(record) > 0).map((record) => normalizeText(record.person)));
   const periodLabel = membershipSelectedMonthLabel();
   membershipRecordCount.textContent = records.length;
   membershipTotalDue.closest("article").querySelector("p").textContent = `${periodLabel} tahakkuk`;
