@@ -615,6 +615,7 @@ let selectedBudgetItemId = null;
 let editingStockProductId = null;
 let stockMovementMode = "GIRIS";
 let selectedStockProductId = null;
+let editingMembershipId = null;
 const membershipMonths = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 const MEMBERSHIP_TEMPLATE_VERSION = "2026-09-18-membership-template-v2";
 const MEMBERSHIP_RECORD_VERSION = "2026-09-18-membership-record-v2";
@@ -4139,16 +4140,18 @@ function renderMembership() {
   membershipRows.innerHTML = records.length ? records.map((record) => {
     const status = membershipStatus(record);
     const debt = membershipDebt(record);
+    const isEditing = String(editingMembershipId || "") === String(record.id);
+    const rowInputState = canEditModule("membership") && isEditing ? "" : " disabled";
     return `<tr class="membership-row ${debt > 0 ? "debtor" : "paid"}" data-membership-id="${record.id}">
       <td><strong>${escapeHtml(record.person)}</strong></td>
       <td>${escapeHtml(membershipPeriodLabel(record))}</td>
-      <td><input data-membership-field="due" inputmode="decimal" value="${escapeHtml(formatMoney(membershipRecordDue(record)))}"${inputState} />${numberValue(record.carriedDebt) > 0 ? `<small class="membership-carry">${formatMoney(record.carriedDebt)} TL devreden</small>` : ""}</td>
-      <td><input data-membership-field="paid" inputmode="decimal" value="${escapeHtml(formatMoney(record.paid))}"${inputState} /></td>
+      <td><input data-membership-field="due" inputmode="decimal" value="${escapeHtml(formatMoney(membershipRecordDue(record)))}"${rowInputState} />${numberValue(record.carriedDebt) > 0 ? `<small class="membership-carry">${formatMoney(record.carriedDebt)} TL devreden</small>` : ""}</td>
+      <td><input data-membership-field="paid" inputmode="decimal" value="${escapeHtml(formatMoney(record.paid))}"${rowInputState} /></td>
       <td><strong class="${debt > 0 ? "negative-stock" : "positive-stock"}">${formatMoney(debt)} TL</strong></td>
-      <td><input data-membership-field="paidDate" type="date" value="${escapeHtml(record.paidDate || "")}"${inputState} /></td>
+      <td><input data-membership-field="paidDate" type="date" value="${escapeHtml(record.paidDate || "")}"${rowInputState} /></td>
       <td><span class="status ${status === "Ödendi" ? "done" : status === "Kısmi" ? "waiting" : "danger"}">${status}</span></td>
-      <td><input data-membership-field="note" value="${escapeHtml(record.note || "")}" placeholder="Not"${inputState} /></td>
-      <td><div class="inline-actions"><button class="btn secondary small" data-membership-action="pay-full" data-id="${record.id}" type="button"${inputState}>${debt > 0 ? "✓ Öde" : "Ödendi"}</button><button class="btn ghost danger small" data-membership-action="delete" data-id="${record.id}" type="button">Sil</button></div></td>
+      <td><input data-membership-field="note" value="${escapeHtml(record.note || "")}" placeholder="Not"${rowInputState} /></td>
+      <td><div class="inline-actions"><button class="btn secondary small" data-membership-action="${debt > 0 ? "pay-full" : "undo-pay"}" data-id="${record.id}" type="button"${inputState}>${debt > 0 ? "✓ Öde" : "Geri Al"}</button>${isEditing ? `<button class="btn primary small" data-membership-action="save" data-id="${record.id}" type="button">Kaydet</button><button class="btn secondary small" data-membership-action="cancel-edit" data-id="${record.id}" type="button">Vazgeç</button>` : `<button class="btn secondary small" data-membership-action="edit" data-id="${record.id}" type="button"${inputState}>Düzenle</button>`}<button class="btn ghost danger small" data-membership-action="delete" data-id="${record.id}" type="button">Sil</button></div></td>
     </tr>`;
   }).join("") : "";
   membershipEmptyState.hidden = records.length > 0;
@@ -7573,10 +7576,21 @@ membershipRows?.addEventListener("click", (event) => {
   if (!button) return;
   const record = membershipRecords.find((item) => String(item.id) === String(button.dataset.id));
   if (!record) return;
+  if (button.dataset.membershipAction === "edit") {
+    editingMembershipId = record.id;
+    renderMembership();
+    return;
+  }
+  if (button.dataset.membershipAction === "cancel-edit") {
+    editingMembershipId = null;
+    renderMembership();
+    return;
+  }
   if (button.dataset.membershipAction === "delete") {
     if (!confirm(`${record.person} ${membershipPeriodLabel(record)} aidat kaydı silinsin mi?`)) return;
     markRecordDeleted("membershipRecords", record);
     membershipRecords = membershipRecords.filter((item) => String(item.id) !== String(record.id));
+    if (String(editingMembershipId || "") === String(record.id)) editingMembershipId = null;
     saveMembershipRecords();
     renderMembership();
     showToast("Aidat kaydı silindi.");
@@ -7591,6 +7605,15 @@ membershipRows?.addEventListener("click", (event) => {
     showToast(`${record.person} için ${membershipPeriodLabel(record)} aidatı ödendi.`);
     return;
   }
+  if (button.dataset.membershipAction === "undo-pay") {
+    record.paid = 0;
+    record.paidDate = "";
+    record.updatedAt = new Date().toISOString();
+    saveMembershipRecords();
+    renderMembership();
+    showToast(`${record.person} için ${membershipPeriodLabel(record)} ödemesi geri alındı.`);
+    return;
+  }
   const row = button.closest("tr");
   const totalDue = numberValue(row.querySelector('[data-membership-field="due"]')?.value);
   record.due = totalDue;
@@ -7600,6 +7623,7 @@ membershipRows?.addEventListener("click", (event) => {
   record.paidDate = row.querySelector('[data-membership-field="paidDate"]')?.value || "";
   record.note = row.querySelector('[data-membership-field="note"]')?.value?.trim() || "";
   record.updatedAt = new Date().toISOString();
+  editingMembershipId = null;
   saveMembershipRecords();
   renderMembership();
   showToast("Aidat kaydı güncellendi.");
