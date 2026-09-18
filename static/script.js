@@ -24,7 +24,7 @@ function guardStockEditAction() {
 }
 
 function mutationModule(element) {
-  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",carryStockYearBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",stockCashIncomeForm:"stock",stockCashExpenseForm:"stock",membershipTemplateForm:"membership",openMembershipTemplateModal:"membership",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
+  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",carryStockYearBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",stockCashIncomeForm:"stock",stockCashExpenseForm:"stock",membershipTemplateForm:"membership",openMembershipTemplateModal:"membership",openMembershipRaiseModal:"membership",membershipRaiseForm:"membership",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
   if (ids[element.id]) return ids[element.id];
   for (const [attr,module] of [["data-action","audits"],["data-approval-action","approvals"],["data-leave-action","leaves"],["data-leave-right-action","leaves"],["data-duty-action","duties"],["data-budget-item-action","budget"],["data-budget-expense-action","budget"],["data-stock-action","stock"],["data-membership-action","membership"],["data-membership-template-action","membership"],["data-monitoring-document-action","monitoring"],["data-report-document-action","reports"],["data-personnel-action","personnel"]]) {
     const action = element.getAttribute(attr);
@@ -311,6 +311,13 @@ const membershipEmptyState = document.querySelector("#membershipEmptyState");
 const downloadMembershipExcel = document.querySelector("#downloadMembershipExcel");
 const printMembershipReport = document.querySelector("#printMembershipReport");
 const openMembershipTemplateModal = document.querySelector("#openMembershipTemplateModal");
+const openMembershipRaiseModal = document.querySelector("#openMembershipRaiseModal");
+const membershipRaiseModal = document.querySelector("#membershipRaiseModal");
+const membershipRaiseForm = document.querySelector("#membershipRaiseForm");
+const membershipRaiseYear = document.querySelector("#membershipRaiseYear");
+const membershipRaiseMonth = document.querySelector("#membershipRaiseMonth");
+const closeMembershipRaiseModal = document.querySelector("#closeMembershipRaiseModal");
+const cancelMembershipRaise = document.querySelector("#cancelMembershipRaise");
 const membershipTemplateModal = document.querySelector("#membershipTemplateModal");
 const closeMembershipTemplateModal = document.querySelector("#closeMembershipTemplateModal");
 const cancelMembershipTemplate = document.querySelector("#cancelMembershipTemplate");
@@ -3925,6 +3932,19 @@ function membershipAvailableMonths(yearValue, includeAll = false) {
   }
   return includeAll ? [{ value: "Tümü", label: "Tüm aylar" }, ...months] : months;
 }
+function membershipPeriodOrder(year, month) {
+  return Number(year) * 100 + Number(month);
+}
+
+function updateMembershipRaiseMonths() {
+  if (!membershipRaiseMonth) return;
+  const year = membershipRaiseYear?.value || yearSelect.value || "2026";
+  const current = membershipRaiseMonth.value || (String(year) === "2026" ? String(currentMembershipOpenMonth()) : "1");
+  const options = membershipAvailableMonths(year, false);
+  membershipRaiseMonth.innerHTML = options.map((month) => `<option value="${month.value}">${month.label}</option>`).join("");
+  membershipRaiseMonth.value = options.some((option) => option.value === current) ? current : (options[0]?.value || "1");
+}
+
 
 function membershipSelectedMonthLabel() {
   const month = membershipMonthFilter?.value || "Tümü";
@@ -7529,8 +7549,60 @@ openMembershipTemplateModal?.addEventListener("click", () => {
   membershipTemplateModal?.showModal();
 });
 
+openMembershipRaiseModal?.addEventListener("click", () => {
+  updateMembershipRaiseMonths();
+  membershipRaiseModal?.showModal();
+});
+
+[closeMembershipRaiseModal, cancelMembershipRaise].forEach((button) => {
+  button?.addEventListener("click", () => membershipRaiseModal?.close());
+});
+
+membershipRaiseYear?.addEventListener("change", updateMembershipRaiseMonths);
+
 [closeMembershipTemplateModal, cancelMembershipTemplate].forEach((button) => {
   button?.addEventListener("click", () => membershipTemplateModal?.close());
+});
+
+
+membershipRaiseForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const formData = new FormData(membershipRaiseForm);
+  const year = String(formData.get("year") || yearSelect.value || "2026");
+  const month = Number(formData.get("month") || currentMembershipOpenMonth());
+  const raiseMap = new Map();
+  const amount500 = numberValue(formData.get("amount500"));
+  const amount200 = numberValue(formData.get("amount200"));
+  if (amount500 > 0) raiseMap.set(500, amount500);
+  if (amount200 > 0) raiseMap.set(200, amount200);
+  if (!raiseMap.size) { showToast("Güncellenecek yeni aidat tutarı girilmeli."); return; }
+  let templateUpdates = 0;
+  let recordUpdates = 0;
+  getMembershipTemplateList().forEach((item) => {
+    const nextDue = raiseMap.get(numberValue(item.due));
+    if (nextDue) {
+      item.due = nextDue;
+      templateUpdates += 1;
+    }
+  });
+  const startOrder = membershipPeriodOrder(year, month);
+  membershipRecords.forEach((record) => {
+    if (membershipPeriodOrder(record.year, record.month) < startOrder) return;
+    const baseDue = membershipBaseDue(record);
+    const nextBaseDue = raiseMap.get(numberValue(baseDue));
+    if (!nextBaseDue) return;
+    record.baseDue = nextBaseDue;
+    record.due = nextBaseDue + numberValue(record.carriedDebt);
+    record.updatedAt = new Date().toISOString();
+    recordUpdates += 1;
+  });
+  saveMembershipTemplates();
+  saveMembershipRecords();
+  recalculateMembershipAccruals();
+  membershipRaiseForm.reset();
+  membershipRaiseModal?.close();
+  renderMembership();
+  showToast(`${templateUpdates} kişi için aidat tutarı güncellendi, ${recordUpdates} dönem kaydı yenilendi.`);
 });
 
 membershipTemplateForm?.addEventListener("submit", (event) => {
