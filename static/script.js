@@ -24,7 +24,7 @@ function guardStockEditAction() {
 }
 
 function mutationModule(element) {
-  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",carryStockYearBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",stockCashIncomeForm:"stock",stockCashExpenseForm:"stock",membershipCreateForm:"membership",membershipTemplateForm:"membership",openMembershipTemplateModal:"membership",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
+  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",carryStockYearBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",stockCashIncomeForm:"stock",stockCashExpenseForm:"stock",membershipTemplateForm:"membership",openMembershipTemplateModal:"membership",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
   if (ids[element.id]) return ids[element.id];
   for (const [attr,module] of [["data-action","audits"],["data-approval-action","approvals"],["data-leave-action","leaves"],["data-leave-right-action","leaves"],["data-duty-action","duties"],["data-budget-item-action","budget"],["data-budget-expense-action","budget"],["data-stock-action","stock"],["data-membership-action","membership"],["data-membership-template-action","membership"],["data-monitoring-document-action","monitoring"],["data-report-document-action","reports"],["data-personnel-action","personnel"]]) {
     const action = element.getAttribute(attr);
@@ -320,6 +320,8 @@ const membershipTemplateRows = document.querySelector("#membershipTemplateRows")
 function normalizeLegacyMembershipTemplateArea() {
   const membershipPanel = document.querySelector("#aidat-takibi-panel");
   if (!membershipPanel) return;
+
+  document.querySelector("#membershipCreateForm")?.closest("section")?.remove();
 
   const panelActions = membershipPanel.querySelector(".panel-actions");
   if (panelActions && !document.querySelector("#openMembershipTemplateModal")) {
@@ -3906,10 +3908,21 @@ function membershipPeriodLabel(record) {
   return `${membershipMonths[Number(record.month || 1) - 1] || record.month} ${record.year}`;
 }
 
+function currentMembershipOpenMonth(today = new Date()) {
+  if (today.getFullYear() < 2026) return 9;
+  if (today.getFullYear() > 2026) return 12;
+  const month = today.getMonth() + 1;
+  if (month < 9) return 9;
+  const openMonth = today.getDate() >= 15 ? month + 1 : month;
+  return Math.min(12, Math.max(9, openMonth));
+}
+
 function membershipAvailableMonths(yearValue, includeAll = false) {
   const months = membershipMonths.map((month, index) => ({ value: String(index + 1), label: month }));
-  const available = String(yearValue) === "2026" ? months.filter((month) => Number(month.value) >= 9) : months;
-  return includeAll && String(yearValue) !== "2026" ? [{ value: "Tümü", label: "Tüm aylar" }, ...available] : available;
+  if (String(yearValue) === "2026") {
+    return months.filter((month) => Number(month.value) >= 9 && Number(month.value) <= currentMembershipOpenMonth());
+  }
+  return includeAll ? [{ value: "Tümü", label: "Tüm aylar" }, ...months] : months;
 }
 
 function membershipSelectedMonthLabel() {
@@ -3944,11 +3957,9 @@ function previousMembershipPeriod(year, month) {
   return { year: String(Number(year) - 1), month: 12 };
 }
 
-function nextMembershipAccrualPeriod(today = new Date()) {
-  const year = today.getFullYear();
-  const month = today.getMonth() + 1;
-  if (year !== 2026 || month < 9 || month >= 12 || today.getDate() < 15) return null;
-  return { year: String(year), month: month + 1 };
+function openMembershipAccrualPeriods(today = new Date()) {
+  const openMonth = currentMembershipOpenMonth(today);
+  return Array.from({ length: openMonth - 8 }, (_, index) => ({ year: "2026", month: 9 + index }));
 }
 
 function membershipRecordFor(person, year, month, records = membershipRecords) {
@@ -3970,62 +3981,65 @@ function buildMembershipNote(existingNote, carriedDebt) {
 function ensureAutomaticMembershipAccruals() {
   if (membershipAutoAccrualChecked || !canEditModule("membership")) return;
   membershipAutoAccrualChecked = true;
-  const target = nextMembershipAccrualPeriod();
-  if (!target) return;
   let changed = false;
+  const periods = openMembershipAccrualPeriods();
+  const periodKeys = new Set(periods.map((period) => `${period.year}-${period.month}`));
   const allowedNames = new Set(getMembershipTemplateList().map((item) => normalizeText(item.person)));
   membershipRecords = membershipRecords.filter((record) => {
-    const isTarget = String(record.year) === target.year && Number(record.month) === target.month;
-    if (isTarget && !allowedNames.has(normalizeText(record.person))) {
+    const recordPeriodKey = `${record.year}-${Number(record.month)}`;
+    const shouldManage = String(record.year) === "2026" && Number(record.month) >= 9;
+    if (shouldManage && (!periodKeys.has(recordPeriodKey) || !allowedNames.has(normalizeText(record.person)))) {
       markRecordDeleted("membershipRecords", record);
       changed = true;
       return false;
     }
     return true;
   });
-  getMembershipTemplateList().forEach((item) => {
-    const carriedDebt = membershipPreviousDebt(item.person, target.year, target.month);
-    const totalDue = item.due + carriedDebt;
-    const matching = membershipRecords.filter((record) => normalizeText(record.person) === normalizeText(item.person) && String(record.year) === target.year && Number(record.month) === target.month);
-    const existing = uniqueMembershipRecords(matching)[0];
-    matching.forEach((record) => {
-      if (existing && String(record.id) !== String(existing.id)) {
-        markRecordDeleted("membershipRecords", record);
-        membershipRecords = membershipRecords.filter((candidate) => String(candidate.id) !== String(record.id));
-        changed = true;
+  periods.forEach((target) => {
+    getMembershipTemplateList().forEach((item) => {
+      const carriedDebt = membershipPreviousDebt(item.person, target.year, target.month);
+      const totalDue = item.due + carriedDebt;
+      const matching = membershipRecords.filter((record) => normalizeText(record.person) === normalizeText(item.person) && String(record.year) === target.year && Number(record.month) === target.month);
+      const existing = uniqueMembershipRecords(matching)[0];
+      matching.forEach((record) => {
+        if (existing && String(record.id) !== String(existing.id)) {
+          markRecordDeleted("membershipRecords", record);
+          membershipRecords = membershipRecords.filter((candidate) => String(candidate.id) !== String(record.id));
+          changed = true;
+        }
+      });
+      if (existing) {
+        const nextRecord = {
+          ...existing,
+          baseDue: item.due,
+          carriedDebt,
+          due: totalDue,
+          note: buildMembershipNote(existing.note, carriedDebt),
+          updatedAt: new Date().toISOString(),
+        };
+        if (JSON.stringify(existing) !== JSON.stringify(nextRecord)) {
+          Object.assign(existing, nextRecord);
+          changed = true;
+        }
+        return;
       }
-    });
-    if (existing) {
-      const nextRecord = {
-        ...existing,
+      membershipRecords.push({
+        id: Date.now() + Math.random(),
+        person: item.person,
+        year: target.year,
+        month: target.month,
         baseDue: item.due,
         carriedDebt,
         due: totalDue,
-        note: buildMembershipNote(existing.note, carriedDebt),
+        paid: 0,
+        paidDate: "",
+        note: buildMembershipNote("", carriedDebt),
+        createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      };
-      if (JSON.stringify(existing) !== JSON.stringify(nextRecord)) {
-        Object.assign(existing, nextRecord);
-        changed = true;
-      }
-      return;
-    }
-    membershipRecords.push({
-      id: Date.now() + Math.random(),
-      person: item.person,
-      year: target.year,
-      month: target.month,
-      baseDue: item.due,
-      carriedDebt,
-      due: totalDue,
-      paid: 0,
-      paidDate: "",
-      note: buildMembershipNote("", carriedDebt),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      user: currentUser?.displayName || currentUser?.username || "-",
+        user: currentUser?.displayName || currentUser?.username || "-",
+      });
+      changed = true;
     });
-    changed = true;
   });
   if (changed) saveMembershipRecords();
 }
@@ -4055,7 +4069,7 @@ function updateMembershipSelectors() {
     const includeAll = select === membershipMonthFilter;
     const yearValue = select === membershipMonthFilter ? filterYear : createYear;
     const options = membershipAvailableMonths(yearValue, includeAll);
-    const fallback = includeAll && String(yearValue) !== "2026" ? "Tümü" : (String(yearValue) === "2026" ? "9" : String(new Date().getMonth() + 1));
+    const fallback = includeAll && String(yearValue) !== "2026" ? "Tümü" : (String(yearValue) === "2026" ? String(currentMembershipOpenMonth()) : String(new Date().getMonth() + 1));
     const current = select.value || fallback;
     select.innerHTML = options.map((month) => `<option value="${month.value}">${month.label}</option>`).join("");
     select.value = options.some((option) => option.value === current) ? current : fallback;
@@ -7554,56 +7568,6 @@ membershipTemplateRows?.addEventListener("click", (event) => {
   showToast("Hazır aidat listesi güncellendi.");
 });
 
-membershipCreateForm?.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const formData = new FormData(membershipCreateForm);
-  const year = String(formData.get("year") || yearSelect.value);
-  const month = Number(formData.get("month") || new Date().getMonth() + 1);
-  const overrideDue = numberValue(formData.get("due"));
-  const selectedPerson = String(formData.get("person") || "Tümü");
-  const people = selectedPerson === "Tümü" ? getMembershipTemplateList() : getMembershipTemplateList().filter((item) => normalizeText(item.person) === normalizeText(selectedPerson));
-  if (!people.length) { showToast("Hazır aidat listesinde kişi bulunamadı."); return; }
-  let created = 0;
-  let updated = 0;
-  people.forEach((item) => {
-    const person = item.person;
-    const baseDue = overrideDue > 0 ? overrideDue : item.due;
-    const carriedDebt = membershipPreviousDebt(person, year, month);
-    const due = baseDue + carriedDebt;
-    const existing = membershipRecords.find((record) => normalizeText(record.person) === normalizeText(person) && String(record.year) === year && Number(record.month) === month);
-    if (existing) {
-      existing.baseDue = baseDue;
-      existing.carriedDebt = carriedDebt;
-      existing.due = due;
-      existing.note = buildMembershipNote(existing.note, carriedDebt);
-      existing.updatedAt = new Date().toISOString();
-      updated += 1;
-      return;
-    }
-    membershipRecords.push({
-      id: Date.now() + Math.random(),
-      person,
-      year,
-      month,
-      baseDue,
-      carriedDebt,
-      due,
-      paid: 0,
-      paidDate: "",
-      note: buildMembershipNote("", carriedDebt),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      user: currentUser?.displayName || currentUser?.username || "-",
-    });
-    created += 1;
-  });
-  membershipYearFilter.value = year;
-  membershipMonthFilter.value = String(month);
-  saveMembershipRecords();
-  renderMembership();
-  showToast(`${created} hazır aidat kaydı oluşturuldu${updated ? `, ${updated} kayıt güncellendi` : ""}.`);
-});
-
 membershipRows?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-membership-action]");
   if (!button) return;
@@ -7632,11 +7596,9 @@ membershipRows?.addEventListener("click", (event) => {
   showToast("Aidat kaydı güncellendi.");
 });
 
-[membershipCreateYear, membershipYearFilter].forEach((control) => {
-  control?.addEventListener("change", () => {
-    updateMembershipSelectors();
-    renderMembership();
-  });
+membershipYearFilter?.addEventListener("change", () => {
+  updateMembershipSelectors();
+  renderMembership();
 });
 
 [membershipMonthFilter, membershipStatusFilter, membershipSearchInput].forEach((control) => {
@@ -7647,7 +7609,7 @@ membershipRows?.addEventListener("click", (event) => {
 clearMembershipFilters?.addEventListener("click", () => {
   membershipYearFilter.value = yearSelect.value;
   updateMembershipSelectors();
-  membershipMonthFilter.value = String(yearSelect.value) === "2026" ? "9" : "Tümü";
+  membershipMonthFilter.value = String(yearSelect.value) === "2026" ? String(currentMembershipOpenMonth()) : "Tümü";
   membershipStatusFilter.value = "Tümü";
   membershipSearchInput.value = "";
   renderMembership();
