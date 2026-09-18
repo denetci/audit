@@ -442,6 +442,8 @@ const dutyRecordCount = document.querySelector("#dutyRecordCount");
 const dutyTotalDays = document.querySelector("#dutyTotalDays");
 const dutyUpcomingLeaveCount = document.querySelector("#dutyUpcomingLeaveCount");
 const dutyUpcomingLeaveNames = document.querySelector("#dutyUpcomingLeaveNames");
+const dutyUpcomingDutyCount = document.querySelector("#dutyUpcomingDutyCount");
+const dutyUpcomingDutyNames = document.querySelector("#dutyUpcomingDutyNames");
 const dutyActivePreviewCount = document.querySelector("#dutyActivePreviewCount");
 const dutyActivePreviewList = document.querySelector("#dutyActivePreviewList");
 const dutyReturnedPreviewCount = document.querySelector("#dutyReturnedPreviewCount");
@@ -5074,6 +5076,7 @@ function leaveDetailConfig() {
       active: { title: "Görevde Olanlar", summary: "Dönüşü yapılmamış aktif görev kayıtları", tone: "blue" },
       unavailable: { title: "İzin / Rapor", summary: "Bugün izinli, görev izinli veya raporlu görünen personel", tone: "amber" },
       upcoming: { title: "İzni Yaklaşanlar", summary: "Önümüzdeki 30 günde onaylı izni başlayacak personel", tone: "cyan" },
+      upcomingDuty: { title: "Görevi Yaklaşanlar", summary: "Önümüzdeki 30 günde başlayacak görev kayıtları", tone: "blue" },
     },
   };
   return configs[isDuty ? "duty" : "leave"][type] || configs.leave.active;
@@ -5095,6 +5098,7 @@ function getLeaveDetailRecords() {
     if (activeLeaveDetail.type === "active") records = allStatuses.filter((record) => record.status === "Görevde").map((record) => ({ kind: "status", record }));
     if (activeLeaveDetail.type === "unavailable") records = allStatuses.filter((record) => ["Görev İzninde", "İzinde", "Raporlu"].includes(record.status)).map((record) => ({ kind: "status", record }));
     if (activeLeaveDetail.type === "upcoming") records = upcoming.map((leave) => ({ kind: "leave", leave }));
+    if (activeLeaveDetail.type === "upcomingDuty") records = getUpcomingDutyRecords().map((duty) => ({ kind: "duty", duty }));
   }
 
   if (!query) return records;
@@ -5105,6 +5109,11 @@ function leaveDetailSearchText(item) {
   if (item.kind === "leave") {
     const leave = item.leave;
     return [leave.person, leave.title, leave.unit, leave.type, leave.status, leave.start, leave.end, leave.note].join(" ");
+  }
+  if (item.kind === "duty") {
+    const duty = item.duty;
+    const person = findPersonnelByName(duty.person);
+    return [duty.person, duty.title || person?.title, duty.unit || person?.unit, duty.dutyName, duty.place, duty.start, duty.returnDate, duty.note].join(" ");
   }
   if (item.kind === "right") {
     const right = item.right;
@@ -5130,6 +5139,32 @@ function renderLeaveDetailCard(item) {
           <span><b>${escapeHtml(totalRight)}</b> hak</span>
           <span><b>${escapeHtml(used)}</b> kullanılan</span>
           <span><b>${escapeHtml(remaining)}</b> kalan</span>
+        </div>
+      </article>
+    `;
+  }
+
+  if (item.kind === "duty") {
+    const duty = item.duty;
+    const person = findPersonnelByName(duty.person);
+    const today = getTodayDateOnly();
+    const startDate = parseDateOnly(duty.start);
+    const startText = startDate ? `${Math.max(getDayDifference(today, startDate), 0)} gün sonra başlayacak` : "Tarih yok";
+    return `
+      <article class="leave-detail-card upcoming">
+        <div class="leave-detail-card-main">
+          <strong>${escapeHtml(duty.person)}</strong>
+          <span>${escapeHtml(duty.title || person?.title || "-")} · ${escapeHtml(duty.unit || person?.unit || getPersonnelUnit(person) || "-")}</span>
+        </div>
+        <div class="leave-detail-meta-grid">
+          <span><b>Görev</b>${escapeHtml(duty.dutyName || "-")}</span>
+          <span><b>Görev yeri</b>${escapeHtml(duty.place || "-")}</span>
+          <span><b>Başlangıç</b>${formatDate(duty.start)}</span>
+          <span><b>Dönüş</b>${formatDate(duty.returnDate)}</span>
+        </div>
+        <div class="leave-detail-card-foot">
+          <span class="status waiting">Planlandı</span>
+          <strong>${escapeHtml(startText)}</strong>
         </div>
       </article>
     `;
@@ -5526,6 +5561,17 @@ function showDutyHistory(personName) {
   dutyHistoryModal.showModal();
 }
 
+
+function getUpcomingDutyRecords() {
+  const today = getTodayDateOnly();
+  const limit = new Date(today);
+  limit.setDate(limit.getDate() + 30);
+  return dutyRecords.filter((duty) => {
+    const start = parseDateOnly(duty.start);
+    return matchesSelectedRecordYear(duty, dutyYearFilter.value) && duty.status === "Görevde" && start && start > today && start <= limit;
+  }).sort((a, b) => String(a.start).localeCompare(String(b.start)));
+}
+
 function getUpcomingDutyLeaves() {
   const today = getTodayDateOnly();
   const limit = new Date(today);
@@ -5543,7 +5589,12 @@ function renderDutyRecords() {
   dutyActiveCount.closest(".card").querySelector(".note").textContent = hasAccess("leaves") ? "Bugün kurumda görünen personel" : "İzin durumu bu yetkiyle görüntülenmez";
   const visibleStatuses = getVisiblePersonnelStatuses();
   const allStatuses = getLeavePersonnel().map(getPersonnelStatusRecord);
-  const activeDuties = dutyRecords.filter((duty) => matchesSelectedRecordYear(duty, dutyYearFilter.value) && duty.status === "Görevde");
+  const today = getTodayDateOnly();
+  const activeDuties = dutyRecords.filter((duty) => {
+    const start = parseDateOnly(duty.start);
+    return matchesSelectedRecordYear(duty, dutyYearFilter.value) && duty.status === "Görevde" && (!start || start <= today);
+  });
+  const upcomingDuties = getUpcomingDutyRecords();
   const unavailablePeople = allStatuses.filter((record) =>
     ["Görev İzninde", "İzinde", "Raporlu"].includes(record.status),
   );
@@ -5573,6 +5624,10 @@ function renderDutyRecords() {
   dutyUpcomingLeaveNames.textContent = people.size
     ? Array.from(people.values()).map((leave) => `${leave.person} · ${formatDate(leave.start)}`).join("; ")
     : "Yaklaşan onaylı izin yok.";
+  dutyUpcomingDutyCount.textContent = upcomingDuties.length;
+  dutyUpcomingDutyNames.textContent = upcomingDuties.length
+    ? upcomingDuties.slice(0, 2).map((duty) => `${duty.person} · ${formatDate(duty.start)}`).join("; ")
+    : "Yaklaşan görev yok.";
   dutyEmptyState.hidden = visibleStatuses.length > 0;
 }
 
