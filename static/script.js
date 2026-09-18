@@ -440,10 +440,9 @@ const dutyEmptyState = document.querySelector("#dutyEmptyState");
 const dutyActiveCount = document.querySelector("#dutyActiveCount");
 const dutyRecordCount = document.querySelector("#dutyRecordCount");
 const dutyTotalDays = document.querySelector("#dutyTotalDays");
-const dutyUpcomingLeaveCount = document.querySelector("#dutyUpcomingLeaveCount");
-const dutyUpcomingLeaveNames = document.querySelector("#dutyUpcomingLeaveNames");
-const dutyUpcomingDutyCount = document.querySelector("#dutyUpcomingDutyCount");
-const dutyUpcomingDutyNames = document.querySelector("#dutyUpcomingDutyNames");
+const dutyUpcomingPlanCount = document.querySelector("#dutyUpcomingPlanCount");
+const dutyUpcomingPlanSummary = document.querySelector("#dutyUpcomingPlanSummary");
+const dutyUpcomingPlanNames = document.querySelector("#dutyUpcomingPlanNames");
 const dutyActivePreviewCount = document.querySelector("#dutyActivePreviewCount");
 const dutyActivePreviewList = document.querySelector("#dutyActivePreviewList");
 const dutyReturnedPreviewCount = document.querySelector("#dutyReturnedPreviewCount");
@@ -5075,8 +5074,7 @@ function leaveDetailConfig() {
       office: { title: "Birimde Olanlar", summary: "Bugün kurumda görünen personel", tone: "green" },
       active: { title: "Görevde Olanlar", summary: "Dönüşü yapılmamış aktif görev kayıtları", tone: "blue" },
       unavailable: { title: "İzin / Rapor", summary: "Bugün izinli, görev izinli veya raporlu görünen personel", tone: "amber" },
-      upcoming: { title: "İzni Yaklaşanlar", summary: "Önümüzdeki 30 günde onaylı izni başlayacak personel", tone: "cyan" },
-      upcomingDuty: { title: "Görevi Yaklaşanlar", summary: "Önümüzdeki 30 günde başlayacak görev kayıtları", tone: "blue" },
+      upcoming: { title: "Yaklaşan Planlar", summary: "Önümüzdeki 30 günde başlayacak izin ve görevler", tone: "cyan" },
     },
   };
   return configs[isDuty ? "duty" : "leave"][type] || configs.leave.active;
@@ -5097,8 +5095,12 @@ function getLeaveDetailRecords() {
     if (activeLeaveDetail.type === "office") records = allStatuses.filter((record) => ["Birimde", "Görev kaydı yok"].includes(record.status)).map((record) => ({ kind: "status", record }));
     if (activeLeaveDetail.type === "active") records = allStatuses.filter((record) => record.status === "Görevde").map((record) => ({ kind: "status", record }));
     if (activeLeaveDetail.type === "unavailable") records = allStatuses.filter((record) => ["Görev İzninde", "İzinde", "Raporlu"].includes(record.status)).map((record) => ({ kind: "status", record }));
-    if (activeLeaveDetail.type === "upcoming") records = upcoming.map((leave) => ({ kind: "leave", leave }));
-    if (activeLeaveDetail.type === "upcomingDuty") records = getUpcomingDutyRecords().map((duty) => ({ kind: "duty", duty }));
+    if (activeLeaveDetail.type === "upcoming") {
+      records = [
+        ...upcoming.map((leave) => ({ kind: "leave", leave })),
+        ...getUpcomingDutyRecords().map((duty) => ({ kind: "duty", duty })),
+      ].sort((a, b) => String(a.leave?.start || a.duty?.start || "").localeCompare(String(b.leave?.start || b.duty?.start || "")));
+    }
   }
 
   if (!query) return records;
@@ -5584,7 +5586,7 @@ function getUpcomingDutyLeaves() {
 
 function renderDutyRecords() {
   dutyTotalDays.closest(".card").hidden = !hasAccess("leaves");
-  dutyUpcomingLeaveCount.closest(".card").hidden = !hasAccess("leaves");
+  dutyUpcomingPlanCount.closest(".card").hidden = !hasAccess("leaves") && !hasAccess("duties");
   dutyActiveCount.closest(".card").querySelector("p").textContent = hasAccess("leaves") ? "Birimde" : "Aktif Görevi Olmayanlar";
   dutyActiveCount.closest(".card").querySelector(".note").textContent = hasAccess("leaves") ? "Bugün kurumda görünen personel" : "İzin durumu bu yetkiyle görüntülenmez";
   const visibleStatuses = getVisiblePersonnelStatuses();
@@ -5620,14 +5622,17 @@ function renderDutyRecords() {
   dutyActiveCount.textContent = officePeople.length;
   dutyRecordCount.textContent = activeDuties.length;
   dutyTotalDays.textContent = unavailablePeople.length;
-  dutyUpcomingLeaveCount.textContent = people.size;
-  dutyUpcomingLeaveNames.textContent = people.size
-    ? Array.from(people.values()).map((leave) => `${leave.person} · ${formatDate(leave.start)}`).join("; ")
-    : "Yaklaşan onaylı izin yok.";
-  dutyUpcomingDutyCount.textContent = upcomingDuties.length;
-  dutyUpcomingDutyNames.textContent = upcomingDuties.length
-    ? upcomingDuties.slice(0, 2).map((duty) => `${duty.person} · ${formatDate(duty.start)}`).join("; ")
-    : "Yaklaşan görev yok.";
+  const upcomingLeaveCount = people.size;
+  const upcomingDutyCount = upcomingDuties.length;
+  const upcomingPlanItems = [
+    ...Array.from(people.values()).map((leave) => ({ type: "İzin", person: leave.person, date: leave.start })),
+    ...upcomingDuties.map((duty) => ({ type: "Görev", person: duty.person, date: duty.start })),
+  ].sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
+  dutyUpcomingPlanCount.textContent = upcomingLeaveCount + upcomingDutyCount;
+  dutyUpcomingPlanSummary.textContent = `${upcomingLeaveCount} izin · ${upcomingDutyCount} görev`;
+  dutyUpcomingPlanNames.textContent = upcomingPlanItems.length
+    ? upcomingPlanItems.slice(0, 2).map((item) => `${item.type}: ${item.person} · ${formatDate(item.date)}`).join("; ")
+    : "Yaklaşan izin veya görev yok.";
   dutyEmptyState.hidden = visibleStatuses.length > 0;
 }
 
