@@ -555,6 +555,20 @@ let editingStockProductId = null;
 let stockMovementMode = "GIRIS";
 let selectedStockProductId = null;
 const membershipMonths = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+const defaultMembershipDues = [
+  ["Erdal ÖZYÖN", 500], ["M.Ramiz DİLLİ", 500], ["Mustafa BEGEN", 500], ["Esra DARGA", 500],
+  ["Alpay ALTUNTAŞ", 500], ["Çiğdem ÖZGEL", 500], ["E.Sadettin KABAKÇI", 500], ["Hakan VELİOĞLU", 500],
+  ["Haydar SÜNER", 500], ["Kerim ÜSTÜN", 500], ["Lütfi KORKUT", 500], ["Mecbure ASLAN", 500],
+  ["Mehmet KURU", 500], ["Deniz Savaş SARI", 500], ["Ramazan ORMAN", 500], ["Semih EROĞLU", 500],
+  ["Selçuk OLUM", 500], ["Selin YÖRÜK", 500], ["Serkan DOĞAN", 500], ["Süleyman DEĞERLİ", 500],
+  ["Şehmus AYYILDIZ", 500], ["Handan Erkan ŞAHİN", 500], ["Yavuz YENER", 500], ["Şerife SERTKAYA", 500],
+  ["Şahin KARAKAŞ", 500], ["Setenay Beril TEKİN", 500], ["Mesut EKMEKÇİ", 500], ["Öznur YAVUZ", 500],
+  ["Kemal SANCAR", 500], ["Hasan Alper ELEKON", 500], ["Bahadır TOPAL", 500], ["Elmas ÖZDEMİR", 500],
+  ["Nilüfer ALA", 500], ["Sibel ÇALIŞKAN", 500], ["Emine GÖRGÜLÜ", 500], ["Mustafa Kemal DEMİREL", 500],
+  ["Kenan KOPAN", 500], ["Mahmut Sami ÖZKAN", 500], ["Volkan DAL", 200], ["Hasan Yüksel", 200],
+  ["Meryem KOYUNCU", 200], ["Elmaziye AKTAŞ", 200], ["İhan ÜNAL", 200],
+  ["Yunus Emre KAYRA", 200],
+].map(([person, due]) => ({ person, due }));
 let editingMonitoringAudit = null;
 let selectedReportAuditKey = "";
 let toastTimer = null;
@@ -3825,7 +3839,7 @@ function updateMembershipSelectors() {
   });
   if (membershipCreatePerson) {
     const current = membershipCreatePerson.value || "Tümü";
-    membershipCreatePerson.innerHTML = `<option value="Tümü">Tüm aktif personel</option>${activeMembershipPeople().map((person) => `<option value="${escapeHtml(person.name)}">${escapeHtml(person.name)} · ${escapeHtml(person.title || "")}</option>`).join("")}`;
+    membershipCreatePerson.innerHTML = `<option value="Tümü">Hazır listedeki tüm kişiler</option>${defaultMembershipDues.map((item) => `<option value="${escapeHtml(item.person)}">${escapeHtml(item.person)} · ${formatMoney(item.due)} TL</option>`).join("")}`;
     membershipCreatePerson.value = [...membershipCreatePerson.options].some((option) => option.value === current) ? current : "Tümü";
   }
   if (membershipCreateYear && !membershipCreateYear.value) membershipCreateYear.value = yearSelect.value;
@@ -7243,14 +7257,15 @@ membershipCreateForm?.addEventListener("submit", (event) => {
   const formData = new FormData(membershipCreateForm);
   const year = String(formData.get("year") || yearSelect.value);
   const month = Number(formData.get("month") || new Date().getMonth() + 1);
-  const due = numberValue(formData.get("due"));
-  if (due <= 0) { showToast("Aidat tutarı sıfırdan büyük olmalı."); return; }
+  const overrideDue = numberValue(formData.get("due"));
   const selectedPerson = String(formData.get("person") || "Tümü");
-  const people = selectedPerson === "Tümü" ? activeMembershipPeople().map((person) => person.name) : [selectedPerson];
-  if (!people.length) { showToast("Aidat oluşturmak için personel kaydı bulunamadı."); return; }
+  const people = selectedPerson === "Tümü" ? defaultMembershipDues : defaultMembershipDues.filter((item) => normalizeText(item.person) === normalizeText(selectedPerson));
+  if (!people.length) { showToast("Hazır aidat listesinde kişi bulunamadı."); return; }
   let created = 0;
   let updated = 0;
-  people.forEach((person) => {
+  people.forEach((item) => {
+    const person = item.person;
+    const due = overrideDue > 0 ? overrideDue : item.due;
     const existing = membershipRecords.find((record) => normalizeText(record.person) === normalizeText(person) && String(record.year) === year && Number(record.month) === month);
     if (existing) {
       existing.due = due;
@@ -7277,7 +7292,7 @@ membershipCreateForm?.addEventListener("submit", (event) => {
   membershipMonthFilter.value = String(month);
   saveMembershipRecords();
   renderMembership();
-  showToast(`${created} aidat kaydı oluşturuldu${updated ? `, ${updated} kayıt güncellendi` : ""}.`);
+  showToast(`${created} hazır aidat kaydı oluşturuldu${updated ? `, ${updated} kayıt güncellendi` : ""}.`);
 });
 
 membershipRows?.addEventListener("click", (event) => {
@@ -7545,3 +7560,4 @@ document.querySelector("#restoreDatabaseForm")?.addEventListener("submit", async
     button.disabled = false;
   }
 });
+
