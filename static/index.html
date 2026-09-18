@@ -168,6 +168,7 @@
           <a href="#"><span class="nav-icon">◇</span>Eğitimler</a>
           <a id="budgetNav" href="#butce-islemleri-panel"><span class="nav-icon">₺</span>Bütçe İşlemleri</a>
           <a id="stockNav" href="#stok-islemleri-panel"><span class="nav-icon">▦</span>Stok İşlemleri</a>
+          <a id="membershipNav" href="#aidat-takibi-panel"><span class="nav-icon">◎</span>Aidat Takibi</a>
           <a id="monitoringNav" href="#izleme-faaliyetleri-panel"><span class="nav-icon">◎</span>İzleme Faaliyetleri</a>
           <a id="reportsNav" href="#rapor-arsivi-panel"><span class="nav-icon">▢</span>Rapor Arşivi</a>
           <a id="adminNav" href="#yonetim-panel" hidden><span class="nav-icon">⚙</span>Yönetim</a>
@@ -726,6 +727,73 @@
               <div class="empty-state" id="budgetEmptyState" hidden>
                 <strong>Bütçe kalemi bulunamadı</strong>
                 <span>Yeni kalem ekleyebilir veya filtreleri değiştirebilirsin.</span>
+              </div>
+            </section>
+
+
+
+            <section class="panel membership-panel" id="aidat-takibi-panel" data-view="membership" hidden>
+              <div class="panel-head">
+                <div>
+                  <h2>Aidat Takibi</h2>
+                  <p class="eyebrow">Personelden toplanan aylık aidatlar, borç durumu ve raporlama ekranı</p>
+                </div>
+                <div class="panel-actions">
+                  <span class="panel-count"><strong id="membershipRecordCount">0</strong> kayıt</span>
+                  <button class="btn secondary" id="downloadMembershipExcel" type="button">Excel İndir</button>
+                  <button class="btn primary" id="printMembershipReport" type="button">PDF / Yazdır</button>
+                </div>
+              </div>
+
+              <div class="stats membership-stats" aria-label="Aidat özetleri">
+                <article class="card"><div class="stat-top"><div class="stat-icon bg-blue">₺</div></div><p>Tahakkuk</p><div class="value"><strong id="membershipTotalDue">0,00 TL</strong></div><div class="note">Seçili filtreye göre ödenmesi gereken</div></article>
+                <article class="card"><div class="stat-top"><div class="stat-icon bg-green">✓</div></div><p>Tahsilat</p><div class="value"><strong id="membershipTotalPaid">0,00 TL</strong></div><div class="note">Tahsil edilen aidat toplamı</div></article>
+                <article class="card"><div class="stat-top"><div class="stat-icon bg-red">!</div></div><p>Kalan Borç</p><div class="value"><strong id="membershipTotalDebt">0,00 TL</strong></div><div class="note">Eksik ödemesi bulunan tutar</div></article>
+                <article class="card"><div class="stat-top"><div class="stat-icon bg-amber">⌛</div></div><p>Borçlu Personel</p><div class="value"><strong id="membershipDebtorCount">0</strong><span>kişi</span></div><div class="note">Seçili ay veya yıl için borçlu</div></article>
+              </div>
+
+              <section class="membership-entry-panel">
+                <div class="sub-panel-head compact-head">
+                  <div><h3>Aylık Aidat Oluştur</h3><p class="eyebrow">Seçili ay için aktif personel listesine sabit tahakkuk açar; satırdan düzeltilebilir</p></div>
+                </div>
+                <form class="membership-create-form" id="membershipCreateForm">
+                  <label>Yıl<select name="year" id="membershipCreateYear"><option>2026</option><option>2025</option><option>2024</option></select></label>
+                  <label>Ay<select name="month" id="membershipCreateMonth"></select></label>
+                  <label>Kişi<select name="person" id="membershipCreatePerson"><option value="Tümü">Tüm aktif personel</option></select></label>
+                  <label>Aylık Aidat<input name="due" inputmode="decimal" placeholder="Örn. 500,00" required /></label>
+                  <button class="btn primary" type="submit">Tahakkuk Oluştur</button>
+                </form>
+              </section>
+
+              <div class="module-filters membership-filters" aria-label="Aidat filtreleri">
+                <label>Yıl<select id="membershipYearFilter"><option>2026</option><option>2025</option><option>2024</option><option value="Tümü">Tümü</option></select></label>
+                <label>Ay<select id="membershipMonthFilter"><option value="Tümü">Tüm aylar</option></select></label>
+                <label>Durum<select id="membershipStatusFilter"><option value="Tümü">Tümü</option><option value="Borçlu">Borçlu</option><option value="Ödendi">Ödendi</option><option value="Kısmi">Kısmi Ödendi</option></select></label>
+                <label class="wide-filter">Kişi / Arama<input id="membershipSearchInput" placeholder="Personel adı veya not ara..." /></label>
+                <button class="btn secondary" id="clearMembershipFilters" type="button">Temizle</button>
+              </div>
+
+              <div class="table-wrap">
+                <table class="membership-table">
+                  <thead>
+                    <tr>
+                      <th>Personel</th>
+                      <th>Dönem</th>
+                      <th>Ödenmesi Gereken</th>
+                      <th>Ödenen</th>
+                      <th>Kalan</th>
+                      <th>Ödeme Tarihi</th>
+                      <th>Durum</th>
+                      <th>Not</th>
+                      <th>İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody id="membershipRows"></tbody>
+                </table>
+              </div>
+              <div class="empty-state" id="membershipEmptyState" hidden>
+                <strong>Aidat kaydı bulunamadı</strong>
+                <span>Seçili ay için tahakkuk oluşturabilir veya filtreleri değiştirebilirsin.</span>
               </div>
             </section>
 

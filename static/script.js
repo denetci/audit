@@ -1,4 +1,4 @@
-const MODULE_LABELS = {dashboard:"Faaliyet Paneli", audits:"Denetimler", approvals:"Olurlar", personnel:"Personel", leaves:"Personel İzinleri", duties:"Görev Durumu", budget:"Bütçe İşlemleri", stock:"Stok İşlemleri", monitoring:"İzleme Faaliyetleri", reports:"Rapor Arşivi"};
+const MODULE_LABELS = {dashboard:"Faaliyet Paneli", audits:"Denetimler", approvals:"Olurlar", personnel:"Personel", leaves:"Personel İzinleri", duties:"Görev Durumu", budget:"Bütçe İşlemleri", stock:"Stok İşlemleri", membership:"Aidat Takibi", monitoring:"İzleme Faaliyetleri", reports:"Rapor Arşivi"};
 function hasAccess(module, edit = false) {
   if (!currentUser) return false;
   if (currentUser.owner) return true;
@@ -24,9 +24,9 @@ function guardStockEditAction() {
 }
 
 function mutationModule(element) {
-  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",carryStockYearBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",stockCashIncomeForm:"stock",stockCashExpenseForm:"stock",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
+  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",carryStockYearBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",stockCashIncomeForm:"stock",stockCashExpenseForm:"stock",membershipCreateForm:"membership",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
   if (ids[element.id]) return ids[element.id];
-  for (const [attr,module] of [["data-action","audits"],["data-approval-action","approvals"],["data-leave-action","leaves"],["data-leave-right-action","leaves"],["data-duty-action","duties"],["data-budget-item-action","budget"],["data-budget-expense-action","budget"],["data-stock-action","stock"],["data-monitoring-document-action","monitoring"],["data-report-document-action","reports"],["data-personnel-action","personnel"]]) {
+  for (const [attr,module] of [["data-action","audits"],["data-approval-action","approvals"],["data-leave-action","leaves"],["data-leave-right-action","leaves"],["data-duty-action","duties"],["data-budget-item-action","budget"],["data-budget-expense-action","budget"],["data-stock-action","stock"],["data-membership-action","membership"],["data-monitoring-document-action","monitoring"],["data-report-document-action","reports"],["data-personnel-action","personnel"]]) {
     const action = element.getAttribute(attr);
     if (["edit","delete","cancel","return","rename","save-link","monitoring","toggle-menu","entry","exit"].includes(action)) return action === "monitoring" ? "monitoring" : module;
   }
@@ -61,7 +61,7 @@ function guardModuleNavigation(event, moduleName) {
 }
 
 function applyModulePermissions() {
-  const navs = [["#dashboardNav","dashboard"],["#auditMenuToggle","audits"],["#approvalsNav","approvals"],["#personnelMenuToggle","personnel"],["#budgetNav","budget"],["#stockNav","stock"],["#reportsNav","reports"],["#monitoringNav","monitoring"]];
+  const navs = [["#dashboardNav","dashboard"],["#auditMenuToggle","audits"],["#approvalsNav","approvals"],["#personnelMenuToggle","personnel"],["#budgetNav","budget"],["#stockNav","stock"],["#membershipNav","membership"],["#reportsNav","reports"],["#monitoringNav","monitoring"]];
   navs.forEach(([selector,module]) => setNavPermissionState(document.querySelector(selector), module === "dashboard" ? canOpenModule("dashboard") : hasAccess(module)));
   setNavPermissionState(leaveMenuToggle, hasAccess("leaves") || hasAccess("duties"));
   leaveModuleButtons.forEach(button => setNavPermissionState(button, hasAccess(button.dataset.leaveModule === "Görev Durumu" ? "duties" : "leaves")));
@@ -169,6 +169,7 @@ let budgetItems = [];
 let budgetExpenses = [];
 let stockItems = [];
 let stockCashRecords = [];
+let membershipRecords = [];
 let reportDocuments = [];
 let personnelRecords = [];
 let leaveRights = [];
@@ -207,6 +208,7 @@ const reportsNav = document.querySelector("#reportsNav");
 const monitoringNav = document.querySelector("#monitoringNav");
 const budgetNav = document.querySelector("#budgetNav");
 const stockNav = document.querySelector("#stockNav");
+const membershipNav = document.querySelector("#membershipNav");
 const adminNav = document.querySelector("#adminNav");
 const personnelMenuToggle = document.querySelector("#personnelMenuToggle");
 const personnelSubnav = document.querySelector("#personnelSubnav");
@@ -243,6 +245,7 @@ const personnelProfileSections = Array.from(document.querySelectorAll('[data-vie
 const budgetSections = Array.from(document.querySelectorAll('[data-view="budget"]'));
 const budgetDetailSections = Array.from(document.querySelectorAll('[data-view="budgetDetail"]'));
 const stockSections = Array.from(document.querySelectorAll('[data-view="stock"]'));
+const membershipSections = Array.from(document.querySelectorAll('[data-view="membership"]'));
 const reportSections = Array.from(document.querySelectorAll('[data-view="reports"]'));
 const stockProductCount = document.querySelector("#stockProductCount");
 const stockCashBalance = document.querySelector("#stockCashBalance");
@@ -288,6 +291,24 @@ const stockMovementModalMode = document.querySelector("#stockMovementModalMode")
 const stockMovementModalTitle = document.querySelector("#stockMovementModalTitle");
 const closeStockMovementModal = document.querySelector("#closeStockMovementModal");
 const cancelStockMovement = document.querySelector("#cancelStockMovement");
+const membershipRecordCount = document.querySelector("#membershipRecordCount");
+const membershipTotalDue = document.querySelector("#membershipTotalDue");
+const membershipTotalPaid = document.querySelector("#membershipTotalPaid");
+const membershipTotalDebt = document.querySelector("#membershipTotalDebt");
+const membershipDebtorCount = document.querySelector("#membershipDebtorCount");
+const membershipCreateForm = document.querySelector("#membershipCreateForm");
+const membershipCreateYear = document.querySelector("#membershipCreateYear");
+const membershipCreateMonth = document.querySelector("#membershipCreateMonth");
+const membershipCreatePerson = document.querySelector("#membershipCreatePerson");
+const membershipYearFilter = document.querySelector("#membershipYearFilter");
+const membershipMonthFilter = document.querySelector("#membershipMonthFilter");
+const membershipStatusFilter = document.querySelector("#membershipStatusFilter");
+const membershipSearchInput = document.querySelector("#membershipSearchInput");
+const clearMembershipFilters = document.querySelector("#clearMembershipFilters");
+const membershipRows = document.querySelector("#membershipRows");
+const membershipEmptyState = document.querySelector("#membershipEmptyState");
+const downloadMembershipExcel = document.querySelector("#downloadMembershipExcel");
+const printMembershipReport = document.querySelector("#printMembershipReport");
 
 const monitoringSections = Array.from(document.querySelectorAll('[data-view="monitoring"]'));
 const adminSections = Array.from(document.querySelectorAll('[data-view="admin"]'));
@@ -533,6 +554,7 @@ let selectedBudgetItemId = null;
 let editingStockProductId = null;
 let stockMovementMode = "GIRIS";
 let selectedStockProductId = null;
+const membershipMonths = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 let editingMonitoringAudit = null;
 let selectedReportAuditKey = "";
 let toastTimer = null;
@@ -552,6 +574,7 @@ const sharedCollections = [
   "budgetExpenses",
   "stockItems",
   "stockCashRecords",
+  "membershipRecords",
   "reportDocuments",
   "personnelRecords",
 ];
@@ -973,6 +996,10 @@ function getSharedCollectionRecords(collection) {
     return stockCashRecords;
   }
 
+  if (collection === "membershipRecords") {
+    return membershipRecords;
+  }
+
   if (collection === "reportDocuments") {
     return reportDocuments;
   }
@@ -989,7 +1016,7 @@ function recordKeyForCollection(collection, record) {
     return `${record.year}-${record.no}`;
   }
 
-  if (collection === "leaves" || collection === "leaveRights" || collection === "dutyRecords" || collection === "budgetItems" || collection === "budgetExpenses" || collection === "stockItems" || collection === "stockCashRecords") {
+  if (collection === "leaves" || collection === "leaveRights" || collection === "dutyRecords" || collection === "budgetItems" || collection === "budgetExpenses" || collection === "stockItems" || collection === "stockCashRecords" || collection === "membershipRecords") {
     return String(record.id);
   }
 
@@ -1044,7 +1071,7 @@ function buildChangedSharedState() {
   };
 
   sharedCollections.forEach((collection) => {
-    const modules = {audits:"audits",approvals:"approvals",leaves:"leaves",leaveRights:"leaves",dutyRecords:"duties",budgetItems:"budget",budgetExpenses:"budget",stockItems:"stock",stockCashRecords:"stock",reportDocuments:"reports",personnelRecords:"personnel"};
+    const modules = {audits:"audits",approvals:"approvals",leaves:"leaves",leaveRights:"leaves",dutyRecords:"duties",budgetItems:"budget",budgetExpenses:"budget",stockItems:"stock",stockCashRecords:"stock",membershipRecords:"membership",reportDocuments:"reports",personnelRecords:"personnel"};
     if (!hasAccess(modules[collection], true) && !(collection === "audits" && hasAccess("monitoring", true)) && !(collection === "reportDocuments" && hasAccess("monitoring", true))) return;
     const changedRecords = [];
     const previousRecords = lastSharedRecordJson[collection] || {};
@@ -1100,6 +1127,7 @@ function buildLocalStorageState() {
   const storedBudget = readStoredJson("ic-denetim-budget");
   const storedLeaveRights = readStoredJson("ic-denetim-leave-rights");
   const storedReportDocuments = readStoredJson("ic-denetim-report-documents");
+  const storedMembership = readStoredJson("ic-denetim-membership");
   const storedPersonnel = readStoredJson("ic-denetim-personnel");
 
   return {
@@ -1122,6 +1150,7 @@ function buildLocalStorageState() {
       : [...defaultBudgetExpenses],
     stockItems: [],
     stockCashRecords: [],
+    membershipRecords: Array.isArray(storedMembership.membershipRecords) ? storedMembership.membershipRecords : [],
     leaveRights: Array.isArray(storedLeaveRights.leaveRights)
       ? storedLeaveRights.leaveRights
       : [...defaultLeaveRights],
@@ -1151,6 +1180,7 @@ function hasSharedState(payload) {
       Array.isArray(payload.budgetExpenses) ||
       Array.isArray(payload.stockItems) ||
       Array.isArray(payload.stockCashRecords) ||
+      Array.isArray(payload.membershipRecords) ||
       Array.isArray(payload.reportDocuments) ||
       Array.isArray(payload.personnelRecords))
   );
@@ -1188,6 +1218,10 @@ function applySharedState(payload) {
 
   if (Array.isArray(payload.stockCashRecords)) {
     stockCashRecords = hasAccess("stock") ? payload.stockCashRecords : [];
+  }
+
+  if (Array.isArray(payload.membershipRecords)) {
+    membershipRecords = hasAccess("membership") ? payload.membershipRecords : [];
   }
 
   if (Array.isArray(payload.leaveRights)) {
@@ -1321,7 +1355,7 @@ async function logout() {
   currentUser = null;
   sharedStateLoaded = false;
   clearTimeout(sharedStateSaveTimer);
-  audits = []; approvals = []; leaves = []; leaveRights = []; dutyRecords = []; budgetItems = []; budgetExpenses = []; stockItems = []; stockCashRecords = []; reportDocuments = []; personnelRecords = [];
+  audits = []; approvals = []; leaves = []; leaveRights = []; dutyRecords = []; budgetItems = []; budgetExpenses = []; stockItems = []; stockCashRecords = []; membershipRecords = []; reportDocuments = []; personnelRecords = [];
   deletedRecords = [];
   document.querySelectorAll("dialog[open]").forEach(dialog => dialog.close());
   renderEverything();
@@ -1569,6 +1603,7 @@ function renderEverything() {
   renderApprovals();
   renderLeaves();
   renderBudget();
+  if (hasAccess("membership")) renderMembership();
 
   if (activeModule === "personnel") {
     renderPersonnel();
@@ -3062,7 +3097,7 @@ function setActiveModule(moduleName, options = {}) {
   leaveModuleButtons.forEach(button => button.classList.toggle("active", button.dataset.leaveModule === activeLeaveModule));
   const allowed = canOpenModule(moduleName);
   if (!allowed) {
-    const fallback = ["dashboard","approvals","personnel","leave","budget","stock","monitoring","reports","admin"].find(name => name === "admin" ? currentUser?.owner : name === "leave" ? (hasAccess("leaves") || hasAccess("duties")) : name === "dashboard" ? (hasAccess("dashboard") || hasAccess("audits")) : hasAccess(name));
+    const fallback = ["dashboard","approvals","personnel","leave","budget","stock","membership","monitoring","reports","admin"].find(name => name === "admin" ? currentUser?.owner : name === "leave" ? (hasAccess("leaves") || hasAccess("duties")) : name === "dashboard" ? (hasAccess("dashboard") || hasAccess("audits")) : hasAccess(name));
     if (fallback && fallback !== moduleName) return setActiveModule(fallback, options);
     document.querySelectorAll("[data-view]").forEach(el => { el.hidden = true; });
     document.querySelector(".topbar h1").textContent = "Henüz modül yetkiniz tanımlanmamış";
@@ -3088,6 +3123,7 @@ function setActiveModule(moduleName, options = {}) {
   const showBudget = moduleName === "budget";
   const showBudgetDetail = moduleName === "budgetDetail";
   const showStock = moduleName === "stock";
+  const showMembership = moduleName === "membership";
   const showReports = moduleName === "reports";
   const showMonitoring = moduleName === "monitoring";
   const showAdmin = moduleName === "admin";
@@ -3120,6 +3156,9 @@ function setActiveModule(moduleName, options = {}) {
   stockSections.forEach((section) => {
     section.hidden = !showStock;
   });
+  membershipSections.forEach((section) => {
+    section.hidden = !showMembership;
+  });
   reportSections.forEach((section) => {
     section.hidden = !showReports;
   });
@@ -3136,13 +3175,14 @@ function setActiveModule(moduleName, options = {}) {
   monitoringNav.classList.toggle("active", showMonitoring);
   budgetNav.classList.toggle("active", showBudget || showBudgetDetail);
   stockNav.classList.toggle("active", showStock);
+  membershipNav?.classList.toggle("active", showMembership);
   adminNav?.classList.toggle("active", showAdmin);
   leaveMenuToggle.classList.toggle("open", showLeave);
   personnelMenuToggle.classList.toggle("open", showPersonnel || showPersonnelProfile);
   layout.classList.toggle("approvals-mode", showApprovals);
   layout.classList.toggle(
     "focus-mode",
-    showApprovals || showLeave || showLeaveDetail || showPersonnel || showPersonnelProfile || showBudget || showBudgetDetail || showStock || showReports || showMonitoring || showAdmin,
+    showApprovals || showLeave || showLeaveDetail || showPersonnel || showPersonnelProfile || showBudget || showBudgetDetail || showStock || showMembership || showReports || showMonitoring || showAdmin,
   );
 
   leaveMenuToggle.setAttribute("aria-expanded", "false");
@@ -3215,6 +3255,13 @@ function setActiveModule(moduleName, options = {}) {
     document.querySelector(".topbar h1").textContent = "Stok İşlemleri";
     topbarSubtitle.textContent = "Stok kartları ve taşınır hareketleri";
     renderStock();
+    return;
+  }
+
+  if (showMembership) {
+    document.querySelector(".topbar h1").textContent = "Aidat Takibi";
+    topbarSubtitle.textContent = "Aylık aidat tahakkuku, ödeme durumu ve kişi bazlı raporlama";
+    renderMembership();
     return;
   }
 
@@ -3739,6 +3786,124 @@ function renderStockReport() {
         <div class="report-result-list">${cashHtml || `<div class="empty-inline compact">Seçilen filtrelerde kasa hareketi yok.</div>`}</div>
       </section>
     </div>`;
+}
+
+
+function saveMembershipRecords() {
+  localStorage.setItem("ic-denetim-membership", JSON.stringify({ version: "2026-09-18-membership-v1", membershipRecords }));
+  scheduleSharedStateSave();
+}
+
+function membershipPeriodLabel(record) {
+  return `${membershipMonths[Number(record.month || 1) - 1] || record.month} ${record.year}`;
+}
+
+function membershipStatus(record) {
+  const due = numberValue(record.due);
+  const paid = numberValue(record.paid);
+  if (due <= 0 && paid <= 0) return "Kayıt";
+  if (paid >= due) return "Ödendi";
+  if (paid > 0) return "Kısmi";
+  return "Borçlu";
+}
+
+function membershipDebt(record) {
+  return Math.max(0, numberValue(record.due) - numberValue(record.paid));
+}
+
+function activeMembershipPeople() {
+  return personnelRecords.filter((person) => (person.status || "Aktif") === "Aktif" && person.name).sort((a,b) => String(a.name).localeCompare(String(b.name), "tr"));
+}
+
+function updateMembershipSelectors() {
+  const monthOptions = membershipMonths.map((month, index) => `<option value="${index + 1}">${month}</option>`).join("");
+  [membershipCreateMonth, membershipMonthFilter].forEach((select) => {
+    if (!select) return;
+    const current = select.value || (select === membershipMonthFilter ? "Tümü" : String(new Date().getMonth() + 1));
+    select.innerHTML = select === membershipMonthFilter ? `<option value="Tümü">Tüm aylar</option>${monthOptions}` : monthOptions;
+    select.value = [...select.options].some((option) => option.value === current) ? current : (select === membershipMonthFilter ? "Tümü" : String(new Date().getMonth() + 1));
+  });
+  if (membershipCreatePerson) {
+    const current = membershipCreatePerson.value || "Tümü";
+    membershipCreatePerson.innerHTML = `<option value="Tümü">Tüm aktif personel</option>${activeMembershipPeople().map((person) => `<option value="${escapeHtml(person.name)}">${escapeHtml(person.name)} · ${escapeHtml(person.title || "")}</option>`).join("")}`;
+    membershipCreatePerson.value = [...membershipCreatePerson.options].some((option) => option.value === current) ? current : "Tümü";
+  }
+  if (membershipCreateYear && !membershipCreateYear.value) membershipCreateYear.value = yearSelect.value;
+  if (membershipYearFilter && !membershipYearFilter.value) membershipYearFilter.value = yearSelect.value;
+}
+
+function getVisibleMembershipRecords() {
+  const year = membershipYearFilter?.value || yearSelect.value;
+  const month = membershipMonthFilter?.value || "Tümü";
+  const status = membershipStatusFilter?.value || "Tümü";
+  const query = normalizeText(membershipSearchInput?.value || "");
+  return membershipRecords.filter((record) => {
+    const recordStatus = membershipStatus(record);
+    const haystack = normalizeText([record.person, record.note, membershipPeriodLabel(record)].join(" "));
+    return (year === "Tümü" || String(record.year) === String(year))
+      && (month === "Tümü" || String(record.month) === String(month))
+      && (status === "Tümü" || recordStatus === status)
+      && (!query || haystack.includes(query));
+  }).sort((a,b) => String(a.year).localeCompare(String(b.year)) || Number(a.month || 0) - Number(b.month || 0) || String(a.person).localeCompare(String(b.person), "tr"));
+}
+
+function renderMembership() {
+  if (!membershipRows) return;
+  updateMembershipSelectors();
+  const records = getVisibleMembershipRecords();
+  const totalDue = records.reduce((sum, record) => sum + numberValue(record.due), 0);
+  const totalPaid = records.reduce((sum, record) => sum + numberValue(record.paid), 0);
+  const debtors = new Set(records.filter((record) => membershipDebt(record) > 0).map((record) => normalizeText(record.person)));
+  membershipRecordCount.textContent = records.length;
+  membershipTotalDue.textContent = `${formatMoney(totalDue)} TL`;
+  membershipTotalPaid.textContent = `${formatMoney(totalPaid)} TL`;
+  membershipTotalDebt.textContent = `${formatMoney(Math.max(0, totalDue - totalPaid))} TL`;
+  membershipDebtorCount.textContent = debtors.size;
+  const inputState = canEditModule("membership") ? "" : " disabled";
+  membershipRows.innerHTML = records.length ? records.map((record) => {
+    const status = membershipStatus(record);
+    const debt = membershipDebt(record);
+    return `<tr class="membership-row ${debt > 0 ? "debtor" : "paid"}" data-membership-id="${record.id}">
+      <td><strong>${escapeHtml(record.person)}</strong></td>
+      <td>${escapeHtml(membershipPeriodLabel(record))}</td>
+      <td><input data-membership-field="due" inputmode="decimal" value="${escapeHtml(formatMoney(record.due))}"${inputState} /></td>
+      <td><input data-membership-field="paid" inputmode="decimal" value="${escapeHtml(formatMoney(record.paid))}"${inputState} /></td>
+      <td><strong class="${debt > 0 ? "negative-stock" : "positive-stock"}">${formatMoney(debt)} TL</strong></td>
+      <td><input data-membership-field="paidDate" type="date" value="${escapeHtml(record.paidDate || "")}"${inputState} /></td>
+      <td><span class="status ${status === "Ödendi" ? "done" : status === "Kısmi" ? "waiting" : "danger"}">${status}</span></td>
+      <td><input data-membership-field="note" value="${escapeHtml(record.note || "")}" placeholder="Not"${inputState} /></td>
+      <td><div class="inline-actions"><button class="btn secondary small" data-membership-action="save" data-id="${record.id}" type="button">Kaydet</button><button class="btn ghost danger small" data-membership-action="delete" data-id="${record.id}" type="button">Sil</button></div></td>
+    </tr>`;
+  }).join("") : "";
+  membershipEmptyState.hidden = records.length > 0;
+  applyModulePermissions();
+}
+
+function membershipReportRows() {
+  return [["Personel", "Yıl", "Ay", "Ödenmesi Gereken", "Ödenen", "Kalan", "Ödeme Tarihi", "Durum", "Not"], ...getVisibleMembershipRecords().map((record) => [record.person, record.year, membershipMonths[Number(record.month || 1) - 1] || record.month, formatMoney(record.due), formatMoney(record.paid), formatMoney(membershipDebt(record)), formatDate(record.paidDate), membershipStatus(record), record.note || ""])];
+}
+
+function downloadMembershipCsv() {
+  const rows = membershipReportRows();
+  if (rows.length <= 1) { showToast("Raporlanacak aidat kaydı bulunamadı."); return; }
+  const csv = rows.map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
+  const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `aidat-raporu-${membershipYearFilter.value}-${membershipMonthFilter.value}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function printMembershipReportWindow() {
+  const rows = membershipReportRows();
+  if (rows.length <= 1) { showToast("Raporlanacak aidat kaydı bulunamadı."); return; }
+  const tableRows = rows.map((row, index) => `<tr>${row.map((cell) => index === 0 ? `<th>${escapeHtml(cell)}</th>` : `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("");
+  const reportWindow = window.open("", "_blank");
+  if (!reportWindow) { showToast("Yazdırma penceresi açılamadı."); return; }
+  const filters = `Yıl: ${membershipYearFilter.value} · Ay: ${membershipMonthFilter.selectedOptions?.[0]?.textContent || "Tümü"} · Durum: ${membershipStatusFilter.value} · Arama: ${membershipSearchInput.value || "Yok"}`;
+  reportWindow.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>Aidat Raporu</title><style>body{font-family:Arial,sans-serif;color:#07142b;margin:24px}h1{font-size:22px;margin:0 0 6px}.filters{color:#52637a;font-size:12px;margin-bottom:16px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #d8e5f5;padding:7px;text-align:left;vertical-align:top}th{background:#eef4fb}@media print{body{margin:10mm}}</style></head><body><h1>Aidat Raporu</h1><div class="filters">${escapeHtml(filters)}</div><table>${tableRows}</table><script>window.onload=()=>window.print();<\/script></body></html>`);
+  reportWindow.document.close();
 }
 
 function renderStockCashRows() {
@@ -5576,6 +5741,12 @@ stockNav.addEventListener("click", (event) => {
   setActiveModule("stock");
 });
 
+membershipNav?.addEventListener("click", (event) => {
+  event.preventDefault();
+  if (!guardModuleNavigation(event, "membership")) return;
+  setActiveModule("membership");
+});
+
 adminNav?.addEventListener("click", (event) => {
   event.preventDefault();
   if (!guardModuleNavigation(event, "admin")) return;
@@ -7065,6 +7236,90 @@ document.querySelectorAll("[data-cash-reset]").forEach((button) => {
     editingStockCashId = null;
   });
 });
+
+
+membershipCreateForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const formData = new FormData(membershipCreateForm);
+  const year = String(formData.get("year") || yearSelect.value);
+  const month = Number(formData.get("month") || new Date().getMonth() + 1);
+  const due = numberValue(formData.get("due"));
+  if (due <= 0) { showToast("Aidat tutarı sıfırdan büyük olmalı."); return; }
+  const selectedPerson = String(formData.get("person") || "Tümü");
+  const people = selectedPerson === "Tümü" ? activeMembershipPeople().map((person) => person.name) : [selectedPerson];
+  if (!people.length) { showToast("Aidat oluşturmak için personel kaydı bulunamadı."); return; }
+  let created = 0;
+  let updated = 0;
+  people.forEach((person) => {
+    const existing = membershipRecords.find((record) => normalizeText(record.person) === normalizeText(person) && String(record.year) === year && Number(record.month) === month);
+    if (existing) {
+      existing.due = due;
+      existing.updatedAt = new Date().toISOString();
+      updated += 1;
+      return;
+    }
+    membershipRecords.push({
+      id: Date.now() + Math.random(),
+      person,
+      year,
+      month,
+      due,
+      paid: 0,
+      paidDate: "",
+      note: "",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      user: currentUser?.displayName || currentUser?.username || "-",
+    });
+    created += 1;
+  });
+  membershipYearFilter.value = year;
+  membershipMonthFilter.value = String(month);
+  saveMembershipRecords();
+  renderMembership();
+  showToast(`${created} aidat kaydı oluşturuldu${updated ? `, ${updated} kayıt güncellendi` : ""}.`);
+});
+
+membershipRows?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-membership-action]");
+  if (!button) return;
+  const record = membershipRecords.find((item) => String(item.id) === String(button.dataset.id));
+  if (!record) return;
+  if (button.dataset.membershipAction === "delete") {
+    if (!confirm(`${record.person} ${membershipPeriodLabel(record)} aidat kaydı silinsin mi?`)) return;
+    markRecordDeleted("membershipRecords", record);
+    membershipRecords = membershipRecords.filter((item) => String(item.id) !== String(record.id));
+    saveMembershipRecords();
+    renderMembership();
+    showToast("Aidat kaydı silindi.");
+    return;
+  }
+  const row = button.closest("tr");
+  record.due = numberValue(row.querySelector('[data-membership-field="due"]')?.value);
+  record.paid = numberValue(row.querySelector('[data-membership-field="paid"]')?.value);
+  record.paidDate = row.querySelector('[data-membership-field="paidDate"]')?.value || "";
+  record.note = row.querySelector('[data-membership-field="note"]')?.value?.trim() || "";
+  record.updatedAt = new Date().toISOString();
+  saveMembershipRecords();
+  renderMembership();
+  showToast("Aidat kaydı güncellendi.");
+});
+
+[membershipYearFilter, membershipMonthFilter, membershipStatusFilter, membershipSearchInput].forEach((control) => {
+  control?.addEventListener("input", renderMembership);
+  control?.addEventListener("change", renderMembership);
+});
+
+clearMembershipFilters?.addEventListener("click", () => {
+  membershipYearFilter.value = yearSelect.value;
+  membershipMonthFilter.value = "Tümü";
+  membershipStatusFilter.value = "Tümü";
+  membershipSearchInput.value = "";
+  renderMembership();
+});
+
+downloadMembershipExcel?.addEventListener("click", downloadMembershipCsv);
+printMembershipReport?.addEventListener("click", printMembershipReportWindow);
 
 budgetItemForm.addEventListener("submit", (event) => {
   event.preventDefault();

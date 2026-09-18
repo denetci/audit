@@ -1,8 +1,8 @@
 """Server-side module permissions and record projections."""
 from datetime import datetime
 
-MODULES = {"dashboard": "Faaliyet Paneli", "audits": "Denetimler", "approvals": "Olurlar", "personnel": "Personel", "leaves": "Personel İzinleri", "duties": "Görev Durumu", "budget": "Bütçe İşlemleri", "stock": "Stok İşlemleri", "monitoring": "İzleme Faaliyetleri", "reports": "Rapor Arşivi"}
-COLLECTION_MODULE = {"approvals": "approvals", "leaves": "leaves", "leaveRights": "leaves", "dutyRecords": "duties", "budgetItems": "budget", "budgetExpenses": "budget", "stockItems": "stock", "stockCashRecords": "stock", "personnelRecords": "personnel"}
+MODULES = {"dashboard": "Faaliyet Paneli", "audits": "Denetimler", "approvals": "Olurlar", "personnel": "Personel", "leaves": "Personel İzinleri", "duties": "Görev Durumu", "budget": "Bütçe İşlemleri", "stock": "Stok İşlemleri", "membership": "Aidat Takibi", "monitoring": "İzleme Faaliyetleri", "reports": "Rapor Arşivi"}
+COLLECTION_MODULE = {"approvals": "approvals", "leaves": "leaves", "leaveRights": "leaves", "dutyRecords": "duties", "budgetItems": "budget", "budgetExpenses": "budget", "stockItems": "stock", "stockCashRecords": "stock", "membershipRecords": "membership", "personnelRecords": "personnel"}
 MONITOR_FIELDS = {"monitoringAuditName", "monitoringOfficer", "findingCount", "openFindingCount", "monitoringDueDate"}
 AUDIT_SUMMARY = {"year", "no", "start", "end", "unit", "scope", "type", "team", "supervisor", "status", "deletedAt"}
 DIRECTORY_FIELDS = {"no", "name", "title", "group", "unit", "status"}
@@ -34,7 +34,7 @@ def project_record(user, collection, record):
             return {k:v for k,v in record.items() if k in allowed}
         return None
     if collection == "personnelRecords" and not access(user, "personnel"):
-        if any(access(user, m) for m in ("leaves", "duties", "stock")):
+        if any(access(user, m) for m in ("leaves", "duties", "stock", "membership")):
             return {k:v for k,v in record.items() if k in DIRECTORY_FIELDS}
         return None
     return record if access(user, record_module(collection, record)) else None

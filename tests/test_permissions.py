@@ -30,9 +30,9 @@ class PermissionAPI(unittest.TestCase):
         with app.get_connection() as c:
             c.execute('DELETE FROM records'); c.execute('DELETE FROM sessions')
             c.execute('DELETE FROM users WHERE username != ?', (app.OWNER_USERNAME,))
-            for name, perms in [('leave', {'leaves':'edit'}), ('duty', {'duties':'view'}), ('budget', {'budget':'edit'}), ('monitor', {'monitoring':'edit'}), ('none', {})]:
+            for name, perms in [('leave', {'leaves':'edit'}), ('duty', {'duties':'view'}), ('budget', {'budget':'edit'}), ('membership', {'membership':'edit'}), ('memberview', {'membership':'view'}), ('monitor', {'monitoring':'edit'}), ('none', {})]:
                 c.execute('INSERT INTO users(username,email,password_hash,display_name,role,permissions) VALUES(?,?,?,?,?,?)', (name,name+'@test.invalid', app.hash_password('testpass'), name,'user', json.dumps(normalize_permissions(perms))))
-            app.upsert_records(c, {'leaves':[{'id':1,'year':self.year,'person':'P','type':'Rapor','note':'private'}], 'dutyRecords':[{'id':2,'year':self.year,'person':'P'}], 'budgetItems':[{'id':1,'year':self.year,'code':'03.5 HİZMET ALIMLARI','allocated':1000,'additional':0}], 'budgetExpenses':[{'id':1,'itemId':1,'year':self.year,'amount':250,'payee':'Firma','purpose':'Bakım'}], 'personnelRecords':[{'no':1,'group':'G','name':'P','certificate':'private'}], 'audits':[{'no':1,'year':self.year,'scope':'Audit','findingCount':1,'privateField':'secret'}]})
+            app.upsert_records(c, {'leaves':[{'id':1,'year':self.year,'person':'P','type':'Rapor','note':'private'}], 'dutyRecords':[{'id':2,'year':self.year,'person':'P'}], 'budgetItems':[{'id':1,'year':self.year,'code':'03.5 HİZMET ALIMLARI','allocated':1000,'additional':0}], 'budgetExpenses':[{'id':1,'itemId':1,'year':self.year,'amount':250,'payee':'Firma','purpose':'Bakım'}], 'membershipRecords':[{'id':1,'year':self.year,'month':9,'person':'P','due':500,'paid':300}], 'personnelRecords':[{'no':1,'group':'G','name':'P','certificate':'private'}], 'audits':[{'no':1,'year':self.year,'scope':'Audit','findingCount':1,'privateField':'secret'}]})
     def request(self, path, body=None, cookie=None):
         req=urllib.request.Request(self.url+path, data=json.dumps(body).encode() if body is not None else None, headers={'Content-Type':'application/json', **({'Cookie':cookie} if cookie else {})})
         try:
@@ -96,6 +96,19 @@ class PermissionAPI(unittest.TestCase):
         self.assertEqual(data['user']['displayName'],'Leave Updated')
         self.assertEqual(self.request('/api/login',{'username':'leave','password':'testpass'})[0],401)
         self.assertEqual(self.request('/api/login',{'username':'leave.updated','password':'newpass1'})[0],200)
+
+    def test_membership_permission_and_personnel_directory(self):
+        cookie=self.login('membership')
+        status,data,_=self.request('/api/state',cookie=cookie)
+        self.assertEqual(status,200)
+        self.assertEqual(len(data['membershipRecords']),1)
+        self.assertNotIn('certificate',data['personnelRecords'][0])
+        self.assertEqual(self.request('/api/state',{'membershipRecords':[{'id':1,'year':self.year,'month':9,'person':'P','due':500,'paid':500}]},cookie)[0],200)
+        _,data,_=self.request('/api/state',cookie=cookie)
+        self.assertEqual(data['membershipRecords'][0]['paid'],500)
+        view_cookie=self.login('memberview')
+        self.assertEqual(self.request('/api/state',{'membershipRecords':[{'id':2,'year':self.year,'month':10,'person':'P','due':500,'paid':0}]},view_cookie)[0],403)
+
     def test_budget_permission_and_refresh(self):
         cookie=self.login('budget')
         status,data,_=self.request('/api/state',cookie=cookie)

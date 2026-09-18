@@ -40,6 +40,7 @@ COLLECTION_LABELS = {
     "budgetExpenses": "Bütçe harcamaları",
     "stockItems": "Stok işlemleri",
     "stockCashRecords": "Personel kasası",
+    "membershipRecords": "Aidat kayıtları",
     "personnelRecords": "Personel",
     "monitoringRecords": "İzleme faaliyetleri",
     "reportDocuments": "Rapor arşivi",
@@ -83,6 +84,10 @@ FIELD_LABELS = {
     "scope": "Kapsam",
     "subject": "Konu",
     "documentType": "Belge türü",
+    "month": "Ay",
+    "due": "Tahakkuk",
+    "paid": "Ödenen",
+    "paidDate": "Ödeme tarihi",
 }
 
 IGNORED_DIFF_FIELDS = {"updatedAt", "createdAt", "id"}
@@ -164,6 +169,7 @@ COLLECTIONS = (
     "budgetExpenses",
     "stockItems",
     "stockCashRecords",
+    "membershipRecords",
     "reportDocuments",
     "personnelRecords",
 )
@@ -177,7 +183,7 @@ def record_key(collection, record):
             return ""
         return f"{year}-{number}"
 
-    if collection in ("leaves", "leaveRights", "dutyRecords", "budgetItems", "budgetExpenses", "stockItems", "stockCashRecords"):
+    if collection in ("leaves", "leaveRights", "dutyRecords", "budgetItems", "budgetExpenses", "stockItems", "stockCashRecords", "membershipRecords"):
         record_id = record.get("id")
         if record_id is None:
             return ""
