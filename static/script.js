@@ -4148,7 +4148,7 @@ function renderMembership() {
       <td><input data-membership-field="paidDate" type="date" value="${escapeHtml(record.paidDate || "")}"${inputState} /></td>
       <td><span class="status ${status === "Ödendi" ? "done" : status === "Kısmi" ? "waiting" : "danger"}">${status}</span></td>
       <td><input data-membership-field="note" value="${escapeHtml(record.note || "")}" placeholder="Not"${inputState} /></td>
-      <td><div class="inline-actions"><button class="btn secondary small" data-membership-action="save" data-id="${record.id}" type="button">Kaydet</button><button class="btn ghost danger small" data-membership-action="delete" data-id="${record.id}" type="button">Sil</button></div></td>
+      <td><div class="inline-actions"><button class="btn secondary small" data-membership-action="pay-full" data-id="${record.id}" type="button"${inputState}>${debt > 0 ? "Tamamını Öde" : "Ödendi"}</button><button class="btn secondary small" data-membership-action="save" data-id="${record.id}" type="button">Kaydet</button><button class="btn ghost danger small" data-membership-action="delete" data-id="${record.id}" type="button">Sil</button></div></td>
     </tr>`;
   }).join("") : "";
   membershipEmptyState.hidden = records.length > 0;
@@ -7580,6 +7580,15 @@ membershipRows?.addEventListener("click", (event) => {
     saveMembershipRecords();
     renderMembership();
     showToast("Aidat kaydı silindi.");
+    return;
+  }
+  if (button.dataset.membershipAction === "pay-full") {
+    record.paid = membershipRecordDue(record);
+    record.paidDate = new Date().toISOString().slice(0, 10);
+    record.updatedAt = new Date().toISOString();
+    saveMembershipRecords();
+    renderMembership();
+    showToast(`${record.person} için ${membershipPeriodLabel(record)} aidatı ödendi.`);
     return;
   }
   const row = button.closest("tr");
