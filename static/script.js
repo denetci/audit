@@ -3812,6 +3812,30 @@ function membershipPeriodLabel(record) {
   return `${membershipMonths[Number(record.month || 1) - 1] || record.month} ${record.year}`;
 }
 
+function membershipAvailableMonths(yearValue, includeAll = false) {
+  const months = membershipMonths.map((month, index) => ({ value: String(index + 1), label: month }));
+  const available = String(yearValue) === "2026" ? months.filter((month) => Number(month.value) >= 9) : months;
+  return includeAll && String(yearValue) !== "2026" ? [{ value: "Tümü", label: "Tüm aylar" }, ...available] : available;
+}
+
+function membershipSelectedMonthLabel() {
+  const month = membershipMonthFilter?.value || "Tümü";
+  if (month === "Tümü") return "Seçili dönem";
+  return `${membershipMonths[Number(month) - 1] || month} ayı`;
+}
+
+function uniqueMembershipRecords(records) {
+  const map = new Map();
+  records.forEach((record) => {
+    const key = `${normalizeText(record.person)}-${record.year}-${record.month}`;
+    const current = map.get(key);
+    if (!current || String(record.updatedAt || record.createdAt || "") > String(current.updatedAt || current.createdAt || "")) {
+      map.set(key, record);
+    }
+  });
+  return [...map.values()];
+}
+
 function membershipStatus(record) {
   const due = numberValue(record.due);
   const paid = numberValue(record.paid);
@@ -3830,12 +3854,17 @@ function activeMembershipPeople() {
 }
 
 function updateMembershipSelectors() {
-  const monthOptions = membershipMonths.map((month, index) => `<option value="${index + 1}">${month}</option>`).join("");
+  const createYear = membershipCreateYear?.value || yearSelect.value;
+  const filterYear = membershipYearFilter?.value || yearSelect.value;
   [membershipCreateMonth, membershipMonthFilter].forEach((select) => {
     if (!select) return;
-    const current = select.value || (select === membershipMonthFilter ? "Tümü" : String(new Date().getMonth() + 1));
-    select.innerHTML = select === membershipMonthFilter ? `<option value="Tümü">Tüm aylar</option>${monthOptions}` : monthOptions;
-    select.value = [...select.options].some((option) => option.value === current) ? current : (select === membershipMonthFilter ? "Tümü" : String(new Date().getMonth() + 1));
+    const includeAll = select === membershipMonthFilter;
+    const yearValue = select === membershipMonthFilter ? filterYear : createYear;
+    const options = membershipAvailableMonths(yearValue, includeAll);
+    const fallback = includeAll && String(yearValue) !== "2026" ? "Tümü" : (String(yearValue) === "2026" ? "9" : String(new Date().getMonth() + 1));
+    const current = select.value || fallback;
+    select.innerHTML = options.map((month) => `<option value="${month.value}">${month.label}</option>`).join("");
+    select.value = options.some((option) => option.value === current) ? current : fallback;
   });
   if (membershipCreatePerson) {
     const current = membershipCreatePerson.value || "Tümü";
@@ -3851,7 +3880,7 @@ function getVisibleMembershipRecords() {
   const month = membershipMonthFilter?.value || "Tümü";
   const status = membershipStatusFilter?.value || "Tümü";
   const query = normalizeText(membershipSearchInput?.value || "");
-  return membershipRecords.filter((record) => {
+  return uniqueMembershipRecords(membershipRecords).filter((record) => {
     const recordStatus = membershipStatus(record);
     const haystack = normalizeText([record.person, record.note, membershipPeriodLabel(record)].join(" "));
     return (year === "Tümü" || String(record.year) === String(year))
@@ -3868,7 +3897,12 @@ function renderMembership() {
   const totalDue = records.reduce((sum, record) => sum + numberValue(record.due), 0);
   const totalPaid = records.reduce((sum, record) => sum + numberValue(record.paid), 0);
   const debtors = new Set(records.filter((record) => membershipDebt(record) > 0).map((record) => normalizeText(record.person)));
+  const periodLabel = membershipSelectedMonthLabel();
   membershipRecordCount.textContent = records.length;
+  membershipTotalDue.closest("article").querySelector("p").textContent = `${periodLabel} tahakkuk`;
+  membershipTotalPaid.closest("article").querySelector("p").textContent = `${periodLabel} tahsilat`;
+  membershipTotalDebt.closest("article").querySelector("p").textContent = `${periodLabel} kalan borç`;
+  membershipDebtorCount.closest("article").querySelector("p").textContent = `${periodLabel} borçlu personel`;
   membershipTotalDue.textContent = `${formatMoney(totalDue)} TL`;
   membershipTotalPaid.textContent = `${formatMoney(totalPaid)} TL`;
   membershipTotalDebt.textContent = `${formatMoney(Math.max(0, totalDue - totalPaid))} TL`;
@@ -7320,14 +7354,22 @@ membershipRows?.addEventListener("click", (event) => {
   showToast("Aidat kaydı güncellendi.");
 });
 
-[membershipYearFilter, membershipMonthFilter, membershipStatusFilter, membershipSearchInput].forEach((control) => {
+[membershipCreateYear, membershipYearFilter].forEach((control) => {
+  control?.addEventListener("change", () => {
+    updateMembershipSelectors();
+    renderMembership();
+  });
+});
+
+[membershipMonthFilter, membershipStatusFilter, membershipSearchInput].forEach((control) => {
   control?.addEventListener("input", renderMembership);
   control?.addEventListener("change", renderMembership);
 });
 
 clearMembershipFilters?.addEventListener("click", () => {
   membershipYearFilter.value = yearSelect.value;
-  membershipMonthFilter.value = "Tümü";
+  updateMembershipSelectors();
+  membershipMonthFilter.value = String(yearSelect.value) === "2026" ? "9" : "Tümü";
   membershipStatusFilter.value = "Tümü";
   membershipSearchInput.value = "";
   renderMembership();
