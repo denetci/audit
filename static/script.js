@@ -317,6 +317,58 @@ const cancelMembershipTemplate = document.querySelector("#cancelMembershipTempla
 const membershipTemplateForm = document.querySelector("#membershipTemplateForm");
 const membershipTemplateRows = document.querySelector("#membershipTemplateRows");
 
+function normalizeLegacyMembershipTemplateArea() {
+  const membershipPanel = document.querySelector("#aidat-takibi-panel");
+  if (!membershipPanel) return;
+
+  const panelActions = membershipPanel.querySelector(".panel-actions");
+  if (panelActions && !document.querySelector("#openMembershipTemplateModal")) {
+    const button = document.createElement("button");
+    button.className = "btn secondary";
+    button.id = "openMembershipTemplateModal";
+    button.type = "button";
+    button.textContent = "+ Yeni Kişi Ekle";
+    const excelButton = panelActions.querySelector("#downloadMembershipExcel");
+    panelActions.insertBefore(button, excelButton || panelActions.firstChild);
+    button.addEventListener("click", () => {
+      renderMembershipTemplates();
+      document.querySelector("#membershipTemplateModal")?.showModal();
+    });
+  }
+
+  let modal = document.querySelector("#membershipTemplateModal");
+  const legacySection = Array.from(membershipPanel.querySelectorAll("section")).find((section) => {
+    const heading = section.querySelector("h3");
+    return heading && normalizeText(heading.textContent) === normalizeText("Hazır Aidat Listesi");
+  });
+
+  if (!modal && legacySection) {
+    modal = document.createElement("dialog");
+    modal.className = "modal";
+    modal.id = "membershipTemplateModal";
+    modal.innerHTML = `<div class="modal-card membership-template-modal-card">
+      <div class="modal-head"><div><p class="eyebrow">Aidat hazır listesi</p><h2>Yeni Kişi Ekle</h2></div><button class="icon-btn" id="closeMembershipTemplateModal" type="button">×</button></div>
+      <p class="form-hint">Bu liste aylık tahakkuk oluştururken kullanılır. Buradan kişi ekleyebilir, tutarı düzeltebilir veya listeden silebilirsiniz.</p>
+      <div class="membership-template-modal-body"></div>
+      <div class="modal-actions"><button class="btn secondary" id="cancelMembershipTemplate" type="button">Kapat</button></div>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+
+  if (legacySection && modal) {
+    const body = modal.querySelector(".membership-template-modal-body") || modal;
+    legacySection.classList.remove("membership-list-manager");
+    legacySection.hidden = false;
+    legacySection.style.display = "block";
+    body.appendChild(legacySection);
+  }
+
+  document.querySelector("#closeMembershipTemplateModal")?.addEventListener("click", () => modal?.close());
+  document.querySelector("#cancelMembershipTemplate")?.addEventListener("click", () => modal?.close());
+}
+
+normalizeLegacyMembershipTemplateArea();
+
 const monitoringSections = Array.from(document.querySelectorAll('[data-view="monitoring"]'));
 const adminSections = Array.from(document.querySelectorAll('[data-view="admin"]'));
 const approvalRows = document.querySelector("#approvalRows");
@@ -562,6 +614,8 @@ let editingStockProductId = null;
 let stockMovementMode = "GIRIS";
 let selectedStockProductId = null;
 const membershipMonths = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+const MEMBERSHIP_TEMPLATE_VERSION = "2026-09-18-membership-template-v2";
+const MEMBERSHIP_RECORD_VERSION = "2026-09-18-membership-record-v2";
 const defaultMembershipDues = [
   ["Erdal ÖZYÖN", 500], ["M.Ramiz DİLLİ", 500], ["Mustafa BEGEN", 500], ["Esra DARGA", 500],
   ["Alpay ALTUNTAŞ", 500], ["Çiğdem ÖZGEL", 500], ["E.Sadettin KABAKÇI", 500], ["Hakan VELİOĞLU", 500],
@@ -579,11 +633,11 @@ const defaultMembershipDues = [
 
 function loadMembershipTemplates() {
   const stored = readStoredJson("ic-denetim-membership-templates");
-  return Array.isArray(stored.membershipTemplates) && stored.membershipTemplates.length ? stored.membershipTemplates : defaultMembershipDues.map((item) => ({ ...item }));
+  return stored.version === MEMBERSHIP_TEMPLATE_VERSION && Array.isArray(stored.membershipTemplates) && stored.membershipTemplates.length ? stored.membershipTemplates : defaultMembershipDues.map((item) => ({ ...item }));
 }
 
 function saveMembershipTemplates() {
-  localStorage.setItem("ic-denetim-membership-templates", JSON.stringify({ version: "2026-09-18-membership-template-v1", membershipTemplates }));
+  localStorage.setItem("ic-denetim-membership-templates", JSON.stringify({ version: MEMBERSHIP_TEMPLATE_VERSION, membershipTemplates }));
   scheduleSharedStateSave();
 }
 
@@ -1197,7 +1251,7 @@ function buildLocalStorageState() {
       : [...defaultBudgetExpenses],
     stockItems: [],
     stockCashRecords: [],
-    membershipRecords: Array.isArray(storedMembership.membershipRecords) ? storedMembership.membershipRecords : [],
+    membershipRecords: storedMembership.version === MEMBERSHIP_RECORD_VERSION && Array.isArray(storedMembership.membershipRecords) ? storedMembership.membershipRecords : [],
     membershipTemplates: loadMembershipTemplates(),
     leaveRights: Array.isArray(storedLeaveRights.leaveRights)
       ? storedLeaveRights.leaveRights
@@ -3844,7 +3898,7 @@ function renderStockReport() {
 
 
 function saveMembershipRecords() {
-  localStorage.setItem("ic-denetim-membership", JSON.stringify({ version: "2026-09-18-membership-v1", membershipRecords }));
+  localStorage.setItem("ic-denetim-membership", JSON.stringify({ version: MEMBERSHIP_RECORD_VERSION, membershipRecords }));
   scheduleSharedStateSave();
 }
 
