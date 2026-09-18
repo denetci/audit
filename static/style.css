@@ -4493,9 +4493,6 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 }
 
 
-.membership-list-manager {
-  border-top: 1px solid #edf2f7;
-}
 
 .membership-template-list {
   display: grid;
@@ -4545,4 +4542,8 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 
 .membership-template-modal-card .membership-template-list {
   max-height: min(48vh, 460px);
+}
+
+.membership-list-manager {
+  display: none !important;
 }
