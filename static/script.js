@@ -4004,9 +4004,10 @@ function ensureAutomaticMembershipAccruals() {
   periods.forEach((target) => {
     getMembershipTemplateList().forEach((item) => {
       const carriedDebt = membershipPreviousDebt(item.person, target.year, target.month);
-      const totalDue = item.due + carriedDebt;
       const matching = membershipRecords.filter((record) => normalizeText(record.person) === normalizeText(item.person) && String(record.year) === target.year && Number(record.month) === target.month);
       const existing = uniqueMembershipRecords(matching)[0];
+      const baseDue = existing ? membershipBaseDue(existing) : item.due;
+      const totalDue = baseDue + carriedDebt;
       matching.forEach((record) => {
         if (existing && String(record.id) !== String(existing.id)) {
           markRecordDeleted("membershipRecords", record);
@@ -4017,7 +4018,7 @@ function ensureAutomaticMembershipAccruals() {
       if (existing) {
         const nextRecord = {
           ...existing,
-          baseDue: item.due,
+          baseDue,
           carriedDebt,
           due: totalDue,
           note: buildMembershipNote(existing.note, carriedDebt),
@@ -4034,7 +4035,7 @@ function ensureAutomaticMembershipAccruals() {
         person: item.person,
         year: target.year,
         month: target.month,
-        baseDue: item.due,
+        baseDue,
         carriedDebt,
         due: totalDue,
         paid: 0,
