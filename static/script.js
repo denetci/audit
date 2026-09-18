@@ -3979,6 +3979,11 @@ function buildMembershipNote(existingNote, carriedDebt) {
   return [carryNote, manualNote].filter(Boolean).join(" · ");
 }
 
+function recalculateMembershipAccruals() {
+  membershipAutoAccrualChecked = false;
+  ensureAutomaticMembershipAccruals();
+}
+
 function ensureAutomaticMembershipAccruals() {
   if (membershipAutoAccrualChecked || !canEditModule("membership")) return;
   membershipAutoAccrualChecked = true;
@@ -7592,6 +7597,7 @@ membershipRows?.addEventListener("click", (event) => {
     membershipRecords = membershipRecords.filter((item) => String(item.id) !== String(record.id));
     if (String(editingMembershipId || "") === String(record.id)) editingMembershipId = null;
     saveMembershipRecords();
+    recalculateMembershipAccruals();
     renderMembership();
     showToast("Aidat kaydı silindi.");
     return;
@@ -7601,6 +7607,7 @@ membershipRows?.addEventListener("click", (event) => {
     record.paidDate = new Date().toISOString().slice(0, 10);
     record.updatedAt = new Date().toISOString();
     saveMembershipRecords();
+    recalculateMembershipAccruals();
     renderMembership();
     showToast(`${record.person} için ${membershipPeriodLabel(record)} aidatı ödendi.`);
     return;
@@ -7610,6 +7617,7 @@ membershipRows?.addEventListener("click", (event) => {
     record.paidDate = "";
     record.updatedAt = new Date().toISOString();
     saveMembershipRecords();
+    recalculateMembershipAccruals();
     renderMembership();
     showToast(`${record.person} için ${membershipPeriodLabel(record)} ödemesi geri alındı.`);
     return;
@@ -7625,6 +7633,7 @@ membershipRows?.addEventListener("click", (event) => {
   record.updatedAt = new Date().toISOString();
   editingMembershipId = null;
   saveMembershipRecords();
+  recalculateMembershipAccruals();
   renderMembership();
   showToast("Aidat kaydı güncellendi.");
 });
