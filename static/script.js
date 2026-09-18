@@ -24,9 +24,9 @@ function guardStockEditAction() {
 }
 
 function mutationModule(element) {
-  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",carryStockYearBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",stockCashIncomeForm:"stock",stockCashExpenseForm:"stock",membershipCreateForm:"membership",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
+  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",carryStockYearBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",stockCashIncomeForm:"stock",stockCashExpenseForm:"stock",membershipCreateForm:"membership",membershipTemplateForm:"membership",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
   if (ids[element.id]) return ids[element.id];
-  for (const [attr,module] of [["data-action","audits"],["data-approval-action","approvals"],["data-leave-action","leaves"],["data-leave-right-action","leaves"],["data-duty-action","duties"],["data-budget-item-action","budget"],["data-budget-expense-action","budget"],["data-stock-action","stock"],["data-membership-action","membership"],["data-monitoring-document-action","monitoring"],["data-report-document-action","reports"],["data-personnel-action","personnel"]]) {
+  for (const [attr,module] of [["data-action","audits"],["data-approval-action","approvals"],["data-leave-action","leaves"],["data-leave-right-action","leaves"],["data-duty-action","duties"],["data-budget-item-action","budget"],["data-budget-expense-action","budget"],["data-stock-action","stock"],["data-membership-action","membership"],["data-membership-template-action","membership"],["data-monitoring-document-action","monitoring"],["data-report-document-action","reports"],["data-personnel-action","personnel"]]) {
     const action = element.getAttribute(attr);
     if (["edit","delete","cancel","return","rename","save-link","monitoring","toggle-menu","entry","exit"].includes(action)) return action === "monitoring" ? "monitoring" : module;
   }
@@ -170,6 +170,7 @@ let budgetExpenses = [];
 let stockItems = [];
 let stockCashRecords = [];
 let membershipRecords = [];
+let membershipTemplates = [];
 let reportDocuments = [];
 let personnelRecords = [];
 let leaveRights = [];
@@ -309,6 +310,8 @@ const membershipRows = document.querySelector("#membershipRows");
 const membershipEmptyState = document.querySelector("#membershipEmptyState");
 const downloadMembershipExcel = document.querySelector("#downloadMembershipExcel");
 const printMembershipReport = document.querySelector("#printMembershipReport");
+const membershipTemplateForm = document.querySelector("#membershipTemplateForm");
+const membershipTemplateRows = document.querySelector("#membershipTemplateRows");
 
 const monitoringSections = Array.from(document.querySelectorAll('[data-view="monitoring"]'));
 const adminSections = Array.from(document.querySelectorAll('[data-view="admin"]'));
@@ -569,6 +572,22 @@ const defaultMembershipDues = [
   ["Meryem KOYUNCU", 200], ["Elmaziye AKTAŞ", 200], ["İhan ÜNAL", 200],
   ["Yunus Emre KAYRA", 200],
 ].map(([person, due]) => ({ person, due }));
+
+function loadMembershipTemplates() {
+  const stored = readStoredJson("ic-denetim-membership-templates");
+  return Array.isArray(stored.membershipTemplates) && stored.membershipTemplates.length ? stored.membershipTemplates : defaultMembershipDues.map((item) => ({ ...item }));
+}
+
+function saveMembershipTemplates() {
+  localStorage.setItem("ic-denetim-membership-templates", JSON.stringify({ version: "2026-09-18-membership-template-v1", membershipTemplates }));
+  scheduleSharedStateSave();
+}
+
+function getMembershipTemplateList() {
+  if (!membershipTemplates.length) membershipTemplates = loadMembershipTemplates();
+  return membershipTemplates;
+}
+membershipTemplates = loadMembershipTemplates();
 let editingMonitoringAudit = null;
 let selectedReportAuditKey = "";
 let toastTimer = null;
@@ -590,6 +609,7 @@ const sharedCollections = [
   "stockItems",
   "stockCashRecords",
   "membershipRecords",
+  "membershipTemplates",
   "reportDocuments",
   "personnelRecords",
 ];
@@ -1015,6 +1035,10 @@ function getSharedCollectionRecords(collection) {
     return membershipRecords;
   }
 
+  if (collection === "membershipTemplates") {
+    return membershipTemplates;
+  }
+
   if (collection === "reportDocuments") {
     return reportDocuments;
   }
@@ -1033,6 +1057,10 @@ function recordKeyForCollection(collection, record) {
 
   if (collection === "leaves" || collection === "leaveRights" || collection === "dutyRecords" || collection === "budgetItems" || collection === "budgetExpenses" || collection === "stockItems" || collection === "stockCashRecords" || collection === "membershipRecords") {
     return String(record.id);
+  }
+
+  if (collection === "membershipTemplates") {
+    return normalizeText(record.person || "");
   }
 
   if (collection === "reportDocuments") {
@@ -1086,7 +1114,7 @@ function buildChangedSharedState() {
   };
 
   sharedCollections.forEach((collection) => {
-    const modules = {audits:"audits",approvals:"approvals",leaves:"leaves",leaveRights:"leaves",dutyRecords:"duties",budgetItems:"budget",budgetExpenses:"budget",stockItems:"stock",stockCashRecords:"stock",membershipRecords:"membership",reportDocuments:"reports",personnelRecords:"personnel"};
+    const modules = {audits:"audits",approvals:"approvals",leaves:"leaves",leaveRights:"leaves",dutyRecords:"duties",budgetItems:"budget",budgetExpenses:"budget",stockItems:"stock",stockCashRecords:"stock",membershipRecords:"membership",membershipTemplates:"membership",reportDocuments:"reports",personnelRecords:"personnel"};
     if (!hasAccess(modules[collection], true) && !(collection === "audits" && hasAccess("monitoring", true)) && !(collection === "reportDocuments" && hasAccess("monitoring", true))) return;
     const changedRecords = [];
     const previousRecords = lastSharedRecordJson[collection] || {};
@@ -1166,6 +1194,7 @@ function buildLocalStorageState() {
     stockItems: [],
     stockCashRecords: [],
     membershipRecords: Array.isArray(storedMembership.membershipRecords) ? storedMembership.membershipRecords : [],
+    membershipTemplates: loadMembershipTemplates(),
     leaveRights: Array.isArray(storedLeaveRights.leaveRights)
       ? storedLeaveRights.leaveRights
       : [...defaultLeaveRights],
@@ -1196,6 +1225,7 @@ function hasSharedState(payload) {
       Array.isArray(payload.stockItems) ||
       Array.isArray(payload.stockCashRecords) ||
       Array.isArray(payload.membershipRecords) ||
+      Array.isArray(payload.membershipTemplates) ||
       Array.isArray(payload.reportDocuments) ||
       Array.isArray(payload.personnelRecords))
   );
@@ -1237,6 +1267,11 @@ function applySharedState(payload) {
 
   if (Array.isArray(payload.membershipRecords)) {
     membershipRecords = hasAccess("membership") ? payload.membershipRecords : [];
+  }
+
+  if (Array.isArray(payload.membershipTemplates)) {
+    membershipTemplates = hasAccess("membership") ? payload.membershipTemplates : [];
+    if (hasAccess("membership")) saveMembershipTemplates();
   }
 
   if (Array.isArray(payload.leaveRights)) {
@@ -1370,7 +1405,7 @@ async function logout() {
   currentUser = null;
   sharedStateLoaded = false;
   clearTimeout(sharedStateSaveTimer);
-  audits = []; approvals = []; leaves = []; leaveRights = []; dutyRecords = []; budgetItems = []; budgetExpenses = []; stockItems = []; stockCashRecords = []; membershipRecords = []; reportDocuments = []; personnelRecords = [];
+  audits = []; approvals = []; leaves = []; leaveRights = []; dutyRecords = []; budgetItems = []; budgetExpenses = []; stockItems = []; stockCashRecords = []; membershipRecords = []; membershipTemplates = []; reportDocuments = []; personnelRecords = [];
   deletedRecords = [];
   document.querySelectorAll("dialog[open]").forEach(dialog => dialog.close());
   renderEverything();
@@ -3880,7 +3915,7 @@ function ensureAutomaticMembershipAccruals() {
   const target = nextMembershipAccrualPeriod();
   if (!target) return;
   let changed = false;
-  const allowedNames = new Set(defaultMembershipDues.map((item) => normalizeText(item.person)));
+  const allowedNames = new Set(getMembershipTemplateList().map((item) => normalizeText(item.person)));
   membershipRecords = membershipRecords.filter((record) => {
     const isTarget = String(record.year) === target.year && Number(record.month) === target.month;
     if (isTarget && !allowedNames.has(normalizeText(record.person))) {
@@ -3890,7 +3925,7 @@ function ensureAutomaticMembershipAccruals() {
     }
     return true;
   });
-  defaultMembershipDues.forEach((item) => {
+  getMembershipTemplateList().forEach((item) => {
     const carriedDebt = membershipPreviousDebt(item.person, target.year, target.month);
     const totalDue = item.due + carriedDebt;
     const matching = membershipRecords.filter((record) => normalizeText(record.person) === normalizeText(item.person) && String(record.year) === target.year && Number(record.month) === target.month);
@@ -3969,7 +4004,7 @@ function updateMembershipSelectors() {
   });
   if (membershipCreatePerson) {
     const current = membershipCreatePerson.value || "Tümü";
-    membershipCreatePerson.innerHTML = `<option value="Tümü">Hazır listedeki tüm kişiler</option>${defaultMembershipDues.map((item) => `<option value="${escapeHtml(item.person)}">${escapeHtml(item.person)} · ${formatMoney(item.due)} TL</option>`).join("")}`;
+    membershipCreatePerson.innerHTML = `<option value="Tümü">Hazır listedeki tüm kişiler</option>${getMembershipTemplateList().map((item) => `<option value="${escapeHtml(item.person)}">${escapeHtml(item.person)} · ${formatMoney(item.due)} TL</option>`).join("")}`;
     membershipCreatePerson.value = [...membershipCreatePerson.options].some((option) => option.value === current) ? current : "Tümü";
   }
   if (membershipCreateYear && !membershipCreateYear.value) membershipCreateYear.value = yearSelect.value;
@@ -3991,10 +4026,22 @@ function getVisibleMembershipRecords() {
   }).sort((a,b) => String(a.year).localeCompare(String(b.year)) || Number(a.month || 0) - Number(b.month || 0) || String(a.person).localeCompare(String(b.person), "tr"));
 }
 
+function renderMembershipTemplates() {
+  if (!membershipTemplateRows) return;
+  const inputState = canEditModule("membership") ? "" : " disabled";
+  const rows = getMembershipTemplateList();
+  membershipTemplateRows.innerHTML = rows.length ? rows.map((item, index) => `<article class="membership-template-row" data-template-index="${index}">
+    <input data-membership-template-field="person" value="${escapeHtml(item.person)}"${inputState} />
+    <input data-membership-template-field="due" inputmode="decimal" value="${escapeHtml(formatMoney(item.due))}"${inputState} />
+    <div class="inline-actions"><button class="btn secondary small" data-membership-template-action="save" data-index="${index}" type="button">Kaydet</button><button class="btn ghost danger small" data-membership-template-action="delete" data-index="${index}" type="button">Sil</button></div>
+  </article>`).join("") : `<div class="empty-inline compact">Hazır aidat listesinde kişi yok.</div>`;
+}
+
 function renderMembership() {
   if (!membershipRows) return;
   ensureAutomaticMembershipAccruals();
   updateMembershipSelectors();
+  renderMembershipTemplates();
   const records = getVisibleMembershipRecords();
   const totalDue = records.reduce((sum, record) => sum + membershipRecordDue(record), 0);
   const totalPaid = records.reduce((sum, record) => sum + numberValue(record.paid), 0);
@@ -7388,6 +7435,50 @@ document.querySelectorAll("[data-cash-reset]").forEach((button) => {
 });
 
 
+membershipTemplateForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const formData = new FormData(membershipTemplateForm);
+  const person = String(formData.get("person") || "").trim();
+  const due = numberValue(formData.get("due"));
+  if (!person || due <= 0) { showToast("Kişi adı ve aylık tutar girilmeli."); return; }
+  const list = getMembershipTemplateList();
+  const existing = list.find((item) => normalizeText(item.person) === normalizeText(person));
+  if (existing) existing.due = due;
+  else list.push({ person, due });
+  list.sort((a,b) => String(a.person).localeCompare(String(b.person), "tr"));
+  saveMembershipTemplates();
+  membershipTemplateForm.reset();
+  renderMembership();
+  showToast(existing ? "Hazır listedeki kişi güncellendi." : "Kişi hazır aidat listesine eklendi.");
+});
+
+membershipTemplateRows?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-membership-template-action]");
+  if (!button) return;
+  const index = Number(button.dataset.index);
+  const list = getMembershipTemplateList();
+  const item = list[index];
+  if (!item) return;
+  if (button.dataset.membershipTemplateAction === "delete") {
+    if (!confirm(`${item.person} hazır aidat listesinden silinsin mi?`)) return;
+    markRecordDeleted("membershipTemplates", item);
+    list.splice(index, 1);
+    saveMembershipTemplates();
+    renderMembership();
+    showToast("Kişi hazır aidat listesinden silindi.");
+    return;
+  }
+  const row = button.closest("[data-template-index]");
+  const person = row.querySelector('[data-membership-template-field="person"]')?.value?.trim() || "";
+  const due = numberValue(row.querySelector('[data-membership-template-field="due"]')?.value);
+  if (!person || due <= 0) { showToast("Kişi adı ve aylık tutar girilmeli."); return; }
+  list[index] = { person, due };
+  list.sort((a,b) => String(a.person).localeCompare(String(b.person), "tr"));
+  saveMembershipTemplates();
+  renderMembership();
+  showToast("Hazır aidat listesi güncellendi.");
+});
+
 membershipCreateForm?.addEventListener("submit", (event) => {
   event.preventDefault();
   const formData = new FormData(membershipCreateForm);
@@ -7395,7 +7486,7 @@ membershipCreateForm?.addEventListener("submit", (event) => {
   const month = Number(formData.get("month") || new Date().getMonth() + 1);
   const overrideDue = numberValue(formData.get("due"));
   const selectedPerson = String(formData.get("person") || "Tümü");
-  const people = selectedPerson === "Tümü" ? defaultMembershipDues : defaultMembershipDues.filter((item) => normalizeText(item.person) === normalizeText(selectedPerson));
+  const people = selectedPerson === "Tümü" ? getMembershipTemplateList() : getMembershipTemplateList().filter((item) => normalizeText(item.person) === normalizeText(selectedPerson));
   if (!people.length) { showToast("Hazır aidat listesinde kişi bulunamadı."); return; }
   let created = 0;
   let updated = 0;

@@ -41,6 +41,7 @@ COLLECTION_LABELS = {
     "stockItems": "Stok işlemleri",
     "stockCashRecords": "Personel kasası",
     "membershipRecords": "Aidat kayıtları",
+    "membershipTemplates": "Hazır aidat listesi",
     "personnelRecords": "Personel",
     "monitoringRecords": "İzleme faaliyetleri",
     "reportDocuments": "Rapor arşivi",
@@ -170,6 +171,7 @@ COLLECTIONS = (
     "stockItems",
     "stockCashRecords",
     "membershipRecords",
+    "membershipTemplates",
     "reportDocuments",
     "personnelRecords",
 )
@@ -188,6 +190,10 @@ def record_key(collection, record):
         if record_id is None:
             return ""
         return str(record_id)
+
+    if collection == "membershipTemplates":
+        person = record.get("person")
+        return str(person).strip().lower() if person else ""
 
     if collection == "reportDocuments":
         if record.get("id"):

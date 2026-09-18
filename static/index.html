@@ -765,6 +765,20 @@
                 </form>
               </section>
 
+
+
+              <section class="membership-entry-panel membership-list-manager">
+                <div class="sub-panel-head compact-head">
+                  <div><h3>Hazır Aidat Listesi</h3><p class="eyebrow">Otomatik tahakkukta kullanılacak kişi ve aylık tutar listesi</p></div>
+                </div>
+                <form class="membership-create-form" id="membershipTemplateForm">
+                  <label>Personel<input name="person" id="membershipTemplatePerson" placeholder="Ad soyad" required /></label>
+                  <label>Aylık Tutar<input name="due" id="membershipTemplateDue" inputmode="decimal" placeholder="Örn. 500,00" required /></label>
+                  <button class="btn primary" type="submit">Kişiyi Listeye Ekle</button>
+                </form>
+                <div class="membership-template-list" id="membershipTemplateRows"></div>
+              </section>
+
               <div class="module-filters membership-filters" aria-label="Aidat filtreleri">
                 <label>Yıl<select id="membershipYearFilter"><option>2026</option><option>2025</option><option>2024</option><option value="Tümü">Tümü</option></select></label>
                 <label>Ay<select id="membershipMonthFilter"><option value="Tümü">Tüm aylar</option></select></label>
