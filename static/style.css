@@ -4483,3 +4483,11 @@ button:disabled { opacity:.45; cursor:not-allowed; }
     grid-template-columns: 1fr;
   }
 }
+
+.membership-carry {
+  display: block;
+  margin-top: 4px;
+  color: #b45309;
+  font-size: .72rem;
+  font-weight: 900;
+}

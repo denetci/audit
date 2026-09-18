@@ -577,6 +577,7 @@ let sharedStateSaveTimer = null;
 let deletedRecords = [];
 let lastSharedRecordJson = {};
 let currentUser = null;
+let membershipAutoAccrualChecked = false;
 
 const sharedCollections = [
   "audits",
@@ -2269,7 +2270,7 @@ function syncLeaveRightsWithPersonnel(existingRights = leaveRights) {
         group: person.group,
         entitled: 0,
         carried: 0,
-        note: "",
+        note: buildMembershipNote("", carriedDebt),
       });
     });
   });
@@ -3836,8 +3837,108 @@ function uniqueMembershipRecords(records) {
   return [...map.values()];
 }
 
+function membershipRecordDue(record) {
+  return numberValue(record.due);
+}
+
+function membershipBaseDue(record) {
+  return record.baseDue == null ? Math.max(0, membershipRecordDue(record) - numberValue(record.carriedDebt)) : numberValue(record.baseDue);
+}
+
+function previousMembershipPeriod(year, month) {
+  const numericMonth = Number(month);
+  if (numericMonth > 1) return { year: String(year), month: numericMonth - 1 };
+  return { year: String(Number(year) - 1), month: 12 };
+}
+
+function nextMembershipAccrualPeriod(today = new Date()) {
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
+  if (year !== 2026 || month < 9 || month >= 12 || today.getDate() < 15) return null;
+  return { year: String(year), month: month + 1 };
+}
+
+function membershipRecordFor(person, year, month, records = membershipRecords) {
+  return uniqueMembershipRecords(records).find((record) => normalizeText(record.person) === normalizeText(person) && String(record.year) === String(year) && Number(record.month) === Number(month));
+}
+
+function membershipPreviousDebt(person, year, month) {
+  const previous = previousMembershipPeriod(year, month);
+  const record = membershipRecordFor(person, previous.year, previous.month);
+  return record ? membershipDebt(record) : 0;
+}
+
+function buildMembershipNote(existingNote, carriedDebt) {
+  const manualNote = String(existingNote || "").replace(/Devreden borç:.*?( TL)?( · )?/g, "").trim();
+  const carryNote = carriedDebt > 0 ? `Devreden borç: ${formatMoney(carriedDebt)} TL` : "";
+  return [carryNote, manualNote].filter(Boolean).join(" · ");
+}
+
+function ensureAutomaticMembershipAccruals() {
+  if (membershipAutoAccrualChecked || !canEditModule("membership")) return;
+  membershipAutoAccrualChecked = true;
+  const target = nextMembershipAccrualPeriod();
+  if (!target) return;
+  let changed = false;
+  const allowedNames = new Set(defaultMembershipDues.map((item) => normalizeText(item.person)));
+  membershipRecords = membershipRecords.filter((record) => {
+    const isTarget = String(record.year) === target.year && Number(record.month) === target.month;
+    if (isTarget && !allowedNames.has(normalizeText(record.person))) {
+      markRecordDeleted("membershipRecords", record);
+      changed = true;
+      return false;
+    }
+    return true;
+  });
+  defaultMembershipDues.forEach((item) => {
+    const carriedDebt = membershipPreviousDebt(item.person, target.year, target.month);
+    const totalDue = item.due + carriedDebt;
+    const matching = membershipRecords.filter((record) => normalizeText(record.person) === normalizeText(item.person) && String(record.year) === target.year && Number(record.month) === target.month);
+    const existing = uniqueMembershipRecords(matching)[0];
+    matching.forEach((record) => {
+      if (existing && String(record.id) !== String(existing.id)) {
+        markRecordDeleted("membershipRecords", record);
+        membershipRecords = membershipRecords.filter((candidate) => String(candidate.id) !== String(record.id));
+        changed = true;
+      }
+    });
+    if (existing) {
+      const nextRecord = {
+        ...existing,
+        baseDue: item.due,
+        carriedDebt,
+        due: totalDue,
+        note: buildMembershipNote(existing.note, carriedDebt),
+        updatedAt: new Date().toISOString(),
+      };
+      if (JSON.stringify(existing) !== JSON.stringify(nextRecord)) {
+        Object.assign(existing, nextRecord);
+        changed = true;
+      }
+      return;
+    }
+    membershipRecords.push({
+      id: Date.now() + Math.random(),
+      person: item.person,
+      year: target.year,
+      month: target.month,
+      baseDue: item.due,
+      carriedDebt,
+      due: totalDue,
+      paid: 0,
+      paidDate: "",
+      note: buildMembershipNote("", carriedDebt),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      user: currentUser?.displayName || currentUser?.username || "-",
+    });
+    changed = true;
+  });
+  if (changed) saveMembershipRecords();
+}
+
 function membershipStatus(record) {
-  const due = numberValue(record.due);
+  const due = membershipRecordDue(record);
   const paid = numberValue(record.paid);
   if (due <= 0 && paid <= 0) return "Kayıt";
   if (paid >= due) return "Ödendi";
@@ -3846,7 +3947,7 @@ function membershipStatus(record) {
 }
 
 function membershipDebt(record) {
-  return Math.max(0, numberValue(record.due) - numberValue(record.paid));
+  return Math.max(0, membershipRecordDue(record) - numberValue(record.paid));
 }
 
 function activeMembershipPeople() {
@@ -3892,9 +3993,10 @@ function getVisibleMembershipRecords() {
 
 function renderMembership() {
   if (!membershipRows) return;
+  ensureAutomaticMembershipAccruals();
   updateMembershipSelectors();
   const records = getVisibleMembershipRecords();
-  const totalDue = records.reduce((sum, record) => sum + numberValue(record.due), 0);
+  const totalDue = records.reduce((sum, record) => sum + membershipRecordDue(record), 0);
   const totalPaid = records.reduce((sum, record) => sum + numberValue(record.paid), 0);
   const debtors = new Set(records.filter((record) => membershipDebt(record) > 0).map((record) => normalizeText(record.person)));
   const periodLabel = membershipSelectedMonthLabel();
@@ -3914,7 +4016,7 @@ function renderMembership() {
     return `<tr class="membership-row ${debt > 0 ? "debtor" : "paid"}" data-membership-id="${record.id}">
       <td><strong>${escapeHtml(record.person)}</strong></td>
       <td>${escapeHtml(membershipPeriodLabel(record))}</td>
-      <td><input data-membership-field="due" inputmode="decimal" value="${escapeHtml(formatMoney(record.due))}"${inputState} /></td>
+      <td><input data-membership-field="due" inputmode="decimal" value="${escapeHtml(formatMoney(membershipRecordDue(record)))}"${inputState} />${numberValue(record.carriedDebt) > 0 ? `<small class="membership-carry">${formatMoney(record.carriedDebt)} TL devreden</small>` : ""}</td>
       <td><input data-membership-field="paid" inputmode="decimal" value="${escapeHtml(formatMoney(record.paid))}"${inputState} /></td>
       <td><strong class="${debt > 0 ? "negative-stock" : "positive-stock"}">${formatMoney(debt)} TL</strong></td>
       <td><input data-membership-field="paidDate" type="date" value="${escapeHtml(record.paidDate || "")}"${inputState} /></td>
@@ -3928,7 +4030,7 @@ function renderMembership() {
 }
 
 function membershipReportRows() {
-  return [["Personel", "Yıl", "Ay", "Ödenmesi Gereken", "Ödenen", "Kalan", "Ödeme Tarihi", "Durum", "Not"], ...getVisibleMembershipRecords().map((record) => [record.person, record.year, membershipMonths[Number(record.month || 1) - 1] || record.month, formatMoney(record.due), formatMoney(record.paid), formatMoney(membershipDebt(record)), formatDate(record.paidDate), membershipStatus(record), record.note || ""])];
+  return [["Personel", "Yıl", "Ay", "Aylık Tahakkuk", "Devreden", "Toplam Tahakkuk", "Ödenen", "Kalan", "Ödeme Tarihi", "Durum", "Not"], ...getVisibleMembershipRecords().map((record) => [record.person, record.year, membershipMonths[Number(record.month || 1) - 1] || record.month, formatMoney(membershipBaseDue(record)), formatMoney(record.carriedDebt), formatMoney(membershipRecordDue(record)), formatMoney(record.paid), formatMoney(membershipDebt(record)), formatDate(record.paidDate), membershipStatus(record), record.note || ""])];
 }
 
 function downloadMembershipCsv() {
@@ -7299,10 +7401,15 @@ membershipCreateForm?.addEventListener("submit", (event) => {
   let updated = 0;
   people.forEach((item) => {
     const person = item.person;
-    const due = overrideDue > 0 ? overrideDue : item.due;
+    const baseDue = overrideDue > 0 ? overrideDue : item.due;
+    const carriedDebt = membershipPreviousDebt(person, year, month);
+    const due = baseDue + carriedDebt;
     const existing = membershipRecords.find((record) => normalizeText(record.person) === normalizeText(person) && String(record.year) === year && Number(record.month) === month);
     if (existing) {
+      existing.baseDue = baseDue;
+      existing.carriedDebt = carriedDebt;
       existing.due = due;
+      existing.note = buildMembershipNote(existing.note, carriedDebt);
       existing.updatedAt = new Date().toISOString();
       updated += 1;
       return;
@@ -7312,10 +7419,12 @@ membershipCreateForm?.addEventListener("submit", (event) => {
       person,
       year,
       month,
+      baseDue,
+      carriedDebt,
       due,
       paid: 0,
       paidDate: "",
-      note: "",
+      note: buildMembershipNote("", carriedDebt),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       user: currentUser?.displayName || currentUser?.username || "-",
@@ -7344,7 +7453,10 @@ membershipRows?.addEventListener("click", (event) => {
     return;
   }
   const row = button.closest("tr");
-  record.due = numberValue(row.querySelector('[data-membership-field="due"]')?.value);
+  const totalDue = numberValue(row.querySelector('[data-membership-field="due"]')?.value);
+  record.due = totalDue;
+  record.carriedDebt = numberValue(record.carriedDebt);
+  record.baseDue = Math.max(0, totalDue - record.carriedDebt);
   record.paid = numberValue(row.querySelector('[data-membership-field="paid"]')?.value);
   record.paidDate = row.querySelector('[data-membership-field="paidDate"]')?.value || "";
   record.note = row.querySelector('[data-membership-field="note"]')?.value?.trim() || "";
