@@ -6,7 +6,7 @@
     <title>İç Denetim Başkanlığı Faaliyet Paneli</title>
     <link rel="icon" type="image/png" href="tarim-orman-logo.png" />
     <link rel="apple-touch-icon" href="tarim-orman-logo.png" />
-    <link rel="stylesheet" href="style.css?v=20260918-upcoming-plans" />
+    <link rel="stylesheet" href="style.css?v=20260921-overtime-timesheet" />
     <style>
       .budget-detail-page.report-surface{overflow:hidden;background:#f7fafc;border-color:#d8e3f1}
       .budget-detail-hero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:18px;align-items:center;border-bottom:1px solid #d5e1ef;background:linear-gradient(135deg,#fff 0%,#eef6ff 100%);padding:20px 22px}
@@ -169,6 +169,7 @@
           <a id="budgetNav" href="#butce-islemleri-panel"><span class="nav-icon">₺</span>Bütçe İşlemleri</a>
           <a id="stockNav" href="#stok-islemleri-panel"><span class="nav-icon">▦</span>Stok İşlemleri</a>
           <a id="membershipNav" href="#aidat-takibi-panel"><span class="nav-icon">◎</span>Aidat Takibi</a>
+          <a id="overtimeNav" href="#isci-puantaj-panel"><span class="nav-icon">▧</span>İşçi Puantajı</a>
           <a id="monitoringNav" href="#izleme-faaliyetleri-panel"><span class="nav-icon">◎</span>İzleme Faaliyetleri</a>
           <a id="reportsNav" href="#rapor-arsivi-panel"><span class="nav-icon">▢</span>Rapor Arşivi</a>
           <a id="adminNav" href="#yonetim-panel" hidden><span class="nav-icon">⚙</span>Yönetim</a>
@@ -783,6 +784,60 @@
               <div class="empty-state" id="membershipEmptyState" hidden>
                 <strong>Aidat kaydı bulunamadı</strong>
                 <span>Seçili ay için tahakkuk oluşturabilir veya filtreleri değiştirebilirsin.</span>
+              </div>
+            </section>
+
+
+            <section class="panel overtime-panel" id="isci-puantaj-panel" data-view="overtime" hidden>
+              <div class="panel-head">
+                <div>
+                  <h2>İşçi Puantajı</h2>
+                  <p class="eyebrow">İşçiler için aylık puantaj, mesai ve fazla çalışma çizelgesi</p>
+                </div>
+                <div class="panel-actions">
+                  <span class="panel-count"><strong id="overtimeRecordCount">0</strong> kayıt</span>
+                  <button class="btn secondary" id="openOvertimeWorkerModal" type="button">+ İşçi Ekle</button>
+                  <button class="btn secondary" id="downloadOvertimeExcel" type="button">Excel İndir</button>
+                  <button class="btn primary" id="printOvertimeReport" type="button">PDF / Yazdır</button>
+                </div>
+              </div>
+
+              <div class="stats overtime-stats" aria-label="Puantaj özetleri">
+                <article class="card"><div class="stat-top"><div class="stat-icon bg-blue">☷</div></div><p>İşçi</p><div class="value"><strong id="overtimeWorkerCount">0</strong><span>kişi</span></div><div class="note">Seçili ayda listelenen işçi</div></article>
+                <article class="card"><div class="stat-top"><div class="stat-icon bg-green">✓</div></div><p>Fiilen Çalışma</p><div class="value"><strong id="overtimeWorkedTotal">0</strong><span>gün</span></div><div class="note">X işaretli gün toplamı</div></article>
+                <article class="card"><div class="stat-top"><div class="stat-icon bg-amber">★</div></div><p>Fazla Mesai</p><div class="value"><strong id="overtimeHourTotal">0</strong><span>saat</span></div><div class="note">Girilen fazla çalışma saati</div></article>
+                <article class="card"><div class="stat-top"><div class="stat-icon bg-red">!</div></div><p>Eksik / İzin</p><div class="value"><strong id="overtimeLeaveTotal">0</strong><span>gün</span></div><div class="note">İzin, rapor ve mazeret toplamı</div></article>
+              </div>
+
+              <div class="module-filters overtime-filters" aria-label="Puantaj filtreleri">
+                <label>Yıl<select id="overtimeYearFilter"><option>2026</option><option>2027</option><option>2025</option></select></label>
+                <label>Ay<select id="overtimeMonthFilter"></select></label>
+                <label>İşçi<select id="overtimeWorkerFilter"><option value="Tümü">Tüm işçiler</option></select></label>
+                <label class="wide-filter">Arama<input id="overtimeSearchInput" placeholder="İşçi adı veya not ara..." /></label>
+                <button class="btn secondary" id="clearOvertimeFilters" type="button">Temizle</button>
+              </div>
+
+              <section class="overtime-quick-panel">
+                <div>
+                  <h3>Hızlı Doldurma</h3>
+                  <p class="eyebrow">Ay seçildiğinde işçiler otomatik listelenir; hafta içlerini tek tuşla çalıştı yapabilirsin.</p>
+                </div>
+                <div class="panel-actions">
+                  <button class="btn secondary" id="createOvertimeMonth" type="button">Ay Listesini Oluştur</button>
+                  <button class="btn secondary" id="fillOvertimeWeekdays" type="button">Hafta İçlerini Çalıştı Yap</button>
+                  <button class="btn secondary" id="fillOvertimeWeekends" type="button">Hafta Sonlarını Tatil Yap</button>
+                </div>
+              </section>
+
+              <div class="table-wrap overtime-table-wrap">
+                <table class="overtime-table">
+                  <thead id="overtimeTableHead"></thead>
+                  <tbody id="overtimeRows"></tbody>
+                </table>
+              </div>
+              <div class="empty-state" id="overtimeEmptyState" hidden>
+                <strong>Puantaj kaydı bulunamadı</strong>
+                <span>Seçili ay için ay listesini oluşturabilir veya filtreleri değiştirebilirsin.</span>
               </div>
             </section>
 
@@ -2170,6 +2225,30 @@
       </form>
     </dialog>
 
+    <dialog class="modal" id="overtimeWorkerModal">
+      <form class="modal-card" id="overtimeWorkerForm" method="dialog">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow">İşçi listesi</p>
+            <h2>İşçi Ekle / Düzenle</h2>
+          </div>
+          <button class="icon-btn" id="closeOvertimeWorkerModal" type="button">×</button>
+        </div>
+        <p class="form-hint">Bu liste puantaj ayları oluşturulurken başlangıç liste olarak kullanılır.</p>
+        <div class="form-grid">
+          <label>Ad Soyad<input name="name" id="overtimeWorkerName" placeholder="Örn. Yunus Emre KAYRA" required /></label>
+          <label>T.C. Kimlik No<input name="identityNo" id="overtimeWorkerIdentity" inputmode="numeric" placeholder="İsteğe bağlı" /></label>
+          <label>Görevi / Ünvanı<input name="title" id="overtimeWorkerTitle" placeholder="İşçi" /></label>
+          <label>Birim<input name="unit" id="overtimeWorkerUnit" placeholder="İç Denetim Başkanlığı" /></label>
+        </div>
+        <div class="modal-actions">
+          <button class="btn secondary" id="cancelOvertimeWorker" type="button">Vazgeç</button>
+          <button class="btn primary" type="submit">İşçiyi Kaydet</button>
+        </div>
+        <div class="membership-template-list" id="overtimeWorkerRows"></div>
+      </form>
+    </dialog>
+
     <dialog class="modal" id="accountModal">
       <form class="modal-card" id="accountForm" method="dialog">
         <div class="modal-head">
@@ -2208,6 +2287,6 @@
         </div>
       </form>
     </dialog>
-    <script src="script.js?v=20260918-upcoming-plans"></script>
+    <script src="script.js?v=20260921-overtime-timesheet"></script>
   </body>
 </html>

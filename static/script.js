@@ -1,4 +1,4 @@
-const MODULE_LABELS = {dashboard:"Faaliyet Paneli", audits:"Denetimler", approvals:"Olurlar", personnel:"Personel", leaves:"Personel İzinleri", duties:"Görev Durumu", budget:"Bütçe İşlemleri", stock:"Stok İşlemleri", membership:"Aidat Takibi", monitoring:"İzleme Faaliyetleri", reports:"Rapor Arşivi"};
+const MODULE_LABELS = {dashboard:"Faaliyet Paneli", audits:"Denetimler", approvals:"Olurlar", personnel:"Personel", leaves:"Personel İzinleri", duties:"Görev Durumu", budget:"Bütçe İşlemleri", stock:"Stok İşlemleri", membership:"Aidat Takibi", overtime:"İşçi Puantajı", monitoring:"İzleme Faaliyetleri", reports:"Rapor Arşivi"};
 function hasAccess(module, edit = false) {
   if (!currentUser) return false;
   if (currentUser.owner) return true;
@@ -24,11 +24,11 @@ function guardStockEditAction() {
 }
 
 function mutationModule(element) {
-  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",carryStockYearBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",stockCashIncomeForm:"stock",stockCashExpenseForm:"stock",membershipTemplateForm:"membership",openMembershipTemplateModal:"membership",openMembershipRaiseModal:"membership",membershipRaiseForm:"membership",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
+  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",carryStockYearBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",stockCashIncomeForm:"stock",stockCashExpenseForm:"stock",membershipTemplateForm:"membership",openMembershipTemplateModal:"membership",openMembershipRaiseModal:"membership",membershipRaiseForm:"membership",openOvertimeWorkerModal:"overtime",overtimeWorkerForm:"overtime",createOvertimeMonth:"overtime",fillOvertimeWeekdays:"overtime",fillOvertimeWeekends:"overtime",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
   if (ids[element.id]) return ids[element.id];
-  for (const [attr,module] of [["data-action","audits"],["data-approval-action","approvals"],["data-leave-action","leaves"],["data-leave-right-action","leaves"],["data-duty-action","duties"],["data-budget-item-action","budget"],["data-budget-expense-action","budget"],["data-stock-action","stock"],["data-membership-action","membership"],["data-membership-template-action","membership"],["data-monitoring-document-action","monitoring"],["data-report-document-action","reports"],["data-personnel-action","personnel"]]) {
+  for (const [attr,module] of [["data-action","audits"],["data-approval-action","approvals"],["data-leave-action","leaves"],["data-leave-right-action","leaves"],["data-duty-action","duties"],["data-budget-item-action","budget"],["data-budget-expense-action","budget"],["data-stock-action","stock"],["data-membership-action","membership"],["data-membership-template-action","membership"],["data-overtime-action","overtime"],["data-overtime-worker-action","overtime"],["data-monitoring-document-action","monitoring"],["data-report-document-action","reports"],["data-personnel-action","personnel"]]) {
     const action = element.getAttribute(attr);
-    if (["edit","delete","cancel","return","rename","save-link","monitoring","toggle-menu","entry","exit"].includes(action)) return action === "monitoring" ? "monitoring" : module;
+    if (["edit","delete","save","cancel","return","rename","save-link","monitoring","toggle-menu","entry","exit"].includes(action)) return action === "monitoring" ? "monitoring" : module;
   }
   if (element.matches("[data-restore-audit]")) return "audits";
   if (element.matches("[data-personnel-delete]")) return "personnel";
@@ -61,7 +61,7 @@ function guardModuleNavigation(event, moduleName) {
 }
 
 function applyModulePermissions() {
-  const navs = [["#dashboardNav","dashboard"],["#auditMenuToggle","audits"],["#approvalsNav","approvals"],["#personnelMenuToggle","personnel"],["#budgetNav","budget"],["#stockNav","stock"],["#membershipNav","membership"],["#reportsNav","reports"],["#monitoringNav","monitoring"]];
+  const navs = [["#dashboardNav","dashboard"],["#auditMenuToggle","audits"],["#approvalsNav","approvals"],["#personnelMenuToggle","personnel"],["#budgetNav","budget"],["#stockNav","stock"],["#membershipNav","membership"],["#overtimeNav","overtime"],["#reportsNav","reports"],["#monitoringNav","monitoring"]];
   navs.forEach(([selector,module]) => setNavPermissionState(document.querySelector(selector), module === "dashboard" ? canOpenModule("dashboard") : hasAccess(module)));
   setNavPermissionState(leaveMenuToggle, hasAccess("leaves") || hasAccess("duties"));
   leaveModuleButtons.forEach(button => setNavPermissionState(button, hasAccess(button.dataset.leaveModule === "Görev Durumu" ? "duties" : "leaves")));
@@ -171,6 +171,8 @@ let stockItems = [];
 let stockCashRecords = [];
 let membershipRecords = [];
 let membershipTemplates = [];
+let overtimeRecords = [];
+let overtimeWorkers = [];
 let reportDocuments = [];
 let personnelRecords = [];
 let leaveRights = [];
@@ -210,6 +212,7 @@ const monitoringNav = document.querySelector("#monitoringNav");
 const budgetNav = document.querySelector("#budgetNav");
 const stockNav = document.querySelector("#stockNav");
 const membershipNav = document.querySelector("#membershipNav");
+const overtimeNav = document.querySelector("#overtimeNav");
 const adminNav = document.querySelector("#adminNav");
 const personnelMenuToggle = document.querySelector("#personnelMenuToggle");
 const personnelSubnav = document.querySelector("#personnelSubnav");
@@ -247,6 +250,7 @@ const budgetSections = Array.from(document.querySelectorAll('[data-view="budget"
 const budgetDetailSections = Array.from(document.querySelectorAll('[data-view="budgetDetail"]'));
 const stockSections = Array.from(document.querySelectorAll('[data-view="stock"]'));
 const membershipSections = Array.from(document.querySelectorAll('[data-view="membership"]'));
+const overtimeSections = Array.from(document.querySelectorAll('[data-view="overtime"]'));
 const reportSections = Array.from(document.querySelectorAll('[data-view="reports"]'));
 const stockProductCount = document.querySelector("#stockProductCount");
 const stockCashBalance = document.querySelector("#stockCashBalance");
@@ -323,6 +327,30 @@ const closeMembershipTemplateModal = document.querySelector("#closeMembershipTem
 const cancelMembershipTemplate = document.querySelector("#cancelMembershipTemplate");
 const membershipTemplateForm = document.querySelector("#membershipTemplateForm");
 const membershipTemplateRows = document.querySelector("#membershipTemplateRows");
+const overtimeRecordCount = document.querySelector("#overtimeRecordCount");
+const overtimeWorkerCount = document.querySelector("#overtimeWorkerCount");
+const overtimeWorkedTotal = document.querySelector("#overtimeWorkedTotal");
+const overtimeHourTotal = document.querySelector("#overtimeHourTotal");
+const overtimeLeaveTotal = document.querySelector("#overtimeLeaveTotal");
+const overtimeYearFilter = document.querySelector("#overtimeYearFilter");
+const overtimeMonthFilter = document.querySelector("#overtimeMonthFilter");
+const overtimeWorkerFilter = document.querySelector("#overtimeWorkerFilter");
+const overtimeSearchInput = document.querySelector("#overtimeSearchInput");
+const clearOvertimeFilters = document.querySelector("#clearOvertimeFilters");
+const createOvertimeMonth = document.querySelector("#createOvertimeMonth");
+const fillOvertimeWeekdays = document.querySelector("#fillOvertimeWeekdays");
+const fillOvertimeWeekends = document.querySelector("#fillOvertimeWeekends");
+const overtimeTableHead = document.querySelector("#overtimeTableHead");
+const overtimeRows = document.querySelector("#overtimeRows");
+const overtimeEmptyState = document.querySelector("#overtimeEmptyState");
+const openOvertimeWorkerModal = document.querySelector("#openOvertimeWorkerModal");
+const overtimeWorkerModal = document.querySelector("#overtimeWorkerModal");
+const overtimeWorkerForm = document.querySelector("#overtimeWorkerForm");
+const overtimeWorkerRows = document.querySelector("#overtimeWorkerRows");
+const closeOvertimeWorkerModal = document.querySelector("#closeOvertimeWorkerModal");
+const cancelOvertimeWorker = document.querySelector("#cancelOvertimeWorker");
+const downloadOvertimeExcel = document.querySelector("#downloadOvertimeExcel");
+const printOvertimeReport = document.querySelector("#printOvertimeReport");
 
 function normalizeLegacyMembershipTemplateArea() {
   const membershipPanel = document.querySelector("#aidat-takibi-panel");
@@ -624,6 +652,20 @@ let editingStockProductId = null;
 let stockMovementMode = "GIRIS";
 let selectedStockProductId = null;
 let editingMembershipId = null;
+
+const defaultOvertimeWorkers = [
+  { id: 1, name: "Emine GÖRGÜLÜ", identityNo: "", title: "İşçi", unit: "İç Denetim Başkanlığı", active: true },
+  { id: 2, name: "Elmas ÖZDEMİR", identityNo: "", title: "İşçi", unit: "İç Denetim Başkanlığı", active: true },
+  { id: 3, name: "Sibel ÇALIŞKAN", identityNo: "", title: "İşçi", unit: "İç Denetim Başkanlığı", active: true },
+  { id: 4, name: "Nilüfer ALA", identityNo: "", title: "İşçi", unit: "İç Denetim Başkanlığı", active: true },
+  { id: 5, name: "Meryem KOYUNCU", identityNo: "", title: "İşçi", unit: "İç Denetim Başkanlığı", active: true },
+  { id: 6, name: "Hasan YÜKSEL", identityNo: "", title: "İşçi", unit: "İç Denetim Başkanlığı", active: true },
+  { id: 7, name: "Yunus Emre KAYRA", identityNo: "", title: "İşçi", unit: "İç Denetim Başkanlığı", active: true },
+];
+const overtimeCodes = [
+  ["", "Boş"], ["X", "Çalıştı"], ["P", "Pazar/Hafta Tatili"], ["CT", "Cumartesi Tatili"], ["T", "Resmi Tatil"], ["R", "Rapor"], ["Yİ", "Yıllık İzin"], ["Mİ", "Mazeret İzni"], ["FÇ", "Fazla Çalışma"]
+];
+
 const membershipMonths = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 const MEMBERSHIP_TEMPLATE_VERSION = "2026-09-18-membership-template-v2";
 const MEMBERSHIP_RECORD_VERSION = "2026-09-18-membership-record-v2";
@@ -679,6 +721,8 @@ const sharedCollections = [
   "stockCashRecords",
   "membershipRecords",
   "membershipTemplates",
+  "overtimeRecords",
+  "overtimeWorkers",
   "reportDocuments",
   "personnelRecords",
 ];
@@ -1108,6 +1152,14 @@ function getSharedCollectionRecords(collection) {
     return membershipTemplates;
   }
 
+  if (collection === "overtimeRecords") {
+    return overtimeRecords;
+  }
+
+  if (collection === "overtimeWorkers") {
+    return overtimeWorkers;
+  }
+
   if (collection === "reportDocuments") {
     return reportDocuments;
   }
@@ -1124,7 +1176,7 @@ function recordKeyForCollection(collection, record) {
     return `${record.year}-${record.no}`;
   }
 
-  if (collection === "leaves" || collection === "leaveRights" || collection === "dutyRecords" || collection === "budgetItems" || collection === "budgetExpenses" || collection === "stockItems" || collection === "stockCashRecords" || collection === "membershipRecords") {
+  if (collection === "leaves" || collection === "leaveRights" || collection === "dutyRecords" || collection === "budgetItems" || collection === "budgetExpenses" || collection === "stockItems" || collection === "stockCashRecords" || collection === "membershipRecords" || collection === "overtimeRecords" || collection === "overtimeWorkers") {
     return String(record.id);
   }
 
@@ -1264,6 +1316,8 @@ function buildLocalStorageState() {
     stockCashRecords: [],
     membershipRecords: storedMembership.version === MEMBERSHIP_RECORD_VERSION && Array.isArray(storedMembership.membershipRecords) ? storedMembership.membershipRecords : [],
     membershipTemplates: loadMembershipTemplates(),
+    overtimeRecords: [],
+    overtimeWorkers: defaultOvertimeWorkers.map((worker) => ({ ...worker })),
     leaveRights: Array.isArray(storedLeaveRights.leaveRights)
       ? storedLeaveRights.leaveRights
       : [...defaultLeaveRights],
@@ -1295,6 +1349,8 @@ function hasSharedState(payload) {
       Array.isArray(payload.stockCashRecords) ||
       Array.isArray(payload.membershipRecords) ||
       Array.isArray(payload.membershipTemplates) ||
+      Array.isArray(payload.overtimeRecords) ||
+      Array.isArray(payload.overtimeWorkers) ||
       Array.isArray(payload.reportDocuments) ||
       Array.isArray(payload.personnelRecords))
   );
@@ -1341,6 +1397,14 @@ function applySharedState(payload) {
   if (Array.isArray(payload.membershipTemplates)) {
     membershipTemplates = hasAccess("membership") ? payload.membershipTemplates : [];
     if (hasAccess("membership")) saveMembershipTemplates();
+  }
+
+  if (Array.isArray(payload.overtimeRecords)) {
+    overtimeRecords = hasAccess("overtime") ? payload.overtimeRecords : [];
+  }
+
+  if (Array.isArray(payload.overtimeWorkers)) {
+    overtimeWorkers = hasAccess("overtime") ? payload.overtimeWorkers : [];
   }
 
   if (Array.isArray(payload.leaveRights)) {
@@ -1474,7 +1538,7 @@ async function logout() {
   currentUser = null;
   sharedStateLoaded = false;
   clearTimeout(sharedStateSaveTimer);
-  audits = []; approvals = []; leaves = []; leaveRights = []; dutyRecords = []; budgetItems = []; budgetExpenses = []; stockItems = []; stockCashRecords = []; membershipRecords = []; membershipTemplates = []; reportDocuments = []; personnelRecords = [];
+  audits = []; approvals = []; leaves = []; leaveRights = []; dutyRecords = []; budgetItems = []; budgetExpenses = []; stockItems = []; stockCashRecords = []; membershipRecords = []; membershipTemplates = []; overtimeRecords = []; overtimeWorkers = []; reportDocuments = []; personnelRecords = [];
   deletedRecords = [];
   document.querySelectorAll("dialog[open]").forEach(dialog => dialog.close());
   renderEverything();
@@ -1723,6 +1787,7 @@ function renderEverything() {
   renderLeaves();
   renderBudget();
   if (hasAccess("membership")) renderMembership();
+  if (hasAccess("overtime")) renderOvertime();
 
   if (activeModule === "personnel") {
     renderPersonnel();
@@ -3216,7 +3281,7 @@ function setActiveModule(moduleName, options = {}) {
   leaveModuleButtons.forEach(button => button.classList.toggle("active", button.dataset.leaveModule === activeLeaveModule));
   const allowed = canOpenModule(moduleName);
   if (!allowed) {
-    const fallback = ["dashboard","approvals","personnel","leave","budget","stock","membership","monitoring","reports","admin"].find(name => name === "admin" ? currentUser?.owner : name === "leave" ? (hasAccess("leaves") || hasAccess("duties")) : name === "dashboard" ? (hasAccess("dashboard") || hasAccess("audits")) : hasAccess(name));
+    const fallback = ["dashboard","approvals","personnel","leave","budget","stock","membership","overtime","monitoring","reports","admin"].find(name => name === "admin" ? currentUser?.owner : name === "leave" ? (hasAccess("leaves") || hasAccess("duties")) : name === "dashboard" ? (hasAccess("dashboard") || hasAccess("audits")) : hasAccess(name));
     if (fallback && fallback !== moduleName) return setActiveModule(fallback, options);
     document.querySelectorAll("[data-view]").forEach(el => { el.hidden = true; });
     document.querySelector(".topbar h1").textContent = "Henüz modül yetkiniz tanımlanmamış";
@@ -3243,6 +3308,7 @@ function setActiveModule(moduleName, options = {}) {
   const showBudgetDetail = moduleName === "budgetDetail";
   const showStock = moduleName === "stock";
   const showMembership = moduleName === "membership";
+  const showOvertime = moduleName === "overtime";
   const showReports = moduleName === "reports";
   const showMonitoring = moduleName === "monitoring";
   const showAdmin = moduleName === "admin";
@@ -3278,6 +3344,9 @@ function setActiveModule(moduleName, options = {}) {
   membershipSections.forEach((section) => {
     section.hidden = !showMembership;
   });
+  overtimeSections.forEach((section) => {
+    section.hidden = !showOvertime;
+  });
   reportSections.forEach((section) => {
     section.hidden = !showReports;
   });
@@ -3295,13 +3364,14 @@ function setActiveModule(moduleName, options = {}) {
   budgetNav.classList.toggle("active", showBudget || showBudgetDetail);
   stockNav.classList.toggle("active", showStock);
   membershipNav?.classList.toggle("active", showMembership);
+  overtimeNav?.classList.toggle("active", showOvertime);
   adminNav?.classList.toggle("active", showAdmin);
   leaveMenuToggle.classList.toggle("open", showLeave);
   personnelMenuToggle.classList.toggle("open", showPersonnel || showPersonnelProfile);
   layout.classList.toggle("approvals-mode", showApprovals);
   layout.classList.toggle(
     "focus-mode",
-    showApprovals || showLeave || showLeaveDetail || showPersonnel || showPersonnelProfile || showBudget || showBudgetDetail || showStock || showMembership || showReports || showMonitoring || showAdmin,
+    showApprovals || showLeave || showLeaveDetail || showPersonnel || showPersonnelProfile || showBudget || showBudgetDetail || showStock || showMembership || showOvertime || showReports || showMonitoring || showAdmin,
   );
 
   leaveMenuToggle.setAttribute("aria-expanded", "false");
@@ -3907,6 +3977,212 @@ function renderStockReport() {
     </div>`;
 }
 
+
+
+function overtimeMonthName(month) {
+  return membershipMonths[Number(month || 1) - 1] || month;
+}
+
+function overtimeDaysInMonth(year, month) {
+  return new Date(Number(year), Number(month), 0).getDate();
+}
+
+function overtimeRecordKey(person, year, month) {
+  return `${normalizeText(person)}-${year}-${month}`;
+}
+
+function getActiveOvertimeWorkers() {
+  if (!overtimeWorkers.length) overtimeWorkers = defaultOvertimeWorkers.map((worker) => ({ ...worker }));
+  return overtimeWorkers.filter((worker) => worker.active !== false).sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "tr"));
+}
+
+function saveOvertimeRecords() {
+  scheduleSharedStateSave();
+}
+
+function updateOvertimeSelectors() {
+  if (!overtimeMonthFilter) return;
+  const currentMonth = overtimeMonthFilter.value || String(new Date().getMonth() + 1);
+  overtimeMonthFilter.innerHTML = membershipMonths.map((month, index) => `<option value="${index + 1}">${month}</option>`).join("");
+  overtimeMonthFilter.value = [...overtimeMonthFilter.options].some((option) => option.value === currentMonth) ? currentMonth : String(new Date().getMonth() + 1);
+  const currentWorker = overtimeWorkerFilter?.value || "Tümü";
+  if (overtimeWorkerFilter) {
+    overtimeWorkerFilter.innerHTML = `<option value="Tümü">Tüm işçiler</option>${getActiveOvertimeWorkers().map((worker) => `<option value="${escapeHtml(worker.name)}">${escapeHtml(worker.name)}</option>`).join("")}`;
+    overtimeWorkerFilter.value = [...overtimeWorkerFilter.options].some((option) => option.value === currentWorker) ? currentWorker : "Tümü";
+  }
+}
+
+function createOvertimeRecordsForMonth() {
+  if (!canEditModule("overtime")) {
+    showToast("Puantaj kaydı oluşturmak için düzenleme yetkisi gerekli.");
+    return;
+  }
+  const year = overtimeYearFilter?.value || yearSelect.value || String(new Date().getFullYear());
+  const month = overtimeMonthFilter?.value || String(new Date().getMonth() + 1);
+  let created = 0;
+  getActiveOvertimeWorkers().forEach((worker) => {
+    const key = overtimeRecordKey(worker.name, year, month);
+    const existing = overtimeRecords.find((record) => overtimeRecordKey(record.name, record.year, record.month) === key);
+    if (existing) return;
+    overtimeRecords.push({
+      id: Date.now() + Math.floor(Math.random() * 100000) + created,
+      year: String(year),
+      month: Number(month),
+      name: worker.name,
+      identityNo: worker.identityNo || "",
+      title: worker.title || "İşçi",
+      unit: worker.unit || "İç Denetim Başkanlığı",
+      days: {},
+      overtimeHours: 0,
+      note: "",
+    });
+    created += 1;
+  });
+  saveOvertimeRecords();
+  renderOvertime();
+  showToast(created ? `${created} işçi için ${overtimeMonthName(month)} ${year} puantajı oluşturuldu.` : "Bu ay için puantaj listesi zaten var.");
+}
+
+function getVisibleOvertimeRecords() {
+  const year = overtimeYearFilter?.value || yearSelect.value;
+  const month = overtimeMonthFilter?.value || String(new Date().getMonth() + 1);
+  const worker = overtimeWorkerFilter?.value || "Tümü";
+  const query = normalizeText(overtimeSearchInput?.value || "");
+  return overtimeRecords.filter((record) => {
+    if (String(record.year) !== String(year)) return false;
+    if (String(record.month) !== String(month)) return false;
+    if (worker !== "Tümü" && record.name !== worker) return false;
+    if (query && !normalizeText([record.name, record.identityNo, record.title, record.unit, record.note].join(" ")).includes(query)) return false;
+    return true;
+  }).sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "tr"));
+}
+
+function overtimeTotals(record) {
+  const values = Object.values(record.days || {});
+  const count = (code) => values.filter((value) => value === code).length;
+  const leave = count("Yİ") + count("R") + count("Mİ");
+  return {
+    worked: count("X") + count("FÇ"),
+    sunday: count("P"),
+    saturday: count("CT"),
+    holiday: count("T"),
+    leave,
+    annual: count("Yİ"),
+    report: count("R"),
+    excuse: count("Mİ"),
+    overtimeHours: numberValue(record.overtimeHours),
+  };
+}
+
+function renderOvertimeWorkerRows() {
+  if (!overtimeWorkerRows) return;
+  const disabled = canEditModule("overtime") ? "" : " disabled";
+  overtimeWorkerRows.innerHTML = getActiveOvertimeWorkers().map((worker) => `<article class="membership-template-row" data-overtime-worker-id="${worker.id}">
+    <input data-overtime-worker-field="name" value="${escapeHtml(worker.name)}"${disabled} />
+    <input data-overtime-worker-field="identityNo" value="${escapeHtml(worker.identityNo || "")}" placeholder="T.C. Kimlik"${disabled} />
+    <input data-overtime-worker-field="title" value="${escapeHtml(worker.title || "İşçi")}"${disabled} />
+    <div class="inline-actions"><button class="btn secondary small" data-overtime-worker-action="save" data-id="${worker.id}" type="button"${disabled}>Kaydet</button><button class="btn ghost danger small" data-overtime-worker-action="delete" data-id="${worker.id}" type="button"${disabled}>Sil</button></div>
+  </article>`).join("");
+}
+
+function renderOvertime() {
+  if (!overtimeRows || !overtimeTableHead) return;
+  updateOvertimeSelectors();
+  const year = overtimeYearFilter?.value || yearSelect.value || String(new Date().getFullYear());
+  const month = overtimeMonthFilter?.value || String(new Date().getMonth() + 1);
+  const days = overtimeDaysInMonth(year, month);
+  const records = getVisibleOvertimeRecords();
+  const allSummary = overtimeRecords.filter((record) => String(record.year) === String(year) && String(record.month) === String(month));
+  const totals = allSummary.reduce((sum, record) => {
+    const item = overtimeTotals(record);
+    sum.worked += item.worked;
+    sum.leave += item.leave;
+    sum.hours += item.overtimeHours;
+    return sum;
+  }, { worked: 0, leave: 0, hours: 0 });
+  if (overtimeRecordCount) overtimeRecordCount.textContent = records.length;
+  if (overtimeWorkerCount) overtimeWorkerCount.textContent = new Set(records.map((record) => normalizeText(record.name))).size;
+  if (overtimeWorkedTotal) overtimeWorkedTotal.textContent = formatNumber(totals.worked);
+  if (overtimeHourTotal) overtimeHourTotal.textContent = formatNumber(totals.hours);
+  if (overtimeLeaveTotal) overtimeLeaveTotal.textContent = formatNumber(totals.leave);
+  const dayHeads = Array.from({ length: days }, (_, index) => `<th>${index + 1}</th>`).join("");
+  overtimeTableHead.innerHTML = `<tr><th class="sticky-col">İşçi</th>${dayHeads}<th>Fiili</th><th>Tatil</th><th>İzin/Rapor</th><th>Fazla Mesai</th><th>Not</th><th>İşlem</th></tr>`;
+  const disabled = canEditModule("overtime") ? "" : " disabled";
+  overtimeRows.innerHTML = records.map((record) => {
+    const item = overtimeTotals(record);
+    const cells = Array.from({ length: days }, (_, index) => {
+      const day = String(index + 1);
+      const value = record.days?.[day] || "";
+      return `<td><select class="day-code-select" data-overtime-day="${day}" data-id="${record.id}"${disabled}>${overtimeCodes.map(([code, label]) => `<option value="${escapeHtml(code)}" ${value === code ? "selected" : ""}>${escapeHtml(code || "-")}</option>`).join("")}</select></td>`;
+    }).join("");
+    return `<tr data-overtime-id="${record.id}"><th class="sticky-col"><strong>${escapeHtml(record.name)}</strong><small>${escapeHtml(record.title || "İşçi")}</small></th>${cells}<td>${item.worked}</td><td>${item.sunday + item.saturday + item.holiday}</td><td>${item.leave}</td><td><input class="small-number-input" data-overtime-field="overtimeHours" inputmode="decimal" value="${escapeHtml(formatNumber(record.overtimeHours || 0))}"${disabled} /></td><td><input data-overtime-field="note" value="${escapeHtml(record.note || "")}" placeholder="Not"${disabled} /></td><td><div class="inline-actions"><button class="btn primary small" data-overtime-action="save" data-id="${record.id}" type="button"${disabled}>Kaydet</button><button class="btn ghost danger small" data-overtime-action="delete" data-id="${record.id}" type="button"${disabled}>Sil</button></div></td></tr>`;
+  }).join("");
+  if (overtimeEmptyState) overtimeEmptyState.hidden = records.length > 0;
+  renderOvertimeWorkerRows();
+}
+
+function updateOvertimeRecordFromRow(record, row) {
+  record.overtimeHours = numberValue(row.querySelector('[data-overtime-field="overtimeHours"]')?.value);
+  record.note = row.querySelector('[data-overtime-field="note"]')?.value?.trim() || "";
+  record.days = record.days || {};
+  row.querySelectorAll("[data-overtime-day]").forEach((select) => {
+    if (select.value) record.days[select.dataset.overtimeDay] = select.value;
+    else delete record.days[select.dataset.overtimeDay];
+  });
+}
+
+function fillOvertimeMonth(kind) {
+  if (!canEditModule("overtime")) return showToast("Puantajı düzenlemek için yetki gerekli.");
+  if (!getVisibleOvertimeRecords().length) createOvertimeRecordsForMonth();
+  const year = overtimeYearFilter?.value || yearSelect.value;
+  const month = overtimeMonthFilter?.value || String(new Date().getMonth() + 1);
+  overtimeRecords.filter((record) => String(record.year) === String(year) && String(record.month) === String(month)).forEach((record) => {
+    record.days = record.days || {};
+    const days = overtimeDaysInMonth(year, month);
+    for (let day = 1; day <= days; day += 1) {
+      const weekDay = new Date(Number(year), Number(month) - 1, day).getDay();
+      if (kind === "weekdays" && weekDay >= 1 && weekDay <= 5) record.days[String(day)] = "X";
+      if (kind === "weekends" && weekDay === 6) record.days[String(day)] = "CT";
+      if (kind === "weekends" && weekDay === 0) record.days[String(day)] = "P";
+    }
+  });
+  saveOvertimeRecords();
+  renderOvertime();
+}
+
+function overtimeReportRows() {
+  return [["İşçi", "Yıl", "Ay", "Fiili Çalışma", "Hafta Tatili", "Resmi Tatil", "Yıllık İzin", "Rapor", "Mazeret", "Fazla Mesai Saati", "Not"], ...getVisibleOvertimeRecords().map((record) => {
+    const totals = overtimeTotals(record);
+    return [record.name, record.year, overtimeMonthName(record.month), totals.worked, totals.sunday + totals.saturday, totals.holiday, totals.annual, totals.report, totals.excuse, formatNumber(totals.overtimeHours), record.note || ""];
+  })];
+}
+
+function downloadOvertimeCsv() {
+  const rows = overtimeReportRows();
+  const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(";")).join("\n");
+  const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `isci-puantaj-${overtimeYearFilter.value}-${overtimeMonthFilter.value}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function printOvertimeReportWindow() {
+  const year = overtimeYearFilter?.value || yearSelect.value;
+  const month = overtimeMonthFilter?.value || String(new Date().getMonth() + 1);
+  const days = overtimeDaysInMonth(year, month);
+  const records = getVisibleOvertimeRecords();
+  const dayHeads = Array.from({ length: days }, (_, index) => `<th>${index + 1}</th>`).join("");
+  const bodyRows = records.map((record, index) => {
+    const totals = overtimeTotals(record);
+    const cells = Array.from({ length: days }, (_, i) => `<td>${escapeHtml(record.days?.[String(i + 1)] || "")}</td>`).join("");
+    return `<tr><td>${index + 1}</td><td>${escapeHtml(record.identityNo || "")}</td><td>${escapeHtml(record.name)}</td>${cells}<td>${totals.worked}</td><td>${totals.sunday + totals.saturday}</td><td>${totals.annual}</td><td>${totals.report}</td><td>${totals.excuse}</td><td>${formatNumber(totals.overtimeHours)}</td><td></td></tr>`;
+  }).join("");
+  const reportWindow = window.open("", "_blank");
+  if (!reportWindow) return;
+  reportWindow.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>İşçi Puantajı</title><style>@page{size:A4 landscape;margin:8mm}body{font-family:Arial,sans-serif;color:#111827;margin:0}h1{text-align:center;font-size:16px;margin:0 0 4px}.meta{text-align:center;font-size:11px;margin-bottom:8px}table{width:100%;border-collapse:collapse;font-size:8px}th,td{border:1px solid #111;padding:3px;text-align:center;vertical-align:middle}th{background:#f1f5f9}.name{text-align:left}.legend{font-size:10px;margin-top:8px;display:grid;grid-template-columns:repeat(5,1fr);gap:3px}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:80px;margin-top:30px;font-size:11px;text-align:center}</style></head><body><h1>T.C. TARIM VE ORMAN BAKANLIĞI<br>AYLIK PUANTAJ CETVELİ</h1><div class="meta">Birim: İç Denetim Başkanlığı · Dönem: ${escapeHtml(overtimeMonthName(month))} ${escapeHtml(year)} · Çıktı: ${formatDate(new Date().toISOString().slice(0,10))}</div><table><thead><tr><th>Sıra</th><th>T.C. Kimlik</th><th>Adı Soyadı</th>${dayHeads}<th>Fiili</th><th>Tatil</th><th>Y. İzin</th><th>Rapor</th><th>Mazeret</th><th>F. Mesai</th><th>İmza</th></tr></thead><tbody>${bodyRows}</tbody></table><div class="legend"><span>X: Çalıştığı Gün</span><span>P: Pazar Günü</span><span>CT: Cumartesi</span><span>T: Resmi Tatil</span><span>R/Yİ/Mİ: İzinler</span></div><div class="signatures"><div>DÜZENLEYEN<br><br>................................</div><div>ONAYLAYAN<br><br>................................</div></div><script>window.onload=()=>window.print();<\/script></body></html>`);
+}
 
 function saveMembershipRecords() {
   localStorage.setItem("ic-denetim-membership", JSON.stringify({ version: MEMBERSHIP_RECORD_VERSION, membershipRecords }));
@@ -6117,6 +6393,12 @@ membershipNav?.addEventListener("click", (event) => {
   setActiveModule("membership");
 });
 
+overtimeNav?.addEventListener("click", (event) => {
+  event.preventDefault();
+  if (!guardModuleNavigation(event, "overtime")) return;
+  setActiveModule("overtime");
+});
+
 adminNav?.addEventListener("click", (event) => {
   event.preventDefault();
   if (!guardModuleNavigation(event, "admin")) return;
@@ -7797,6 +8079,103 @@ clearMembershipFilters?.addEventListener("click", () => {
 
 downloadMembershipExcel?.addEventListener("click", downloadMembershipCsv);
 printMembershipReport?.addEventListener("click", printMembershipReportWindow);
+
+
+[overtimeYearFilter, overtimeMonthFilter, overtimeWorkerFilter, overtimeSearchInput].forEach((control) => {
+  control?.addEventListener("input", renderOvertime);
+  control?.addEventListener("change", renderOvertime);
+});
+
+clearOvertimeFilters?.addEventListener("click", () => {
+  overtimeYearFilter.value = yearSelect.value || String(new Date().getFullYear());
+  overtimeMonthFilter.value = String(new Date().getMonth() + 1);
+  overtimeWorkerFilter.value = "Tümü";
+  overtimeSearchInput.value = "";
+  renderOvertime();
+});
+
+createOvertimeMonth?.addEventListener("click", createOvertimeRecordsForMonth);
+fillOvertimeWeekdays?.addEventListener("click", () => fillOvertimeMonth("weekdays"));
+fillOvertimeWeekends?.addEventListener("click", () => fillOvertimeMonth("weekends"));
+downloadOvertimeExcel?.addEventListener("click", downloadOvertimeCsv);
+printOvertimeReport?.addEventListener("click", printOvertimeReportWindow);
+openOvertimeWorkerModal?.addEventListener("click", () => { renderOvertimeWorkerRows(); overtimeWorkerModal?.showModal(); });
+closeOvertimeWorkerModal?.addEventListener("click", () => overtimeWorkerModal?.close());
+cancelOvertimeWorker?.addEventListener("click", () => overtimeWorkerModal?.close());
+
+overtimeWorkerForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (!canEditModule("overtime")) return showToast("İşçi listesi için düzenleme yetkisi gerekli.");
+  const formData = new FormData(overtimeWorkerForm);
+  const name = String(formData.get("name") || "").trim();
+  if (!name) return;
+  const existing = overtimeWorkers.find((worker) => normalizeText(worker.name) === normalizeText(name));
+  const item = existing || { id: Math.max(0, ...overtimeWorkers.map((worker) => Number(worker.id) || 0)) + 1, active: true };
+  item.name = name;
+  item.identityNo = String(formData.get("identityNo") || "").trim();
+  item.title = String(formData.get("title") || "İşçi").trim() || "İşçi";
+  item.unit = String(formData.get("unit") || "İç Denetim Başkanlığı").trim() || "İç Denetim Başkanlığı";
+  item.active = true;
+  if (!existing) overtimeWorkers.push(item);
+  overtimeWorkerForm.reset();
+  saveOvertimeRecords();
+  updateOvertimeSelectors();
+  renderOvertime();
+  showToast(`${item.name} işçi listesine eklendi.`);
+});
+
+overtimeWorkerRows?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-overtime-worker-action]");
+  if (!button || !canEditModule("overtime")) return;
+  const worker = overtimeWorkers.find((item) => String(item.id) === String(button.dataset.id));
+  if (!worker) return;
+  const row = button.closest("[data-overtime-worker-id]");
+  if (button.dataset.overtimeWorkerAction === "delete") {
+    if (!confirm(`${worker.name} işçi listesinden çıkarılsın mı?`)) return;
+    worker.active = false;
+    saveOvertimeRecords();
+    updateOvertimeSelectors();
+    renderOvertime();
+    return;
+  }
+  worker.name = row.querySelector('[data-overtime-worker-field="name"]')?.value?.trim() || worker.name;
+  worker.identityNo = row.querySelector('[data-overtime-worker-field="identityNo"]')?.value?.trim() || "";
+  worker.title = row.querySelector('[data-overtime-worker-field="title"]')?.value?.trim() || "İşçi";
+  saveOvertimeRecords();
+  updateOvertimeSelectors();
+  renderOvertime();
+});
+
+overtimeRows?.addEventListener("change", (event) => {
+  const select = event.target.closest("[data-overtime-day]");
+  if (!select || !canEditModule("overtime")) return;
+  const record = overtimeRecords.find((item) => String(item.id) === String(select.dataset.id));
+  if (!record) return;
+  record.days = record.days || {};
+  if (select.value) record.days[select.dataset.overtimeDay] = select.value;
+  else delete record.days[select.dataset.overtimeDay];
+  saveOvertimeRecords();
+  renderOvertime();
+});
+
+overtimeRows?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-overtime-action]");
+  if (!button || !canEditModule("overtime")) return;
+  const record = overtimeRecords.find((item) => String(item.id) === String(button.dataset.id));
+  if (!record) return;
+  if (button.dataset.overtimeAction === "delete") {
+    if (!confirm(`${record.name} puantaj kaydı silinsin mi?`)) return;
+    markRecordDeleted("overtimeRecords", record);
+    overtimeRecords = overtimeRecords.filter((item) => String(item.id) !== String(record.id));
+    saveOvertimeRecords();
+    renderOvertime();
+    return;
+  }
+  updateOvertimeRecordFromRow(record, button.closest("tr"));
+  saveOvertimeRecords();
+  renderOvertime();
+  showToast(`${record.name} puantaj kaydı güncellendi.`);
+});
 
 budgetItemForm.addEventListener("submit", (event) => {
   event.preventDefault();

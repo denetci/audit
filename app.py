@@ -42,6 +42,8 @@ COLLECTION_LABELS = {
     "stockCashRecords": "Personel kasası",
     "membershipRecords": "Aidat kayıtları",
     "membershipTemplates": "Hazır aidat listesi",
+    "overtimeRecords": "İşçi puantaj kayıtları",
+    "overtimeWorkers": "İşçi puantaj listesi",
     "personnelRecords": "Personel",
     "monitoringRecords": "İzleme faaliyetleri",
     "reportDocuments": "Rapor arşivi",
@@ -172,6 +174,8 @@ COLLECTIONS = (
     "stockCashRecords",
     "membershipRecords",
     "membershipTemplates",
+    "overtimeRecords",
+    "overtimeWorkers",
     "reportDocuments",
     "personnelRecords",
 )
@@ -185,7 +189,7 @@ def record_key(collection, record):
             return ""
         return f"{year}-{number}"
 
-    if collection in ("leaves", "leaveRights", "dutyRecords", "budgetItems", "budgetExpenses", "stockItems", "stockCashRecords", "membershipRecords"):
+    if collection in ("leaves", "leaveRights", "dutyRecords", "budgetItems", "budgetExpenses", "stockItems", "stockCashRecords", "membershipRecords", "overtimeRecords", "overtimeWorkers"):
         record_id = record.get("id")
         if record_id is None:
             return ""

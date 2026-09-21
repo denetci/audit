@@ -4547,3 +4547,35 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 .membership-list-manager {
   display: none !important;
 }
+
+
+.overtime-quick-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  margin: 0 16px 16px;
+  padding: 16px;
+}
+.overtime-quick-panel h3 { margin: 0 0 4px; }
+.overtime-table-wrap { max-height: 560px; }
+.overtime-table { min-width: 1500px; font-size: 12px; }
+.overtime-table th, .overtime-table td { white-space: nowrap; }
+.overtime-table .sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #fff;
+  min-width: 190px;
+  text-align: left;
+}
+.overtime-table thead .sticky-col { background: #eef4fb; z-index: 3; }
+.overtime-table small { display: block; color: var(--muted); margin-top: 3px; }
+.day-code-select { min-width: 44px; padding: 5px 4px; border-radius: 6px; }
+.small-number-input { width: 86px; }
+@media (max-width: 900px) {
+  .overtime-quick-panel { align-items: stretch; flex-direction: column; }
+}
