@@ -24,7 +24,7 @@ function guardStockEditAction() {
 }
 
 function mutationModule(element) {
-  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",carryStockYearBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",stockCashIncomeForm:"stock",stockCashExpenseForm:"stock",membershipTemplateForm:"membership",openMembershipTemplateModal:"membership",openMembershipRaiseModal:"membership",membershipRaiseForm:"membership",openOvertimeWorkerModal:"overtime",overtimeWorkerForm:"overtime",createOvertimeMonth:"overtime",fillOvertimeWeekdays:"overtime",fillOvertimeWeekends:"overtime",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
+  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",carryStockYearBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",stockCashIncomeForm:"stock",stockCashExpenseForm:"stock",stockCashTransferForm:"stock",membershipTemplateForm:"membership",openMembershipTemplateModal:"membership",openMembershipRaiseModal:"membership",membershipRaiseForm:"membership",openOvertimeWorkerModal:"overtime",overtimeWorkerForm:"overtime",createOvertimeMonth:"overtime",fillOvertimeWeekdays:"overtime",fillOvertimeWeekends:"overtime",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
   if (ids[element.id]) return ids[element.id];
   for (const [attr,module] of [["data-action","audits"],["data-approval-action","approvals"],["data-leave-action","leaves"],["data-leave-right-action","leaves"],["data-duty-action","duties"],["data-budget-item-action","budget"],["data-budget-expense-action","budget"],["data-stock-action","stock"],["data-membership-action","membership"],["data-membership-template-action","membership"],["data-overtime-action","overtime"],["data-overtime-worker-action","overtime"],["data-monitoring-document-action","monitoring"],["data-report-document-action","reports"],["data-personnel-action","personnel"]]) {
     const action = element.getAttribute(attr);
@@ -254,6 +254,8 @@ const overtimeSections = Array.from(document.querySelectorAll('[data-view="overt
 const reportSections = Array.from(document.querySelectorAll('[data-view="reports"]'));
 const stockProductCount = document.querySelector("#stockProductCount");
 const stockCashBalance = document.querySelector("#stockCashBalance");
+const stockBankBalance = document.querySelector("#stockBankBalance");
+const stockPhysicalCashBalance = document.querySelector("#stockPhysicalCashBalance");
 const stockMonthlyCollected = document.querySelector("#stockMonthlyCollected");
 const stockMonthlySpent = document.querySelector("#stockMonthlySpent");
 const stockCriticalCount = document.querySelector("#stockCriticalCount");
@@ -281,6 +283,7 @@ const stockMovementModal = document.querySelector("#stockMovementModal");
 const stockMovementForm = document.querySelector("#stockMovementForm");
 const stockCashIncomeForm = document.querySelector("#stockCashIncomeForm");
 const stockCashExpenseForm = document.querySelector("#stockCashExpenseForm");
+const stockCashTransferForm = document.querySelector("#stockCashTransferForm");
 const stockCashRows = document.querySelector("#stockCashRows");
 const stockReportStart = document.querySelector("#stockReportStart");
 const stockReportEnd = document.querySelector("#stockReportEnd");
@@ -3686,12 +3689,36 @@ function saveStockRecords() {
   scheduleSharedStateSave();
 }
 
+function stockCashAccount(record) {
+  return record.account || record.cashAccount || "Nakit Kasa";
+}
+
+function stockCashAccountLabel(record) {
+  if (record.type === "transfer") return `${record.fromAccount || "Banka"} → ${record.toAccount || "Nakit Kasa"}`;
+  return stockCashAccount(record);
+}
+
 function stockCashAmount(record) {
+  if (record.type === "transfer") return 0;
   return numberValue(record.amount) * (record.type === "expense" ? -1 : 1);
 }
 
-function stockCashBalanceAmount() {
-  return stockCashRecords.reduce((sum, record) => String(record.date || "") <= stockYearEnd() ? sum + stockCashAmount(record) : sum, 0);
+function stockCashAccountAmount(record, account) {
+  const amount = numberValue(record.amount);
+  if (record.type === "transfer") {
+    let total = 0;
+    if ((record.fromAccount || "Banka") === account) total -= amount;
+    if ((record.toAccount || "Nakit Kasa") === account) total += amount;
+    return total;
+  }
+  return stockCashAccount(record) === account ? stockCashAmount(record) : 0;
+}
+
+function stockCashBalanceAmount(account = "Tümü") {
+  return stockCashRecords.reduce((sum, record) => {
+    if (String(record.date || "") > stockYearEnd()) return sum;
+    return sum + (account === "Tümü" ? stockCashAmount(record) : stockCashAccountAmount(record, account));
+  }, 0);
 }
 
 function stockCashMonthTotals() {
@@ -3699,9 +3726,10 @@ function stockCashMonthTotals() {
     if (String(record.date || "").slice(0, 4) === selectedStockYear()) {
       if (record.type === "income") acc.income += numberValue(record.amount);
       if (record.type === "expense") acc.expense += numberValue(record.amount);
+      if (record.type === "transfer") acc.transfer += numberValue(record.amount);
     }
     return acc;
-  }, { income: 0, expense: 0 });
+  }, { income: 0, expense: 0, transfer: 0 });
 }
 
 function addStockCashRecord(record) {
@@ -3709,7 +3737,7 @@ function addStockCashRecord(record) {
 }
 
 function resetStockCashForm(type = "income") {
-  const form = type === "expense" ? stockCashExpenseForm : stockCashIncomeForm;
+  const form = type === "expense" ? stockCashExpenseForm : type === "transfer" ? stockCashTransferForm : stockCashIncomeForm;
   if (!form) return;
   form.reset();
   form.elements.id.value = "";
@@ -3717,7 +3745,7 @@ function resetStockCashForm(type = "income") {
 }
 
 function ensureStockCashFormDefaults() {
-  [stockCashIncomeForm, stockCashExpenseForm].forEach((form) => {
+  [stockCashIncomeForm, stockCashExpenseForm, stockCashTransferForm].forEach((form) => {
     if (form && !form.elements.date.value) {
       form.elements.date.value = selectedStockYear() === new Date().getFullYear().toString() ? new Date().toISOString().slice(0, 10) : stockYearStart();
     }
@@ -3726,12 +3754,15 @@ function ensureStockCashFormDefaults() {
 
 function populateStockCashForm(record) {
   if (!guardStockEditAction()) return;
-  const form = record.type === "expense" ? stockCashExpenseForm : stockCashIncomeForm;
+  const form = record.type === "expense" ? stockCashExpenseForm : record.type === "transfer" ? stockCashTransferForm : stockCashIncomeForm;
   if (!form) return;
   form.elements.id.value = record.id;
   form.elements.date.value = record.date || new Date().toISOString().slice(0, 10);
   form.elements.amount.value = formatMoney(record.amount);
-  form.elements.category.value = record.category || form.elements.category.value;
+  if (form.elements.category) form.elements.category.value = record.category || form.elements.category.value;
+  if (form.elements.account) form.elements.account.value = stockCashAccount(record);
+  if (form.elements.fromAccount) form.elements.fromAccount.value = record.fromAccount || "Banka";
+  if (form.elements.toAccount) form.elements.toAccount.value = record.toAccount || "Nakit Kasa";
   form.elements.title.value = record.title || "";
   form.elements.note.value = record.note || "";
   editingStockCashId = record.id;
@@ -3752,11 +3783,18 @@ function submitStockCashForm(form, type) {
     type,
     date: String(formData.get("date") || new Date().toISOString().slice(0, 10)),
     amount,
-    category: String(formData.get("category") || "").trim(),
-    title: String(formData.get("title") || "").trim() || (type === "income" ? "Personel katkı geliri" : "Personel kasası harcaması"),
+    category: type === "transfer" ? "Banka / Kasa aktarımı" : String(formData.get("category") || "").trim(),
+    title: String(formData.get("title") || "").trim() || (type === "income" ? "Personel katkı geliri" : type === "transfer" ? "Banka / kasa aktarımı" : "Personel kasası harcaması"),
     source: "Personel kasası",
+    account: type === "transfer" ? "" : String(formData.get("account") || (type === "income" ? "Banka" : "Nakit Kasa")),
+    fromAccount: type === "transfer" ? String(formData.get("fromAccount") || "Banka") : "",
+    toAccount: type === "transfer" ? String(formData.get("toAccount") || "Nakit Kasa") : "",
     note: String(formData.get("note") || "").trim(),
   };
+  if (payload.type === "transfer" && payload.fromAccount === payload.toAccount) {
+    showToast("Aktarımda kaynak ve hedef hesap aynı olamaz.");
+    return;
+  }
   const existing = stockCashRecords.find((record) => String(record.id) === id);
   if (existing) {
     Object.assign(existing, payload, { updatedAt: new Date().toISOString(), updatedBy: currentUser?.displayName || currentUser?.username || "-" });
@@ -3767,7 +3805,7 @@ function submitStockCashForm(form, type) {
   editingStockCashId = null;
   saveStockRecords();
   renderStock();
-  showToast(type === "income" ? "Gelir kaydedildi." : "Harcama kaydedildi.");
+  showToast(type === "income" ? "Gelir kaydedildi." : type === "transfer" ? "Aktarım kaydedildi." : "Harcama kaydedildi.");
 }
 
 function stockReportInDateRange(dateValue) {
@@ -3856,19 +3894,22 @@ function buildStockReportRows() {
       movement.note || movement.documentNo || "",
     ];
   });
-  const cashRows = stockReportFilteredCashRecords().map((record) => [
-    record.type === "income" ? "Kasa geliri" : "Kasa harcaması",
-    formatDate(record.date),
-    record.title || (record.type === "income" ? "Gelir" : "Harcama"),
-    record.category || "-",
-    record.type === "income" ? "Gelir" : "Harcama",
-    "",
-    "",
-    "TL",
-    `${record.type === "expense" ? "-" : "+"}${formatMoney(record.amount)}`,
-    record.user || "-",
-    record.note || "",
-  ]);
+  const cashRows = stockReportFilteredCashRecords().map((record) => {
+    const isTransfer = record.type === "transfer";
+    return [
+      isTransfer ? "Banka / kasa aktarımı" : record.type === "income" ? "Kasa geliri" : "Kasa harcaması",
+      formatDate(record.date),
+      record.title || (record.type === "income" ? "Gelir" : isTransfer ? "Banka / kasa aktarımı" : "Harcama"),
+      record.category || "-",
+      isTransfer ? stockCashAccountLabel(record) : record.type === "income" ? `Gelir · ${stockCashAccount(record)}` : `Harcama · ${stockCashAccount(record)}`,
+      "",
+      "",
+      "TL",
+      `${isTransfer ? "↔" : record.type === "expense" ? "-" : "+"}${formatMoney(record.amount)}`,
+      record.user || "-",
+      record.note || "",
+    ];
+  });
   return [
     ["Kayıt Türü", "Tarih", "Ürün / İşlem", "Kaynak / Kategori", "İşlem", "Giriş", "Çıkış", "Birim", "Tutar", "Personel / Yer", "Not"],
     ...movementRows,
@@ -3930,6 +3971,8 @@ function renderStockReport() {
   const interestIncome = cashRows.filter((record) => record.type === "income" && record.category === "Faiz geliri").reduce((sum, record) => sum + numberValue(record.amount), 0);
   const personnelIncome = cashRows.filter((record) => record.type === "income" && record.category === "Personel katkısı").reduce((sum, record) => sum + numberValue(record.amount), 0);
   const cashExpense = cashRows.filter((record) => record.type === "expense").reduce((sum, record) => sum + numberValue(record.amount), 0);
+  const bankBalance = stockCashBalanceAmount("Banka");
+  const physicalBalance = stockCashBalanceAmount("Nakit Kasa");
   const stockCards = [
     [selectedProduct ? `Mevcut ${selectedProduct.name}` : "Toplam mevcut stok", `${formatNumber(currentStock)} ${unit}`, "primary"],
     ["Giriş", `${formatNumber(entries)} ${unit}`, "positive"],
@@ -3941,6 +3984,8 @@ function renderStockReport() {
     ["Personel katkısı", `${formatMoney(personnelIncome)} TL`, "positive"],
     ["Faiz geliri", `${formatMoney(interestIncome)} TL`, "positive"],
     ["Kasa harcaması", `${formatMoney(cashExpense)} TL`, "negative"],
+    ["Bankada duran", `${formatMoney(bankBalance)} TL`, "neutral"],
+    ["Nakit kasa", `${formatMoney(physicalBalance)} TL`, "neutral"],
   ].filter(([, value]) => value !== "0,00 TL" || stockReportCashCategory.value !== "Tümü");
 
   stockReportSummary.innerHTML = `
@@ -3961,7 +4006,7 @@ function renderStockReport() {
     </article>`;
   }).join("");
   const cashHtml = cashRows.slice(0, 20).map((record) => `<article class="report-result-card ${record.type === "expense" ? "exit" : "entry"}">
-    <div><strong>${escapeHtml(record.title || (record.type === "income" ? "Gelir" : "Harcama"))}</strong><span>${formatDate(record.date)} · ${escapeHtml(record.category || "-")}</span><small>${escapeHtml(record.note || record.user || "-")}</small></div>
+    <div><strong>${escapeHtml(record.title || (record.type === "income" ? "Gelir" : record.type === "transfer" ? "Aktarım" : "Harcama"))}</strong><span>${formatDate(record.date)} · ${escapeHtml(record.category || "-")} · ${escapeHtml(stockCashAccountLabel(record))}</span><small>${escapeHtml(record.note || record.user || "-")}</small></div>
     <div class="report-result-amount"><strong>${record.type === "expense" ? "-" : "+"}${formatMoney(record.amount)} TL</strong></div>
   </article>`).join("");
   stockReportBreakdown.innerHTML = `
@@ -4496,7 +4541,13 @@ function printMembershipReportWindow() {
 function renderStockCashRows() {
   if (!stockCashRows) return;
   const records = stockCashRecords.filter((record) => String(record.date || "").slice(0, 4) === selectedStockYear()).sort((a,b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.createdAt || "").localeCompare(String(a.createdAt || ""))).slice(0, 12);
-  stockCashRows.innerHTML = records.length ? records.map((record) => `<article class="stock-cash-row"><div><strong>${escapeHtml(record.title || (record.type === "income" ? "Gelir" : "Harcama"))}</strong><span>${formatDate(record.date)} · ${escapeHtml(record.category || "-")} · ${escapeHtml(record.source || "Personel kasası")}</span><small>${escapeHtml(record.note || record.user || "-")}</small></div><div class="stock-cash-amount"><strong class="${record.type === "expense" ? "negative-stock" : "positive-stock"}">${record.type === "expense" ? "-" : "+"}${formatMoney(record.amount)} TL</strong><div class="inline-actions"><button class="btn secondary small" data-stock-action="edit" data-cash-id="${record.id}" type="button">Düzenle</button><button class="btn ghost danger small" data-stock-action="delete" data-cash-id="${record.id}" type="button">Sil</button></div></div></article>`).join("") : `<div class="empty-inline">Henüz personel kasası hareketi yok.</div>`;
+  stockCashRows.innerHTML = records.length ? records.map((record) => {
+    const isTransfer = record.type === "transfer";
+    const sign = isTransfer ? "↔" : record.type === "expense" ? "-" : "+";
+    const amountClass = isTransfer ? "transfer-stock" : record.type === "expense" ? "negative-stock" : "positive-stock";
+    const title = record.title || (record.type === "income" ? "Gelir" : isTransfer ? "Banka / kasa aktarımı" : "Harcama");
+    return `<article class="stock-cash-row"><div><strong>${escapeHtml(title)}</strong><span>${formatDate(record.date)} · ${escapeHtml(record.category || "-")} · ${escapeHtml(stockCashAccountLabel(record))}</span><small>${escapeHtml(record.note || record.user || "-")}</small></div><div class="stock-cash-amount"><strong class="${amountClass}">${sign}${formatMoney(record.amount)} TL</strong><div class="inline-actions"><button class="btn secondary small" data-stock-action="edit" data-cash-id="${record.id}" type="button">Düzenle</button><button class="btn ghost danger small" data-stock-action="delete" data-cash-id="${record.id}" type="button">Sil</button></div></div></article>`;
+  }).join("") : `<div class="empty-inline">Henüz banka/kasa hareketi yok.</div>`;
 }
 
 function stockQuantity(product) {
@@ -4566,6 +4617,8 @@ function renderStock() {
 
   stockProductCount.textContent = visibleProducts.length;
   stockCashBalance.textContent = `${formatMoney(stockCashBalanceAmount())} TL`;
+  if (stockBankBalance) stockBankBalance.textContent = `${formatMoney(stockCashBalanceAmount("Banka"))} TL`;
+  if (stockPhysicalCashBalance) stockPhysicalCashBalance.textContent = `${formatMoney(stockCashBalanceAmount("Nakit Kasa"))} TL`;
   stockMonthlyCollected.textContent = `${formatMoney(cashTotals.income)} TL`;
   stockMonthlySpent.textContent = `${formatMoney(cashTotals.expense)} TL`;
   stockCriticalCount.textContent = criticalProducts.length;
@@ -7860,6 +7913,11 @@ stockCashIncomeForm?.addEventListener("submit", (event) => {
 stockCashExpenseForm?.addEventListener("submit", (event) => {
   event.preventDefault();
   submitStockCashForm(stockCashExpenseForm, "expense");
+});
+
+stockCashTransferForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  submitStockCashForm(stockCashTransferForm, "transfer");
 });
 
 stockCashRows?.addEventListener("click", (event) => {

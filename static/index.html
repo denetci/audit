@@ -6,7 +6,7 @@
     <title>İç Denetim Başkanlığı Faaliyet Paneli</title>
     <link rel="icon" type="image/png" href="tarim-orman-logo.png" />
     <link rel="apple-touch-icon" href="tarim-orman-logo.png" />
-    <link rel="stylesheet" href="style.css?v=20260921-overtime-timesheet" />
+    <link rel="stylesheet" href="style.css?v=20260923-stock-bank-cash" />
     <style>
       .budget-detail-page.report-surface{overflow:hidden;background:#f7fafc;border-color:#d8e3f1}
       .budget-detail-hero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:18px;align-items:center;border-bottom:1px solid #d5e1ef;background:linear-gradient(135deg,#fff 0%,#eef6ff 100%);padding:20px 22px}
@@ -857,7 +857,9 @@
               </div>
 
               <div class="stats stock-stats" aria-label="Stok özetleri">
-                <article class="card"><div class="stat-top"><div class="stat-icon bg-blue">₺</div></div><p>Kasa Bakiyesi</p><div class="value"><strong id="stockCashBalance">0,00 TL</strong></div><div class="note">Sadece personelden toplanan para</div></article>
+                <article class="card"><div class="stat-top"><div class="stat-icon bg-blue">₺</div></div><p>Toplam Personel Parası</p><div class="value"><strong id="stockCashBalance">0,00 TL</strong></div><div class="note">Banka + nakit kasa toplamı</div></article>
+                <article class="card"><div class="stat-top"><div class="stat-icon bg-green">▣</div></div><p>Banka</p><div class="value"><strong id="stockBankBalance">0,00 TL</strong></div><div class="note">Bankada duran personel parası</div></article>
+                <article class="card"><div class="stat-top"><div class="stat-icon bg-amber">▤</div></div><p>Nakit Kasa</p><div class="value"><strong id="stockPhysicalCashBalance">0,00 TL</strong></div><div class="note">Elden harcanabilecek tutar</div></article>
                 <article class="card"><div class="stat-top"><div class="stat-icon bg-green">＋</div></div><p>Seçili Yıl Toplanan</p><div class="value"><strong id="stockMonthlyCollected">0,00 TL</strong></div><div class="note">Personel ortak para geliri</div></article>
                 <article class="card"><div class="stat-top"><div class="stat-icon bg-red">−</div></div><p>Seçili Yıl Harcanan</p><div class="value"><strong id="stockMonthlySpent">0,00 TL</strong></div><div class="note">Personel kasasından harcama</div></article>
                 <article class="card"><div class="stat-top"><div class="stat-icon bg-amber">⌛</div></div><p>Kritik Stok</p><div class="value"><strong id="stockCriticalCount">0</strong><span>ürün</span></div><div class="note">Kritik seviyede veya altında</div></article>
@@ -907,6 +909,7 @@
                     <label>Tarih<input name="date" type="date" required /></label>
                     <label>Tutar<input name="amount" inputmode="decimal" placeholder="Örn. 5.000,00" required /></label>
                     <label>Gelir Türü<select name="category"><option>Personel katkısı</option><option>Faiz geliri</option><option>Diğer gelir</option></select></label>
+                    <label>Nereye Girdi?<select name="account"><option>Banka</option><option>Nakit Kasa</option></select></label>
                     <label class="wide">Açıklama<input name="title" placeholder="Örn. Eylül ayı personel katkısı" /></label>
                     <label class="wide">Not<input name="note" placeholder="İsteğe bağlı not" /></label>
                     <div class="cash-form-actions"><button class="btn primary small" type="submit">Geliri Kaydet</button><button class="btn ghost small" data-cash-reset="income" type="button">Temizle</button></div>
@@ -921,13 +924,30 @@
                     <label>Tarih<input name="date" type="date" required /></label>
                     <label>Tutar<input name="amount" inputmode="decimal" placeholder="Örn. 750,00" required /></label>
                     <label>Harcama Türü<select name="category"><option>Çay</option><option>Kahve</option><option>Maden suyu</option><option>Normal su</option><option>Temsil</option><option>Mutfak</option><option>Lavabo</option><option>İnşaat / malzeme</option><option>Diğer harcama</option></select></label>
+                    <label>Hangi Hesaptan?<select name="account"><option>Nakit Kasa</option><option>Banka</option></select></label>
                     <label class="wide">Nereye / Ne için<input name="title" placeholder="Örn. Mutfak çay alımı" /></label>
                     <label class="wide">Not<input name="note" placeholder="İsteğe bağlı not" /></label>
                     <div class="cash-form-actions"><button class="btn primary small" type="submit">Harcamayı Kaydet</button><button class="btn ghost small" data-cash-reset="expense" type="button">Temizle</button></div>
                   </form>
                 </div>
+
+                <div class="stock-cash-card transfer-card">
+                  <div class="sub-panel-head compact-head">
+                    <div><h3>Banka / Kasa Aktarımı</h3><p class="eyebrow">Bankadan nakit kasaya çekilen veya kasadan bankaya yatırılan tutar</p></div>
+                  </div>
+                  <form class="stock-cash-form simple" id="stockCashTransferForm">
+                    <input name="id" type="hidden" />
+                    <label>Tarih<input name="date" type="date" required /></label>
+                    <label>Tutar<input name="amount" inputmode="decimal" placeholder="Örn. 2.000,00" required /></label>
+                    <label>Nereden?<select name="fromAccount"><option>Banka</option><option>Nakit Kasa</option></select></label>
+                    <label>Nereye?<select name="toAccount"><option>Nakit Kasa</option><option>Banka</option></select></label>
+                    <label class="wide">Açıklama<input name="title" placeholder="Örn. Bankadan nakit çekildi" /></label>
+                    <label class="wide">Not<input name="note" placeholder="İsteğe bağlı not" /></label>
+                    <div class="cash-form-actions"><button class="btn primary small" type="submit">Aktarımı Kaydet</button><button class="btn ghost small" data-cash-reset="transfer" type="button">Temizle</button></div>
+                  </form>
+                </div>
                 <div class="stock-cash-card cash-history-card">
-                  <div class="sub-panel-head compact-head"><div><h3>Son Kasa Hareketleri</h3><p class="eyebrow">Gelir ve harcama kayıtları; düzenlenebilir veya silinebilir</p></div></div>
+                  <div class="sub-panel-head compact-head"><div><h3>Son Banka / Kasa Hareketleri</h3><p class="eyebrow">Gelir, harcama ve aktarım kayıtları; düzenlenebilir veya silinebilir</p></div></div>
                   <div class="stock-cash-list" id="stockCashRows"></div>
                 </div>
               </section>
@@ -2287,6 +2307,6 @@
         </div>
       </form>
     </dialog>
-    <script src="script.js?v=20260921-overtime-timesheet"></script>
+    <script src="script.js?v=20260923-stock-bank-cash"></script>
   </body>
 </html>

@@ -4579,3 +4579,9 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 @media (max-width: 900px) {
   .overtime-quick-panel { align-items: stretch; flex-direction: column; }
 }
+.transfer-card {
+  border-left: 4px solid var(--blue);
+}
+.transfer-stock {
+  color: var(--blue);
+}
