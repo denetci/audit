@@ -1289,9 +1289,16 @@
       }
 
       .stock-stats {
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(6, minmax(0, 1fr));
         padding: 16px;
         border-bottom: 1px solid #edf2f7;
+      }
+      .stock-stats .card {
+        min-width: 0;
+      }
+      .stock-stats .value strong {
+        font-size: clamp(20px, 1.8vw, 31px);
+        white-space: nowrap;
       }
 
       .stock-filters {

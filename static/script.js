@@ -3700,6 +3700,7 @@ function stockCashAccountLabel(record) {
 
 function stockCashAmount(record) {
   if (record.type === "transfer") return 0;
+  if (record.type === "balanceAdjustment") return numberValue(record.amount);
   return numberValue(record.amount) * (record.type === "expense" ? -1 : 1);
 }
 
@@ -3711,7 +3712,59 @@ function stockCashAccountAmount(record, account) {
     if ((record.toAccount || "Nakit Kasa") === account) total += amount;
     return total;
   }
+  if (record.type === "balanceAdjustment") return stockCashAccount(record) === account ? amount : 0;
   return stockCashAccount(record) === account ? stockCashAmount(record) : 0;
+}
+
+const stockTargetAccountBalances = { "Banka": 77520.30, "Nakit Kasa": 4170 };
+const stockBalanceAdjustmentKey = "2026-09-23-fiili-banka-kasa";
+
+function stockCashBalanceWithoutAdjustments(account) {
+  return stockCashRecords.reduce((sum, record) => {
+    if (record.type === "balanceAdjustment" && String(record.systemKey || "").startsWith(stockBalanceAdjustmentKey)) return sum;
+    if (String(record.date || "") > stockYearEnd()) return sum;
+    return sum + stockCashAccountAmount(record, account);
+  }, 0);
+}
+
+function ensureStockAccountBalanceAdjustments() {
+  if (!Array.isArray(stockCashRecords)) return;
+  let changed = false;
+  Object.entries(stockTargetAccountBalances).forEach(([account, target]) => {
+    const systemKey = `${stockBalanceAdjustmentKey}-${account}`;
+    const currentWithoutAdjustment = stockCashBalanceWithoutAdjustments(account);
+    const adjustmentAmount = Number((target - currentWithoutAdjustment).toFixed(2));
+    let record = stockCashRecords.find((item) => item.type === "balanceAdjustment" && item.systemKey === systemKey);
+    if (Math.abs(adjustmentAmount) < 0.005) {
+      if (record) {
+        stockCashRecords = stockCashRecords.filter((item) => item !== record);
+        changed = true;
+      }
+      return;
+    }
+    const payload = {
+      type: "balanceAdjustment",
+      systemKey,
+      date: "2026-09-23",
+      amount: adjustmentAmount,
+      category: "Bakiye düzeltme",
+      title: `${account} fiili bakiye düzeltmesi`,
+      source: "Personel kasası",
+      account,
+      note: "23.09.2026 fiili banka/nakit kasa bakiyesine göre otomatik düzeltme",
+      user: currentUser?.displayName || currentUser?.username || "Sistem",
+    };
+    if (record) {
+      if (Number(record.amount) !== adjustmentAmount || record.account !== account) {
+        Object.assign(record, payload, { updatedAt: new Date().toISOString() });
+        changed = true;
+      }
+    } else {
+      stockCashRecords.push({ id: `balance-${systemKey}`, createdAt: new Date().toISOString(), ...payload });
+      changed = true;
+    }
+  });
+  if (changed) saveStockRecords();
 }
 
 function stockCashBalanceAmount(account = "Tümü") {
@@ -3901,11 +3954,11 @@ function buildStockReportRows() {
       formatDate(record.date),
       record.title || (record.type === "income" ? "Gelir" : isTransfer ? "Banka / kasa aktarımı" : "Harcama"),
       record.category || "-",
-      isTransfer ? stockCashAccountLabel(record) : record.type === "income" ? `Gelir · ${stockCashAccount(record)}` : `Harcama · ${stockCashAccount(record)}`,
+      isTransfer ? stockCashAccountLabel(record) : record.type === "balanceAdjustment" ? `Bakiye düzeltme · ${stockCashAccount(record)}` : record.type === "income" ? `Gelir · ${stockCashAccount(record)}` : `Harcama · ${stockCashAccount(record)}`,
       "",
       "",
       "TL",
-      `${isTransfer ? "↔" : record.type === "expense" ? "-" : "+"}${formatMoney(record.amount)}`,
+      `${isTransfer ? "↔" : stockCashAmount(record) < 0 ? "-" : "+"}${formatMoney(Math.abs(stockCashAmount(record)))}`,
       record.user || "-",
       record.note || "",
     ];
@@ -4543,10 +4596,12 @@ function renderStockCashRows() {
   const records = stockCashRecords.filter((record) => String(record.date || "").slice(0, 4) === selectedStockYear()).sort((a,b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.createdAt || "").localeCompare(String(a.createdAt || ""))).slice(0, 12);
   stockCashRows.innerHTML = records.length ? records.map((record) => {
     const isTransfer = record.type === "transfer";
-    const sign = isTransfer ? "↔" : record.type === "expense" ? "-" : "+";
-    const amountClass = isTransfer ? "transfer-stock" : record.type === "expense" ? "negative-stock" : "positive-stock";
-    const title = record.title || (record.type === "income" ? "Gelir" : isTransfer ? "Banka / kasa aktarımı" : "Harcama");
-    return `<article class="stock-cash-row"><div><strong>${escapeHtml(title)}</strong><span>${formatDate(record.date)} · ${escapeHtml(record.category || "-")} · ${escapeHtml(stockCashAccountLabel(record))}</span><small>${escapeHtml(record.note || record.user || "-")}</small></div><div class="stock-cash-amount"><strong class="${amountClass}">${sign}${formatMoney(record.amount)} TL</strong><div class="inline-actions"><button class="btn secondary small" data-stock-action="edit" data-cash-id="${record.id}" type="button">Düzenle</button><button class="btn ghost danger small" data-stock-action="delete" data-cash-id="${record.id}" type="button">Sil</button></div></div></article>`;
+    const isAdjustment = record.type === "balanceAdjustment";
+    const amount = stockCashAmount(record);
+    const sign = isTransfer ? "↔" : amount < 0 ? "-" : "+";
+    const amountClass = isTransfer ? "transfer-stock" : amount < 0 ? "negative-stock" : "positive-stock";
+    const title = record.title || (record.type === "income" ? "Gelir" : isTransfer ? "Banka / kasa aktarımı" : isAdjustment ? "Bakiye düzeltme" : "Harcama");
+    return `<article class="stock-cash-row"><div><strong>${escapeHtml(title)}</strong><span>${formatDate(record.date)} · ${escapeHtml(record.category || "-")} · ${escapeHtml(stockCashAccountLabel(record))}</span><small>${escapeHtml(record.note || record.user || "-")}</small></div><div class="stock-cash-amount"><strong class="${amountClass}">${sign}${formatMoney(Math.abs(amount))} TL</strong><div class="inline-actions"><button class="btn secondary small" data-stock-action="edit" data-cash-id="${record.id}" type="button">Düzenle</button><button class="btn ghost danger small" data-stock-action="delete" data-cash-id="${record.id}" type="button">Sil</button></div></div></article>`;
   }).join("") : `<div class="empty-inline">Henüz banka/kasa hareketi yok.</div>`;
 }
 
@@ -4606,6 +4661,7 @@ function updateStockCategoryFilter() {
 }
 
 function renderStock() {
+  ensureStockAccountBalanceAdjustments();
   ensureStockCashFormDefaults();
   stockItems = stockItems.map(normalizeStockProduct);
   updateStockCategoryFilter();
