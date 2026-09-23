@@ -3766,11 +3766,20 @@ function ensureStockOpeningBalanceRecords() {
   if (changed) saveStockRecords();
 }
 
+function stockOpeningCreatedAt() {
+  const openingRecords = stockCashRecords.filter((record) => record.type === "openingBalance" && String(record.systemKey || "").startsWith(stockOpeningBalanceKey));
+  return openingRecords.map((record) => String(record.createdAt || record.updatedAt || "")).filter(Boolean).sort()[0] || "";
+}
+
 function stockCashCountsForBalance(record) {
   if (record.type === "openingBalance" && String(record.systemKey || "").startsWith(stockOpeningBalanceKey)) return true;
   if (record.type === "balanceAdjustment" && String(record.systemKey || "").startsWith("2026-09-23-fiili-banka-kasa")) return false;
   const date = String(record.date || "");
-  return date > stockOpeningBalanceDate && date <= stockYearEnd();
+  if (date > stockOpeningBalanceDate && date <= stockYearEnd()) return true;
+  if (date !== stockOpeningBalanceDate) return false;
+  const createdAt = String(record.createdAt || record.updatedAt || "");
+  const openingCreatedAt = stockOpeningCreatedAt();
+  return Boolean(createdAt && openingCreatedAt && createdAt > openingCreatedAt);
 }
 
 function stockCashBalanceAmount(account = "Tümü") {
