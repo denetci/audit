@@ -3718,6 +3718,7 @@ function stockCashAccountAmount(record, account) {
 
 const stockOpeningAccountBalances = { "Banka": 77520.30, "Nakit Kasa": 4170 };
 const stockOpeningBalanceKey = "2026-09-23-acilis-banka-kasa";
+const stockOpeningBalanceDate = "2026-09-23";
 
 function ensureStockOpeningBalanceRecords() {
   if (!Array.isArray(stockCashRecords)) return;
@@ -3733,7 +3734,7 @@ function ensureStockOpeningBalanceRecords() {
     const payload = {
       type: "openingBalance",
       systemKey,
-      date: "2026-09-23",
+      date: stockOpeningBalanceDate,
       amount,
       category: "Açılış bakiyesi",
       title: `${account} açılış bakiyesi`,
@@ -3752,21 +3753,36 @@ function ensureStockOpeningBalanceRecords() {
       changed = true;
     }
   });
-  const legacyBefore = stockCashRecords.length;
-  stockCashRecords = stockCashRecords.filter((record) => !(record.type === "balanceAdjustment" && String(record.systemKey || "").startsWith("2026-09-23-fiili-banka-kasa")));
-  if (stockCashRecords.length !== legacyBefore) changed = true;
+  const beforeCleanup = stockCashRecords.length;
+  const seenOpening = new Set();
+  stockCashRecords = stockCashRecords.filter((record) => {
+    if (record.type === "balanceAdjustment" && String(record.systemKey || "").startsWith("2026-09-23-fiili-banka-kasa")) return false;
+    if (record.type !== "openingBalance" || !String(record.systemKey || "").startsWith(stockOpeningBalanceKey)) return true;
+    if (seenOpening.has(record.systemKey)) return false;
+    seenOpening.add(record.systemKey);
+    return true;
+  });
+  if (stockCashRecords.length !== beforeCleanup) changed = true;
   if (changed) saveStockRecords();
+}
+
+function stockCashCountsForBalance(record) {
+  if (record.type === "openingBalance" && String(record.systemKey || "").startsWith(stockOpeningBalanceKey)) return true;
+  if (record.type === "balanceAdjustment" && String(record.systemKey || "").startsWith("2026-09-23-fiili-banka-kasa")) return false;
+  const date = String(record.date || "");
+  return date > stockOpeningBalanceDate && date <= stockYearEnd();
 }
 
 function stockCashBalanceAmount(account = "Tümü") {
   return stockCashRecords.reduce((sum, record) => {
-    if (String(record.date || "") > stockYearEnd()) return sum;
+    if (!stockCashCountsForBalance(record)) return sum;
     return sum + (account === "Tümü" ? stockCashAmount(record) : stockCashAccountAmount(record, account));
   }, 0);
 }
 
 function stockCashMonthTotals() {
   return stockCashRecords.reduce((acc, record) => {
+    if (record.type === "openingBalance" || record.type === "balanceAdjustment") return acc;
     if (String(record.date || "").slice(0, 4) === selectedStockYear()) {
       if (record.type === "income") acc.income += numberValue(record.amount);
       if (record.type === "expense") acc.expense += numberValue(record.amount);
