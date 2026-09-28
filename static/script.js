@@ -24,7 +24,7 @@ function guardStockEditAction() {
 }
 
 function mutationModule(element) {
-  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",carryStockYearBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",stockCashIncomeForm:"stock",stockCashExpenseForm:"stock",stockCashTransferForm:"stock",membershipTemplateForm:"membership",openMembershipTemplateModal:"membership",openMembershipRaiseModal:"membership",membershipRaiseForm:"membership",openOvertimeWorkerModal:"overtime",overtimeWorkerForm:"overtime",createOvertimeMonth:"overtime",fillOvertimeWeekdays:"overtime",fillOvertimeWeekends:"overtime",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
+  const ids = {newAuditBtn:"audits",auditForm:"audits",newApprovalBtn:"approvals",approvalForm:"approvals",newLeaveBtn:"leaves",leaveForm:"leaves",newLeaveRightBtn:"leaves",leaveRightForm:"leaves",newDutyBtn:"duties",dutyForm:"duties",newBudgetItemBtn:"budget",budgetItemForm:"budget",detailBudgetExpenseBtn:"budget",budgetExpenseForm:"budget",newStockProductBtn:"stock",carryStockYearBtn:"stock",stockProductForm:"stock",newStockEntryBtn:"stock",newStockExitBtn:"stock",stockMovementForm:"stock",stockCashIncomeForm:"stock",stockCashExpenseForm:"stock",stockCashTransferForm:"stock",membershipTemplateForm:"membership",openMembershipTemplateModal:"membership",openMembershipRaiseModal:"membership",membershipRaiseForm:"membership",openOvertimeWorkerModal:"overtime",overtimeWorkerForm:"overtime",createOvertimeMonth:"overtime",fillOvertimeWeekdays:"overtime",fillOvertimeWeekends:"overtime",saveOvertimeDetail:"overtime",newPersonnelBtn:"personnel",personnelProfileForm:"personnel",monitoringForm:"monitoring"};
   if (ids[element.id]) return ids[element.id];
   for (const [attr,module] of [["data-action","audits"],["data-approval-action","approvals"],["data-leave-action","leaves"],["data-leave-right-action","leaves"],["data-duty-action","duties"],["data-budget-item-action","budget"],["data-budget-expense-action","budget"],["data-stock-action","stock"],["data-membership-action","membership"],["data-membership-template-action","membership"],["data-overtime-action","overtime"],["data-overtime-worker-action","overtime"],["data-monitoring-document-action","monitoring"],["data-report-document-action","reports"],["data-personnel-action","personnel"]]) {
     const action = element.getAttribute(attr);
@@ -340,6 +340,19 @@ const overtimeMonthFilter = document.querySelector("#overtimeMonthFilter");
 const overtimeWorkerFilter = document.querySelector("#overtimeWorkerFilter");
 const overtimeSearchInput = document.querySelector("#overtimeSearchInput");
 const clearOvertimeFilters = document.querySelector("#clearOvertimeFilters");
+const overtimeReportScope = document.querySelector("#overtimeReportScope");
+const overtimeMonthStatus = document.querySelector("#overtimeMonthStatus");
+const overtimeEnteredCount = document.querySelector("#overtimeEnteredCount");
+const overtimeMissingCount = document.querySelector("#overtimeMissingCount");
+const overtimeEnteredList = document.querySelector("#overtimeEnteredList");
+const overtimeMissingList = document.querySelector("#overtimeMissingList");
+const overtimeReportExcel = document.querySelector("#overtimeReportExcel");
+const overtimeReportPdf = document.querySelector("#overtimeReportPdf");
+const overtimeModeCards = document.querySelectorAll("[data-overtime-mode]");
+const overtimeNormalPanel = document.querySelector("#overtimeNormalPanel");
+const overtimeDetailPanel = document.querySelector("#overtimeDetailPanel");
+const overtimeNormalReportActions = document.querySelector("#overtimeNormalReportActions");
+let overtimeActiveMode = "normal";
 const createOvertimeMonth = document.querySelector("#createOvertimeMonth");
 const fillOvertimeWeekdays = document.querySelector("#fillOvertimeWeekdays");
 const fillOvertimeWeekends = document.querySelector("#fillOvertimeWeekends");
@@ -354,6 +367,17 @@ const closeOvertimeWorkerModal = document.querySelector("#closeOvertimeWorkerMod
 const cancelOvertimeWorker = document.querySelector("#cancelOvertimeWorker");
 const downloadOvertimeExcel = document.querySelector("#downloadOvertimeExcel");
 const printOvertimeReport = document.querySelector("#printOvertimeReport");
+const overtimeDetailWorker = document.querySelector("#overtimeDetailWorker");
+const overtimeDetailInstitution = document.querySelector("#overtimeDetailInstitution");
+const overtimeDetailDutyPlace = document.querySelector("#overtimeDetailDutyPlace");
+const overtimeDetailPeriod = document.querySelector("#overtimeDetailPeriod");
+const overtimeDetailDuty = document.querySelector("#overtimeDetailDuty");
+const saveOvertimeDetail = document.querySelector("#saveOvertimeDetail");
+const overtimeDetailPeriodTitle = document.querySelector("#overtimeDetailPeriodTitle");
+const overtimeDetailRows = document.querySelector("#overtimeDetailRows");
+const overtimeDetailTotal = document.querySelector("#overtimeDetailTotal");
+const downloadOvertimeDetailExcel = document.querySelector("#downloadOvertimeDetailExcel");
+const printOvertimeDetailReport = document.querySelector("#printOvertimeDetailReport");
 
 function normalizeLegacyMembershipTemplateArea() {
   const membershipPanel = document.querySelector("#aidat-takibi-panel");
@@ -4093,12 +4117,277 @@ function renderStockReport() {
 
 
 
+
+function overtimeDetailPeriodLabel(year, month) {
+  return `${year} Yılı ${overtimeMonthName(month)} Ayı`;
+}
+
+function overtimeDetailPeriodValue(year, month) {
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+function overtimeDetailDateLabel(dateValue) {
+  const date = new Date(`${dateValue}T12:00:00`);
+  const dayName = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"][date.getDay()];
+  return `${formatDate(dateValue)} ${dayName}`;
+}
+
+function overtimeDetailOffDayCounts(record, year, month) {
+  const entries = record?.overtimeDetail?.entries || {};
+  const hasOvertime = (entry) => Boolean(entry && (numberValue(entry.total) > 0 || entry.start || entry.end));
+  return Object.entries(entries).reduce((sum, [day, entry]) => {
+    if (!hasOvertime(entry)) return sum;
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    const normalCode = record?.days?.[String(day)] || "";
+    if (date.getDay() === 0) sum.sundays += 1;
+    if (normalCode === "T") sum.holidays += 1;
+    return sum;
+  }, { sundays: 0, holidays: 0 });
+}
+
+function parseOvertimeDetailPeriod(value) {
+  const [year, month] = String(value || "").split("-");
+  return { year: year || String(new Date().getFullYear()), month: Number(month || 1) };
+}
+
+function overtimeDetailRecord(person, year, month, create = false) {
+  if (!person) return null;
+  let record = overtimeRecords.find((item) => normalizeText(item.name) === normalizeText(person) && String(item.year) === String(year) && Number(item.month) === Number(month));
+  if (!record && create) {
+    const worker = getActiveOvertimeWorkers().find((item) => normalizeText(item.name) === normalizeText(person));
+    record = {
+      id: Date.now() + Math.random(),
+      year: String(year),
+      month: Number(month),
+      name: person,
+      identityNo: worker?.identityNo || "",
+      title: worker?.title || "İşçi",
+      unit: worker?.unit || "İç Denetim Başkanlığı",
+      days: {},
+      overtimeHours: 0,
+      note: "",
+      overtimeDetail: {},
+    };
+    overtimeRecords.push(record);
+  }
+  if (record && !record.overtimeDetail) record.overtimeDetail = {};
+  return record;
+}
+
+function overtimeDetailSelectedContext(create = false) {
+  const person = overtimeDetailWorker?.value || "";
+  const period = parseOvertimeDetailPeriod(overtimeDetailPeriod?.value || overtimeDetailPeriodValue(yearSelect.value || new Date().getFullYear(), new Date().getMonth() + 1));
+  return { person, ...period, record: overtimeDetailRecord(person, period.year, period.month, create) };
+}
+
+function overtimeDetailTotalHours(record) {
+  return Object.values(record?.overtimeDetail?.entries || {}).reduce((sum, entry) => sum + numberValue(entry.total), 0);
+}
+
+function normalizeOvertimeClock(value) {
+  const raw = String(value || "").trim().replace(/\s+/g, "").replace(".", ":");
+  if (!raw) return "";
+  const match = raw.match(/^(\d{1,2})(?::?(\d{2}))?$/);
+  if (!match) return raw;
+  const hour = Math.min(Number(match[1]), 23);
+  const minute = Math.min(Number(match[2] || 0), 59);
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function overtimeClockToMinutes(value) {
+  const normalized = normalizeOvertimeClock(value);
+  const match = normalized.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return null;
+  return hour * 60 + minute;
+}
+
+function overtimeHoursBetween(start, end) {
+  const startMinutes = overtimeClockToMinutes(start);
+  const endMinutes = overtimeClockToMinutes(end);
+  if (startMinutes === null || endMinutes === null) return 0;
+  const diff = endMinutes >= startMinutes ? endMinutes - startMinutes : endMinutes + 24 * 60 - startMinutes;
+  return diff > 0 ? diff / 60 : 0;
+}
+
+function updateOvertimeDetailVisibleTotal() {
+  if (!overtimeDetailTotal || !overtimeDetailRows) return;
+  const total = [...overtimeDetailRows.querySelectorAll('[data-overtime-detail-field="total"]')]
+    .reduce((sum, input) => sum + numberValue(input.value), 0);
+  overtimeDetailTotal.textContent = formatNumber(total);
+}
+
+function calculateOvertimeDetailRow(row, normalize = false) {
+  if (!row) return;
+  const startInput = row.querySelector('[data-overtime-detail-field="start"]');
+  const endInput = row.querySelector('[data-overtime-detail-field="end"]');
+  const totalInput = row.querySelector('[data-overtime-detail-field="total"]');
+  if (!startInput || !endInput || !totalInput) return;
+  if (normalize) {
+    startInput.value = normalizeOvertimeClock(startInput.value);
+    endInput.value = normalizeOvertimeClock(endInput.value);
+  }
+  const total = overtimeHoursBetween(startInput.value, endInput.value);
+  if (total) totalInput.value = formatNumber(total);
+  updateOvertimeDetailVisibleTotal();
+}
+
+function syncOvertimeDetailFromMainFilters(forceWorker = false) {
+  if (!overtimeDetailPeriod || !overtimeYearFilter || !overtimeMonthFilter) return;
+  const period = overtimeDetailPeriodValue(overtimeYearFilter.value || yearSelect.value || new Date().getFullYear(), overtimeMonthFilter.value || new Date().getMonth() + 1);
+  overtimeDetailPeriod.value = period;
+  const selectedWorker = overtimeWorkerFilter?.value || "Tümü";
+  if (selectedWorker !== "Tümü" && overtimeDetailWorker) overtimeDetailWorker.value = selectedWorker;
+  if (forceWorker && selectedWorker === "Tümü" && overtimeDetailWorker && !overtimeDetailWorker.value) {
+    overtimeDetailWorker.value = "";
+  }
+}
+
+function renderOvertimeDetailSelectors() {
+  if (!overtimeDetailWorker || !overtimeDetailPeriod) return;
+  const selectedWorker = overtimeWorkerFilter?.value || "Tümü";
+  const currentWorker = selectedWorker !== "Tümü" ? selectedWorker : overtimeDetailWorker.value;
+  overtimeDetailWorker.innerHTML = `<option value="">İşçi seç</option>${getActiveOvertimeWorkers().map((worker) => `<option value="${escapeHtml(worker.name)}">${escapeHtml(worker.name)}</option>`).join("")}`;
+  overtimeDetailWorker.value = [...overtimeDetailWorker.options].some((option) => option.value === currentWorker) ? currentWorker : "";
+  const currentPeriod = overtimeDetailPeriodValue(overtimeYearFilter?.value || yearSelect.value || new Date().getFullYear(), overtimeMonthFilter?.value || new Date().getMonth() + 1);
+  const years = [2025, 2026, 2027, 2028];
+  overtimeDetailPeriod.innerHTML = years.flatMap((year) => membershipMonths.map((month, index) => `<option value="${overtimeDetailPeriodValue(year, index + 1)}">${year} ${month}</option>`)).join("");
+  overtimeDetailPeriod.value = [...overtimeDetailPeriod.options].some((option) => option.value === currentPeriod) ? currentPeriod : overtimeDetailPeriodValue(2026, 10);
+}
+
+function renderOvertimeDetail() {
+  if (!overtimeDetailRows) return;
+  renderOvertimeDetailSelectors();
+  const ctx = overtimeDetailSelectedContext(false);
+  if (!ctx.person) {
+    if (overtimeDetailPeriodTitle) overtimeDetailPeriodTitle.textContent = `${overtimeDetailPeriodLabel(ctx.year, ctx.month)} · Fazla çalışma için işçi seç`;
+    if (overtimeDetailRows) overtimeDetailRows.innerHTML = `<tr><td colspan="7">Fazla çalışma kaydı için üstteki İşçi / İşçiler alanından tek kişi seç veya buradan işçi seç.</td></tr>`;
+    if (overtimeDetailTotal) overtimeDetailTotal.textContent = "0";
+    return;
+  }
+  if (overtimeDetailPeriodTitle) overtimeDetailPeriodTitle.textContent = overtimeDetailPeriodLabel(ctx.year, ctx.month);
+  const record = ctx.record;
+  const detail = record?.overtimeDetail || {};
+  if (overtimeDetailInstitution) overtimeDetailInstitution.value = detail.institution || overtimeDetailInstitution.value || "";
+  if (overtimeDetailDutyPlace) overtimeDetailDutyPlace.value = detail.dutyPlace || overtimeDetailDutyPlace.value || "İç Denetim Başkanlığı";
+  if (overtimeDetailDuty) overtimeDetailDuty.value = detail.duty || overtimeDetailDuty.value || record?.title || "";
+  const days = overtimeDaysInMonth(ctx.year, ctx.month);
+  const disabled = canEditModule("overtime") ? "" : " disabled";
+  overtimeDetailRows.innerHTML = Array.from({ length: days }, (_, index) => {
+    const day = String(index + 1);
+    const date = `${ctx.year}-${String(ctx.month).padStart(2, "0")}-${String(index + 1).padStart(2, "0")}`;
+    const entry = record?.overtimeDetail?.entries?.[day] || {};
+    return `<tr data-overtime-detail-day="${day}">
+      <td>${overtimeDetailDateLabel(date)}</td>
+      <td><input list="overtimeHourOptions" data-overtime-detail-field="start" value="${escapeHtml(entry.start || "")}" placeholder="18:00"${disabled} /></td>
+      <td><input list="overtimeHourOptions" data-overtime-detail-field="end" value="${escapeHtml(entry.end || "")}" placeholder="20:00"${disabled} /></td>
+      <td><input data-overtime-detail-field="total" inputmode="decimal" value="${escapeHtml(entry.total ? formatNumber(entry.total) : "")}" placeholder="2"${disabled} /></td>
+      <td></td><td></td><td></td>
+    </tr>`;
+  }).join("");
+  if (overtimeDetailTotal) overtimeDetailTotal.textContent = formatNumber(overtimeDetailTotalHours(record));
+}
+
+function saveOvertimeDetailRecord() {
+  if (!canEditModule("overtime")) return showToast("Fazla mesai bilgisi kaydetmek için düzenleme yetkisi gerekli.");
+  const ctx = overtimeDetailSelectedContext(true);
+  if (!ctx.person || !ctx.record) return showToast("Fazla mesai için işçi seçmelisin.");
+  const detail = ctx.record.overtimeDetail || {};
+  detail.institution = overtimeDetailInstitution?.value?.trim() || "";
+  detail.dutyPlace = overtimeDetailDutyPlace?.value?.trim() || "İç Denetim Başkanlığı";
+  detail.periodLabel = overtimeDetailPeriodLabel(ctx.year, ctx.month);
+  detail.duty = overtimeDetailDuty?.value?.trim() || ctx.record.title || "";
+  detail.entries = detail.entries || {};
+  overtimeDetailRows?.querySelectorAll("[data-overtime-detail-day]").forEach((row) => {
+    const day = row.dataset.overtimeDetailDay;
+    const start = row.querySelector('[data-overtime-detail-field="start"]')?.value?.trim() || "";
+    const end = row.querySelector('[data-overtime-detail-field="end"]')?.value?.trim() || "";
+    calculateOvertimeDetailRow(row, true);
+    const total = numberValue(row.querySelector('[data-overtime-detail-field="total"]')?.value);
+    if (start || end || total) detail.entries[day] = { start, end, total };
+    else delete detail.entries[day];
+  });
+  ctx.record.overtimeDetail = detail;
+  ctx.record.overtimeHours = overtimeDetailTotalHours(ctx.record);
+  saveOvertimeRecords();
+  renderOvertime();
+  renderOvertimeDetail();
+  showToast(`${ctx.person} için fazla mesai cetveli kaydedildi.`);
+}
+
+function overtimeDetailRowsForExport() {
+  const ctx = overtimeDetailSelectedContext(false);
+  const record = ctx.record;
+  if (!ctx.person || !record) return null;
+  const detail = record.overtimeDetail || {};
+  const rows = [
+    ["T.C."],
+    ["TARIM VE ORMAN BAKANLIĞI"],
+    ["KURUMU", detail.institution || ""],
+    ["GÖREV YERİ", detail.dutyPlace || "İç Denetim Başkanlığı"],
+    ["Ait Olduğu Dönem", detail.periodLabel || overtimeDetailPeriodLabel(ctx.year, ctx.month)],
+    ["FAZLA ÇALIŞMA CETVELİ"],
+    ["ADI SOYADI", record.name],
+    ["GÖREVİ", detail.duty || record.title || ""],
+    ["TARİH", "BAŞLAMA SAATİ", "BİTİŞ SAATİ", "TOPLAM SAATİ", "BAŞLAMA İMZASI", "BİTİŞ İMZASI", "KONTROL EDENİN İMZASI"],
+  ];
+  const days = overtimeDaysInMonth(ctx.year, ctx.month);
+  const offDays = overtimeDetailOffDayCounts(record, ctx.year, ctx.month);
+  for (let i = 1; i <= days; i += 1) {
+    const entry = detail.entries?.[String(i)] || {};
+    const date = `${ctx.year}-${String(ctx.month).padStart(2, "0")}-${String(i).padStart(2, "0")}`;
+    rows.push([overtimeDetailDateLabel(date), entry.start || "---", entry.end || "---", entry.total ? formatNumber(entry.total) : "---", "", "", ""]);
+  }
+  rows.push(["TOPLAM SAAT", "", "", formatNumber(overtimeDetailTotalHours(record)), "", "", ""]);
+  rows.push(["PAZAR SAYISI", offDays.sundays, "", "", "", "", ""]);
+  rows.push(["BAYRAM SAYISI", offDays.holidays, "", "", "", "", ""]);
+  return { ctx, record, detail, rows, offDays };
+}
+
+function downloadOvertimeDetailCsv() {
+  const data = overtimeDetailRowsForExport();
+  if (!data) return showToast("Fazla mesai çıktısı için işçi seçip bilgileri kaydetmelisin.");
+  const csv = data.rows.map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(";")).join("\n");
+  const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `fazla-mesai-${stockReportSlug(data.record.name)}-${data.ctx.year}-${String(data.ctx.month).padStart(2,"0")}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function printOvertimeDetailReportWindow() {
+  const data = overtimeDetailRowsForExport();
+  if (!data) return showToast("Fazla mesai çıktısı için işçi seçip bilgileri kaydetmelisin.");
+  const [tc, ministry, institution, place, period, title, person, duty, header, ...body] = data.rows;
+  const holidayRow = body.pop();
+  const sundayRow = body.pop();
+  const totalRow = body.pop();
+  const tableRows = body.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("");
+  const reportWindow = window.open("", "_blank");
+  if (!reportWindow) return showToast("Yazdırma penceresi açılamadı.");
+  reportWindow.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title></title><style>@page{size:A4 portrait;margin:5mm}html,body{width:200mm;min-height:287mm}body{font-family:Arial,sans-serif;color:#111;margin:0;font-size:9px;line-height:1.15}h1,h2{text-align:center;margin:0}h1{font-size:10px;line-height:1.15}h2{font-size:12px;margin:4px 0}.info{width:100%;border-collapse:collapse;margin:4px 0 5px;font-size:9px}.info th,.info td{border:1px solid #111;padding:2px 4px;text-align:left}.info th{width:32%}.detail{width:100%;border-collapse:collapse;font-size:8.2px;table-layout:fixed}.detail th,.detail td{border:1px solid #111;padding:1px 2px;text-align:center;height:12px;line-height:1.05}.detail th{background:#f1f5f9}.detail th:nth-child(1),.detail td:nth-child(1){width:27%}.detail th:nth-child(2),.detail td:nth-child(2),.detail th:nth-child(3),.detail td:nth-child(3),.detail th:nth-child(4),.detail td:nth-child(4){width:11%}.total th,.total td{font-weight:bold}.offday{margin-top:5px;width:36%;border-collapse:collapse;font-size:9px}.offday th,.offday td{border:1px solid #111;padding:3px 4px;text-align:left}.offday td{text-align:center;font-weight:bold}.sign{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;text-align:center;font-size:9px}.avoid-break{break-inside:avoid;page-break-inside:avoid}</style></head><body><h1>${escapeHtml(tc[0])}<br>${escapeHtml(ministry[0])}</h1><div class="avoid-break"><table class="info"><tr><th>${escapeHtml(institution[0])}</th><td>${escapeHtml(institution[1])}</td></tr><tr><th>${escapeHtml(place[0])}</th><td>${escapeHtml(place[1])}</td></tr><tr><th>${escapeHtml(period[0])}</th><td>${escapeHtml(period[1])}</td></tr></table><h2>${escapeHtml(title[0])}</h2><table class="info"><tr><th>${escapeHtml(person[0])}</th><td>${escapeHtml(person[1])}</td></tr><tr><th>${escapeHtml(duty[0])}</th><td>${escapeHtml(duty[1])}</td></tr></table><table class="detail"><thead><tr>${header.map((cell) => `<th>${escapeHtml(cell)}</th>`).join("")}</tr></thead><tbody>${tableRows}<tr class="total"><th colspan="3">${escapeHtml(totalRow[0])}</th><td>${escapeHtml(totalRow[3])}</td><td colspan="3"></td></tr></tbody></table><table class="offday"><tr><th>${escapeHtml(sundayRow[0])}</th><td>${escapeHtml(sundayRow[1])}</td></tr><tr><th>${escapeHtml(holidayRow[0])}</th><td>${escapeHtml(holidayRow[1])}</td></tr></table><div class="sign"><div></div><div>ONAYLAYAN<br><br><br>................................</div></div></div><script>window.onload=()=>{document.title=' ';window.print();}<\/script></body></html>`);
+  reportWindow.document.close();
+}
+
 function overtimeMonthName(month) {
   return membershipMonths[Number(month || 1) - 1] || month;
 }
 
 function overtimeDaysInMonth(year, month) {
   return new Date(Number(year), Number(month), 0).getDate();
+}
+
+function overtimeShortDayName(year, month, day) {
+  return ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"][new Date(Number(year), Number(month) - 1, Number(day)).getDay()];
+}
+
+function overtimeDayHead(year, month, day) {
+  const weekDay = new Date(Number(year), Number(month) - 1, Number(day)).getDay();
+  const weekendClass = weekDay === 0 || weekDay === 6 ? " weekend" : "";
+  return `<th class="overtime-day-head${weekendClass}"><span>${day}</span><small>${overtimeShortDayName(year, month, day)}</small></th>`;
 }
 
 function overtimeRecordKey(person, year, month) {
@@ -4133,8 +4422,10 @@ function createOvertimeRecordsForMonth() {
   }
   const year = overtimeYearFilter?.value || yearSelect.value || String(new Date().getFullYear());
   const month = overtimeMonthFilter?.value || String(new Date().getMonth() + 1);
+  const selectedWorker = overtimeWorkerFilter?.value || "Tümü";
+  const workers = selectedWorker === "Tümü" ? getActiveOvertimeWorkers() : getActiveOvertimeWorkers().filter((worker) => worker.name === selectedWorker);
   let created = 0;
-  getActiveOvertimeWorkers().forEach((worker) => {
+  workers.forEach((worker) => {
     const key = overtimeRecordKey(worker.name, year, month);
     const existing = overtimeRecords.find((record) => overtimeRecordKey(record.name, record.year, record.month) === key);
     if (existing) return;
@@ -4154,7 +4445,7 @@ function createOvertimeRecordsForMonth() {
   });
   saveOvertimeRecords();
   renderOvertime();
-  showToast(created ? `${created} işçi için ${overtimeMonthName(month)} ${year} puantajı oluşturuldu.` : "Bu ay için puantaj listesi zaten var.");
+  showToast(created ? `${created} işçi için ${overtimeMonthName(month)} ${year} puantajı açıldı.` : "Seçili ay/işçi için puantaj kaydı zaten var.");
 }
 
 function getVisibleOvertimeRecords() {
@@ -4188,6 +4479,48 @@ function overtimeTotals(record) {
   };
 }
 
+function overtimeRecordsForPeriod(year, month) {
+  return overtimeRecords.filter((record) => String(record.year) === String(year) && Number(record.month) === Number(month));
+}
+
+function renderOvertimeStatus(year, month) {
+  const workers = getActiveOvertimeWorkers();
+  const selectedWorker = overtimeWorkerFilter?.value || "Tümü";
+  const periodRecords = overtimeRecordsForPeriod(year, month);
+  const enteredNames = new Set(periodRecords.map((record) => normalizeText(record.name)));
+  const scopedWorkers = selectedWorker === "Tümü" ? workers : workers.filter((worker) => worker.name === selectedWorker);
+  const enteredWorkers = scopedWorkers.filter((worker) => enteredNames.has(normalizeText(worker.name)));
+  const missingWorkers = scopedWorkers.filter((worker) => !enteredNames.has(normalizeText(worker.name)));
+  if (overtimeReportScope) overtimeReportScope.textContent = `${overtimeMonthName(month)} ${year} · ${selectedWorker === "Tümü" ? "Tüm işçiler" : selectedWorker}`;
+  if (overtimeEnteredCount) overtimeEnteredCount.textContent = `${enteredWorkers.length} kişi`;
+  if (overtimeMissingCount) overtimeMissingCount.textContent = `${missingWorkers.length} kişi`;
+  const chip = (worker, tone = "") => `<span class="overtime-person-chip ${tone}">${escapeHtml(worker.name)}</span>`;
+  if (overtimeEnteredList) overtimeEnteredList.innerHTML = enteredWorkers.length ? enteredWorkers.map((worker) => chip(worker, "entered")).join("") : `<span class="muted-chip">Henüz kayıt yok</span>`;
+  if (overtimeMissingList) overtimeMissingList.innerHTML = missingWorkers.length ? missingWorkers.map((worker) => chip(worker, "missing")).join("") : `<span class="muted-chip">Eksik kişi yok</span>`;
+  if (overtimeMonthStatus) {
+    const totalWorkers = workers.length || 1;
+    overtimeMonthStatus.innerHTML = membershipMonths.map((name, index) => {
+      const monthNo = index + 1;
+      const count = new Set(overtimeRecordsForPeriod(year, monthNo).map((record) => normalizeText(record.name))).size;
+      const isCurrent = Number(monthNo) === Number(month);
+      const doneClass = count >= totalWorkers ? " complete" : count > 0 ? " partial" : " empty";
+      return `<button class="overtime-month-pill${doneClass}${isCurrent ? " active" : ""}" data-overtime-report-month="${monthNo}" type="button"><strong>${escapeHtml(name)}</strong><span>${count}/${workers.length} kişi</span></button>`;
+    }).join("");
+  }
+}
+
+function runSelectedOvertimeReport(kind) {
+  if (overtimeActiveMode === "detail") {
+    const selectedWorker = overtimeWorkerFilter?.value || "Tümü";
+    if (selectedWorker !== "Tümü" && overtimeDetailWorker) overtimeDetailWorker.value = selectedWorker;
+    const period = overtimeDetailPeriodValue(overtimeYearFilter?.value || yearSelect.value, overtimeMonthFilter?.value || new Date().getMonth() + 1);
+    if (overtimeDetailPeriod) overtimeDetailPeriod.value = period;
+    renderOvertimeDetail();
+    return kind === "excel" ? downloadOvertimeDetailCsv() : printOvertimeDetailReportWindow();
+  }
+  return kind === "excel" ? downloadOvertimeCsv() : printOvertimeReportWindow();
+}
+
 function renderOvertimeWorkerRows() {
   if (!overtimeWorkerRows) return;
   const disabled = canEditModule("overtime") ? "" : " disabled";
@@ -4199,8 +4532,20 @@ function renderOvertimeWorkerRows() {
   </article>`).join("");
 }
 
+function setOvertimeMode(mode, skipRender = false) {
+  overtimeActiveMode = mode === "detail" ? "detail" : "normal";
+  overtimeModeCards.forEach((card) => card.classList.toggle("active", card.dataset.overtimeMode === overtimeActiveMode));
+  if (overtimeNormalPanel) overtimeNormalPanel.hidden = overtimeActiveMode !== "normal";
+  if (overtimeDetailPanel) overtimeDetailPanel.hidden = overtimeActiveMode !== "detail";
+  if (overtimeNormalReportActions) overtimeNormalReportActions.hidden = overtimeActiveMode !== "normal";
+  if (overtimeActiveMode === "detail") {
+    syncOvertimeDetailFromMainFilters(true);
+    if (!skipRender) renderOvertimeDetail();
+  }
+}
+
 function renderOvertime() {
-  if (!overtimeRows || !overtimeTableHead) return;
+  if (!overtimeRows) return;
   updateOvertimeSelectors();
   const year = overtimeYearFilter?.value || yearSelect.value || String(new Date().getFullYear());
   const month = overtimeMonthFilter?.value || String(new Date().getMonth() + 1);
@@ -4219,20 +4564,42 @@ function renderOvertime() {
   if (overtimeWorkedTotal) overtimeWorkedTotal.textContent = formatNumber(totals.worked);
   if (overtimeHourTotal) overtimeHourTotal.textContent = formatNumber(totals.hours);
   if (overtimeLeaveTotal) overtimeLeaveTotal.textContent = formatNumber(totals.leave);
-  const dayHeads = Array.from({ length: days }, (_, index) => `<th>${index + 1}</th>`).join("");
-  overtimeTableHead.innerHTML = `<tr><th class="sticky-col">İşçi</th>${dayHeads}<th>Fiili</th><th>Tatil</th><th>İzin/Rapor</th><th>Fazla Mesai</th><th>Not</th><th>İşlem</th></tr>`;
+  renderOvertimeStatus(year, month);
   const disabled = canEditModule("overtime") ? "" : " disabled";
   overtimeRows.innerHTML = records.map((record) => {
     const item = overtimeTotals(record);
-    const cells = Array.from({ length: days }, (_, index) => {
+    const dayCards = Array.from({ length: days }, (_, index) => {
       const day = String(index + 1);
       const value = record.days?.[day] || "";
-      return `<td><select class="day-code-select" data-overtime-day="${day}" data-id="${record.id}"${disabled}>${overtimeCodes.map(([code, label]) => `<option value="${escapeHtml(code)}" ${value === code ? "selected" : ""}>${escapeHtml(code || "-")}</option>`).join("")}</select></td>`;
+      const weekDay = new Date(Number(year), Number(month) - 1, Number(day)).getDay();
+      const weekendClass = weekDay === 0 || weekDay === 6 ? " weekend" : "";
+      return `<label class="overtime-day-card${weekendClass}">
+        <span><strong>${day}</strong><small>${overtimeShortDayName(year, month, day)}</small></span>
+        <select class="day-code-select code-${escapeHtml(value || "empty")}" title="${day}. gün - ${overtimeShortDayName(year, month, day)}" data-overtime-day="${day}" data-id="${record.id}"${disabled}>${overtimeCodes.map(([code, label]) => `<option value="${escapeHtml(code)}" ${value === code ? "selected" : ""}>${escapeHtml(code || "-")}</option>`).join("")}</select>
+      </label>`;
     }).join("");
-    return `<tr data-overtime-id="${record.id}"><th class="sticky-col"><strong>${escapeHtml(record.name)}</strong><small>${escapeHtml(record.title || "İşçi")}</small></th>${cells}<td>${item.worked}</td><td>${item.sunday + item.saturday + item.holiday}</td><td>${item.leave}</td><td><input class="small-number-input" data-overtime-field="overtimeHours" inputmode="decimal" value="${escapeHtml(formatNumber(record.overtimeHours || 0))}"${disabled} /></td><td><input data-overtime-field="note" value="${escapeHtml(record.note || "")}" placeholder="Not"${disabled} /></td><td><div class="inline-actions"><button class="btn primary small" data-overtime-action="save" data-id="${record.id}" type="button"${disabled}>Kaydet</button><button class="btn ghost danger small" data-overtime-action="delete" data-id="${record.id}" type="button"${disabled}>Sil</button></div></td></tr>`;
+    return `<article class="overtime-worker-card" data-overtime-id="${record.id}">
+      <div class="overtime-worker-card-head">
+        <div><strong>${escapeHtml(record.name)}</strong><small>${escapeHtml(record.title || "İşçi")}</small></div>
+        <div class="overtime-card-summary"><span>Fiili <b>${item.worked}</b></span><span>Tatil <b>${item.sunday + item.saturday + item.holiday}</b></span><span>İzin/Rapor <b>${item.leave}</b></span></div>
+      </div>
+      <div class="overtime-card-tools">
+        <button class="btn secondary small" data-overtime-action="fill-weekdays" data-id="${record.id}" type="button"${disabled}>Hafta içi çalıştı</button>
+        <button class="btn secondary small" data-overtime-action="fill-weekends" data-id="${record.id}" type="button"${disabled}>Hafta sonu tatil</button>
+        <button class="btn ghost small" data-overtime-action="clear-days" data-id="${record.id}" type="button"${disabled}>Günleri temizle</button>
+      </div>
+      <div class="overtime-days-grid">${dayCards}</div>
+      <div class="overtime-card-footer">
+        <label>Fazla Mesai Saati<input class="small-number-input" data-overtime-field="overtimeHours" inputmode="decimal" value="${escapeHtml(formatNumber(record.overtimeHours || 0))}"${disabled} /></label>
+        <label class="wide-filter">Not<input data-overtime-field="note" value="${escapeHtml(record.note || "")}" placeholder="Not"${disabled} /></label>
+        <div class="inline-actions"><button class="btn primary small" data-overtime-action="save" data-id="${record.id}" type="button"${disabled}>Kaydet</button><button class="btn ghost danger small" data-overtime-action="delete" data-id="${record.id}" type="button"${disabled}>Sil</button></div>
+      </div>
+    </article>`;
   }).join("");
   if (overtimeEmptyState) overtimeEmptyState.hidden = records.length > 0;
   renderOvertimeWorkerRows();
+  if (overtimeActiveMode === "detail") renderOvertimeDetail();
+  setOvertimeMode(overtimeActiveMode, true);
 }
 
 function updateOvertimeRecordFromRow(record, row) {
@@ -8212,8 +8579,8 @@ printMembershipReport?.addEventListener("click", printMembershipReportWindow);
 
 
 [overtimeYearFilter, overtimeMonthFilter, overtimeWorkerFilter, overtimeSearchInput].forEach((control) => {
-  control?.addEventListener("input", renderOvertime);
-  control?.addEventListener("change", renderOvertime);
+  control?.addEventListener("input", () => { renderOvertime(); if (overtimeActiveMode === "detail") { syncOvertimeDetailFromMainFilters(true); renderOvertimeDetail(); } });
+  control?.addEventListener("change", () => { renderOvertime(); if (overtimeActiveMode === "detail") { syncOvertimeDetailFromMainFilters(true); renderOvertimeDetail(); } });
 });
 
 clearOvertimeFilters?.addEventListener("click", () => {
@@ -8229,6 +8596,32 @@ fillOvertimeWeekdays?.addEventListener("click", () => fillOvertimeMonth("weekday
 fillOvertimeWeekends?.addEventListener("click", () => fillOvertimeMonth("weekends"));
 downloadOvertimeExcel?.addEventListener("click", downloadOvertimeCsv);
 printOvertimeReport?.addEventListener("click", printOvertimeReportWindow);
+downloadOvertimeDetailExcel?.addEventListener("click", downloadOvertimeDetailCsv);
+printOvertimeDetailReport?.addEventListener("click", printOvertimeDetailReportWindow);
+overtimeReportExcel?.addEventListener("click", () => runSelectedOvertimeReport("excel"));
+overtimeReportPdf?.addEventListener("click", () => runSelectedOvertimeReport("pdf"));
+overtimeMonthStatus?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-overtime-report-month]");
+  if (!button || !overtimeMonthFilter) return;
+  overtimeMonthFilter.value = button.dataset.overtimeReportMonth;
+  renderOvertime();
+});
+overtimeModeCards.forEach((card) => card.addEventListener("click", () => setOvertimeMode(card.dataset.overtimeMode)));
+saveOvertimeDetail?.addEventListener("click", saveOvertimeDetailRecord);
+overtimeDetailRows?.addEventListener("input", (event) => {
+  const input = event.target.closest("[data-overtime-detail-field]");
+  if (!input) return;
+  if (["start", "end"].includes(input.dataset.overtimeDetailField)) calculateOvertimeDetailRow(input.closest("[data-overtime-detail-day]"));
+  if (input.dataset.overtimeDetailField === "total") updateOvertimeDetailVisibleTotal();
+});
+overtimeDetailRows?.addEventListener("change", (event) => {
+  const input = event.target.closest("[data-overtime-detail-field]");
+  if (!input) return;
+  if (["start", "end"].includes(input.dataset.overtimeDetailField)) calculateOvertimeDetailRow(input.closest("[data-overtime-detail-day]"), true);
+});
+[overtimeDetailWorker, overtimeDetailPeriod].forEach((control) => {
+  control?.addEventListener("change", renderOvertimeDetail);
+});
 openOvertimeWorkerModal?.addEventListener("click", () => { renderOvertimeWorkerRows(); overtimeWorkerModal?.showModal(); });
 closeOvertimeWorkerModal?.addEventListener("click", () => overtimeWorkerModal?.close());
 cancelOvertimeWorker?.addEventListener("click", () => overtimeWorkerModal?.close());
@@ -8251,6 +8644,7 @@ overtimeWorkerForm?.addEventListener("submit", (event) => {
   saveOvertimeRecords();
   updateOvertimeSelectors();
   renderOvertime();
+  renderOvertimeDetail();
   showToast(`${item.name} işçi listesine eklendi.`);
 });
 
@@ -8266,6 +8660,7 @@ overtimeWorkerRows?.addEventListener("click", (event) => {
     saveOvertimeRecords();
     updateOvertimeSelectors();
     renderOvertime();
+    renderOvertimeDetail();
     return;
   }
   worker.name = row.querySelector('[data-overtime-worker-field="name"]')?.value?.trim() || worker.name;
@@ -8274,6 +8669,7 @@ overtimeWorkerRows?.addEventListener("click", (event) => {
   saveOvertimeRecords();
   updateOvertimeSelectors();
   renderOvertime();
+  renderOvertimeDetail();
 });
 
 overtimeRows?.addEventListener("change", (event) => {
@@ -8301,7 +8697,23 @@ overtimeRows?.addEventListener("click", (event) => {
     renderOvertime();
     return;
   }
-  updateOvertimeRecordFromRow(record, button.closest("tr"));
+  if (button.dataset.overtimeAction === "fill-weekdays" || button.dataset.overtimeAction === "fill-weekends" || button.dataset.overtimeAction === "clear-days") {
+    record.days = record.days || {};
+    const year = overtimeYearFilter?.value || yearSelect.value;
+    const month = overtimeMonthFilter?.value || String(new Date().getMonth() + 1);
+    const days = overtimeDaysInMonth(year, month);
+    for (let day = 1; day <= days; day += 1) {
+      const weekDay = new Date(Number(year), Number(month) - 1, day).getDay();
+      if (button.dataset.overtimeAction === "clear-days") delete record.days[String(day)];
+      if (button.dataset.overtimeAction === "fill-weekdays" && weekDay >= 1 && weekDay <= 5) record.days[String(day)] = "X";
+      if (button.dataset.overtimeAction === "fill-weekends" && weekDay === 6) record.days[String(day)] = "CT";
+      if (button.dataset.overtimeAction === "fill-weekends" && weekDay === 0) record.days[String(day)] = "P";
+    }
+    saveOvertimeRecords();
+    renderOvertime();
+    return;
+  }
+  updateOvertimeRecordFromRow(record, button.closest("[data-overtime-id]"));
   saveOvertimeRecords();
   renderOvertime();
   showToast(`${record.name} puantaj kaydı güncellendi.`);
