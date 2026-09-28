@@ -4392,6 +4392,26 @@ function overtimeDayHead(year, month, day) {
   return `<th class="overtime-day-head${weekendClass}"><span>${day}</span><small>${overtimeShortDayName(year, month, day)}</small></th>`;
 }
 
+function overtimeNormalPeriodDays(year, month) {
+  const baseYear = Number(year);
+  const baseMonth = Number(month);
+  const nextMonth = baseMonth === 12 ? 1 : baseMonth + 1;
+  const nextYear = baseMonth === 12 ? baseYear + 1 : baseYear;
+  const daysInStartMonth = overtimeDaysInMonth(baseYear, baseMonth);
+  return [
+    ...Array.from({ length: daysInStartMonth - 14 }, (_, index) => ({ year: baseYear, month: baseMonth, day: index + 15 })),
+    ...Array.from({ length: 14 }, (_, index) => ({ year: nextYear, month: nextMonth, day: index + 1 })),
+  ];
+}
+
+function overtimePeriodKey(item) {
+  return `${item.year}-${String(item.month).padStart(2, "0")}-${String(item.day).padStart(2, "0")}`;
+}
+
+function overtimePeriodDisplay(item) {
+  return `${String(item.day).padStart(2, "0")}.${String(item.month).padStart(2, "0")}.${item.year}`;
+}
+
 function overtimeRecordKey(person, year, month) {
   return `${normalizeText(person)}-${year}-${month}`;
 }
@@ -4401,7 +4421,7 @@ function getActiveOvertimeWorkers() {
   const byName = new Map(defaultOvertimeWorkers.map((worker) => [normalizeText(worker.name), worker]));
   overtimeWorkers = overtimeWorkers.map((worker) => {
     const preset = byName.get(normalizeText(worker.name));
-    return preset ? { ...worker, identityNo: worker.identityNo || preset.identityNo, title: worker.title || preset.title, unit: worker.unit || preset.unit, active: worker.active !== false } : worker;
+    return preset ? { ...worker, identityNo: preset.identityNo || worker.identityNo || "", title: worker.title || preset.title, unit: preset.unit || worker.unit || "", active: worker.active !== false } : worker;
   });
   defaultOvertimeWorkers.forEach((preset) => {
     if (!overtimeWorkers.some((worker) => normalizeText(worker.name) === normalizeText(preset.name))) overtimeWorkers.push({ ...preset });
@@ -4418,9 +4438,9 @@ function syncOvertimeRecordsWithWorkers() {
   overtimeRecords.forEach((record) => {
     const worker = workersByName.get(normalizeText(record.name));
     if (!worker) return;
-    record.identityNo = record.identityNo || worker.identityNo || "";
+    record.identityNo = worker.identityNo || record.identityNo || "";
     record.title = record.title || worker.title || "İşçi";
-    record.unit = record.unit || worker.unit || "";
+    record.unit = worker.unit || record.unit || "";
   });
 }
 
@@ -4572,7 +4592,7 @@ function renderOvertime() {
   updateOvertimeSelectors();
   const year = overtimeYearFilter?.value || yearSelect.value || String(new Date().getFullYear());
   const month = overtimeMonthFilter?.value || String(new Date().getMonth() + 1);
-  const days = overtimeDaysInMonth(year, month);
+  const periodDays = overtimeNormalPeriodDays(year, month);
   const records = getVisibleOvertimeRecords();
   const allSummary = overtimeRecords.filter((record) => String(record.year) === String(year) && String(record.month) === String(month));
   const totals = allSummary.reduce((sum, record) => {
@@ -4591,14 +4611,15 @@ function renderOvertime() {
   const disabled = canEditModule("overtime") ? "" : " disabled";
   overtimeRows.innerHTML = records.map((record) => {
     const item = overtimeTotals(record);
-    const dayCards = Array.from({ length: days }, (_, index) => {
-      const day = String(index + 1);
-      const value = record.days?.[day] || "";
-      const weekDay = new Date(Number(year), Number(month) - 1, Number(day)).getDay();
+    const dayCards = periodDays.map((item) => {
+      const key = overtimePeriodKey(item);
+      const day = String(item.day);
+      const value = record.days?.[key] ?? (item.year === Number(year) && item.month === Number(month) ? record.days?.[day] : "") ?? "";
+      const weekDay = new Date(Number(item.year), Number(item.month) - 1, Number(item.day)).getDay();
       const weekendClass = weekDay === 0 || weekDay === 6 ? " weekend" : "";
       return `<label class="overtime-day-card${weekendClass}">
-        <span><strong>${day}</strong><small>${overtimeShortDayName(year, month, day)}</small></span>
-        <select class="day-code-select code-${escapeHtml(value || "empty")}" title="${day}. gün - ${overtimeShortDayName(year, month, day)}" data-overtime-day="${day}" data-id="${record.id}"${disabled}>${overtimeCodes.map(([code, label]) => `<option value="${escapeHtml(code)}" ${value === code ? "selected" : ""}>${escapeHtml(code || "-")}</option>`).join("")}</select>
+        <span><strong>${day}</strong><small>${overtimeShortDayName(item.year, item.month, item.day)}</small><em>${String(item.month).padStart(2, "0")}</em></span>
+        <select class="day-code-select code-${escapeHtml(value || "empty")}" title="${overtimePeriodDisplay(item)} - ${overtimeShortDayName(item.year, item.month, item.day)}" data-overtime-day="${key}" data-id="${record.id}"${disabled}>${overtimeCodes.map(([code, label]) => `<option value="${escapeHtml(code)}" ${value === code ? "selected" : ""}>${escapeHtml(code || "-")}</option>`).join("")}</select>
       </label>`;
     }).join("");
     return `<article class="overtime-worker-card" data-overtime-id="${record.id}">
@@ -4642,13 +4663,13 @@ function fillOvertimeMonth(kind) {
   const month = overtimeMonthFilter?.value || String(new Date().getMonth() + 1);
   overtimeRecords.filter((record) => String(record.year) === String(year) && String(record.month) === String(month)).forEach((record) => {
     record.days = record.days || {};
-    const days = overtimeDaysInMonth(year, month);
-    for (let day = 1; day <= days; day += 1) {
-      const weekDay = new Date(Number(year), Number(month) - 1, day).getDay();
-      if (kind === "weekdays" && weekDay >= 1 && weekDay <= 5) record.days[String(day)] = "X";
-      if (kind === "weekends" && weekDay === 6) record.days[String(day)] = "CT";
-      if (kind === "weekends" && weekDay === 0) record.days[String(day)] = "P";
-    }
+    overtimeNormalPeriodDays(year, month).forEach((item) => {
+      const weekDay = new Date(Number(item.year), Number(item.month) - 1, Number(item.day)).getDay();
+      const key = overtimePeriodKey(item);
+      if (kind === "weekdays" && weekDay >= 1 && weekDay <= 5) record.days[key] = "X";
+      if (kind === "weekends" && weekDay === 6) record.days[key] = "CT";
+      if (kind === "weekends" && weekDay === 0) record.days[key] = "P";
+    });
   });
   saveOvertimeRecords();
   renderOvertime();
@@ -4677,17 +4698,13 @@ function printOvertimeReportWindow() {
   const month = Number(overtimeMonthFilter?.value || new Date().getMonth() + 1);
   const nextMonth = month === 12 ? 1 : month + 1;
   const nextYear = month === 12 ? year + 1 : year;
-  const daysInStartMonth = overtimeDaysInMonth(year, month);
-  const periodDays = [
-    ...Array.from({ length: daysInStartMonth - 14 }, (_, index) => ({ year, month, day: index + 15 })),
-    ...Array.from({ length: 14 }, (_, index) => ({ year: nextYear, month: nextMonth, day: index + 1 })),
-  ];
+  const periodDays = overtimeNormalPeriodDays(year, month);
   const periodLabel = `15/${overtimeMonthName(month)}/${year} - 14/${overtimeMonthName(nextMonth)}/${nextYear}`;
   const records = getVisibleOvertimeRecords();
   const findPeriodRecord = (name, itemYear, itemMonth) => overtimeRecords.find((record) => normalizeText(record.name) === normalizeText(name) && String(record.year) === String(itemYear) && Number(record.month) === Number(itemMonth));
   const codeAt = (record, item) => {
     const source = item.month === month && item.year === year ? record : findPeriodRecord(record.name, item.year, item.month);
-    return source?.days?.[String(item.day)] || "";
+    return source?.days?.[overtimePeriodKey(item)] || source?.days?.[String(item.day)] || "";
   };
   const countCodes = (record, codes) => periodDays.reduce((sum, item) => sum + (codes.includes(codeAt(record, item)) ? 1 : 0), 0);
   const tableForGroup = (groupRecords, unitName) => {
@@ -8756,14 +8773,14 @@ overtimeRows?.addEventListener("click", (event) => {
     record.days = record.days || {};
     const year = overtimeYearFilter?.value || yearSelect.value;
     const month = overtimeMonthFilter?.value || String(new Date().getMonth() + 1);
-    const days = overtimeDaysInMonth(year, month);
-    for (let day = 1; day <= days; day += 1) {
-      const weekDay = new Date(Number(year), Number(month) - 1, day).getDay();
-      if (button.dataset.overtimeAction === "clear-days") delete record.days[String(day)];
-      if (button.dataset.overtimeAction === "fill-weekdays" && weekDay >= 1 && weekDay <= 5) record.days[String(day)] = "X";
-      if (button.dataset.overtimeAction === "fill-weekends" && weekDay === 6) record.days[String(day)] = "CT";
-      if (button.dataset.overtimeAction === "fill-weekends" && weekDay === 0) record.days[String(day)] = "P";
-    }
+    overtimeNormalPeriodDays(year, month).forEach((item) => {
+      const key = overtimePeriodKey(item);
+      const weekDay = new Date(Number(item.year), Number(item.month) - 1, Number(item.day)).getDay();
+      if (button.dataset.overtimeAction === "clear-days") delete record.days[key];
+      if (button.dataset.overtimeAction === "fill-weekdays" && weekDay >= 1 && weekDay <= 5) record.days[key] = "X";
+      if (button.dataset.overtimeAction === "fill-weekends" && weekDay === 6) record.days[key] = "CT";
+      if (button.dataset.overtimeAction === "fill-weekends" && weekDay === 0) record.days[key] = "P";
+    });
     saveOvertimeRecords();
     renderOvertime();
     return;
