@@ -4650,19 +4650,41 @@ function downloadOvertimeCsv() {
 }
 
 function printOvertimeReportWindow() {
-  const year = overtimeYearFilter?.value || yearSelect.value;
-  const month = overtimeMonthFilter?.value || String(new Date().getMonth() + 1);
-  const days = overtimeDaysInMonth(year, month);
+  const year = Number(overtimeYearFilter?.value || yearSelect.value || new Date().getFullYear());
+  const month = Number(overtimeMonthFilter?.value || new Date().getMonth() + 1);
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  const daysInStartMonth = overtimeDaysInMonth(year, month);
+  const periodDays = [
+    ...Array.from({ length: daysInStartMonth - 14 }, (_, index) => ({ year, month, day: index + 15 })),
+    ...Array.from({ length: 14 }, (_, index) => ({ year: nextYear, month: nextMonth, day: index + 1 })),
+  ];
+  const periodLabel = `15/${overtimeMonthName(month)}/${year} - 14/${overtimeMonthName(nextMonth)}/${nextYear}`;
   const records = getVisibleOvertimeRecords();
-  const dayHeads = Array.from({ length: days }, (_, index) => `<th>${index + 1}</th>`).join("");
+  const findPeriodRecord = (name, itemYear, itemMonth) => overtimeRecords.find((record) => normalizeText(record.name) === normalizeText(name) && String(record.year) === String(itemYear) && Number(record.month) === Number(itemMonth));
+  const codeAt = (record, item) => {
+    const source = item.month === month && item.year === year ? record : findPeriodRecord(record.name, item.year, item.month);
+    return source?.days?.[String(item.day)] || "";
+  };
+  const countCodes = (record, codes) => periodDays.reduce((sum, item) => sum + (codes.includes(codeAt(record, item)) ? 1 : 0), 0);
+  const dayHeads = periodDays.map((item) => `<th>${item.day}</th>`).join("");
   const bodyRows = records.map((record, index) => {
-    const totals = overtimeTotals(record);
-    const cells = Array.from({ length: days }, (_, i) => `<td>${escapeHtml(record.days?.[String(i + 1)] || "")}</td>`).join("");
-    return `<tr><td>${index + 1}</td><td>${escapeHtml(record.identityNo || "")}</td><td>${escapeHtml(record.name)}</td>${cells}<td>${totals.worked}</td><td>${totals.sunday + totals.saturday}</td><td>${totals.annual}</td><td>${totals.report}</td><td>${totals.excuse}</td><td>${formatNumber(totals.overtimeHours)}</td><td></td></tr>`;
+    const cells = periodDays.map((item) => `<td>${escapeHtml(codeAt(record, item))}</td>`).join("");
+    const annual = countCodes(record, ["Yİ"]);
+    const administrative = countCodes(record, ["İİ"]);
+    const report = countCodes(record, ["R"]);
+    const excuse = countCodes(record, ["Mİ"]);
+    const worked = countCodes(record, ["X", "FÇ"]);
+    const total = worked + countCodes(record, ["P", "CT", "T", "B", "Yİ", "İİ", "R", "Mİ", "Üİ", "Dİ", "Öİ", "H", "Sİ", "FMİ"]);
+    return `<tr><td>${index + 1}</td><td>${escapeHtml(record.identityNo || "")}</td><td class="name">${escapeHtml(record.name)}</td>${cells}<td>${annual}</td><td>${administrative}</td><td>${report}</td><td>${excuse}</td><td>${total}</td><td></td></tr>`;
   }).join("");
+  const legend = [
+    ["X", "Çalıştığı Gün"], ["İ", "Yıllık İzin"], ["R", "Rapor Günü"], ["P", "Pazar"], ["CT", "Cumartesi"], ["RT", "Resmi Tatil"], ["B", "Bayram Tatili"], ["İİ", "İdari İzin"], ["Mİ", "Mazeret İzni"], ["Üİ", "Ücretsiz İzin"], ["Dİ", "Doğum İzni"], ["Öİ", "Ölüm İzni"], ["H", "Hastane Günü"], ["Sİ", "Sendikal İzin"], ["FMİ", "Fazla Mesai İzin Günü"],
+  ].map(([code, label]) => `<div><b>${escapeHtml(code)}</b><span>:</span>${escapeHtml(label)}</div>`).join("");
   const reportWindow = window.open("", "_blank");
   if (!reportWindow) return;
-  reportWindow.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>İşçi Puantajı</title><style>@page{size:A4 landscape;margin:8mm}body{font-family:Arial,sans-serif;color:#111827;margin:0}h1{text-align:center;font-size:16px;margin:0 0 4px}.meta{text-align:center;font-size:11px;margin-bottom:8px}table{width:100%;border-collapse:collapse;font-size:8px}th,td{border:1px solid #111;padding:3px;text-align:center;vertical-align:middle}th{background:#f1f5f9}.name{text-align:left}.legend{font-size:10px;margin-top:8px;display:grid;grid-template-columns:repeat(5,1fr);gap:3px}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:80px;margin-top:30px;font-size:11px;text-align:center}</style></head><body><h1>T.C. TARIM VE ORMAN BAKANLIĞI<br>AYLIK PUANTAJ CETVELİ</h1><div class="meta">Birim: İç Denetim Başkanlığı · Dönem: ${escapeHtml(overtimeMonthName(month))} ${escapeHtml(year)} · Çıktı: ${formatDate(new Date().toISOString().slice(0,10))}</div><table><thead><tr><th>Sıra</th><th>T.C. Kimlik</th><th>Adı Soyadı</th>${dayHeads}<th>Fiili</th><th>Tatil</th><th>Y. İzin</th><th>Rapor</th><th>Mazeret</th><th>F. Mesai</th><th>İmza</th></tr></thead><tbody>${bodyRows}</tbody></table><div class="legend"><span>X: Çalıştığı Gün</span><span>P: Pazar Günü</span><span>CT: Cumartesi</span><span>T: Resmi Tatil</span><span>R/Yİ/Mİ: İzinler</span></div><div class="signatures"><div>DÜZENLEYEN<br><br>................................</div><div>ONAYLAYAN<br><br>................................</div></div><script>window.onload=()=>window.print();<\/script></body></html>`);
+  reportWindow.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>Aylık Puantaj Cetveli</title><style>@page{size:A4 landscape;margin:6mm}body{font-family:"Times New Roman",serif;color:#000;margin:0;font-size:11px}.title{text-align:center;font-weight:bold;font-size:16px;line-height:1.15;margin-bottom:18px}.meta{margin:0 0 4px 130px;font-weight:bold;font-size:14px}.meta span{display:inline-block;min-width:90px}.period{text-align:center;font-weight:bold}table{width:100%;border-collapse:collapse;table-layout:fixed}.main th,.main td{border:1px solid #000;text-align:center;vertical-align:middle;padding:2px;font-size:11px;line-height:1.05}.main th{font-weight:bold}.main .name{text-align:left;font-weight:bold}.main .narrow{width:28px}.main .tc{width:90px}.main .name-col{width:110px}.main .day{width:22px}.main .summary{width:38px;writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px}.main .total{width:34px}.main .signature{width:54px;writing-mode:vertical-rl;transform:rotate(180deg)}.note{text-align:center;margin:12px 0 14px;font-size:14px}.note b{margin:0 20px}.bottom{display:grid;grid-template-columns:250px 1fr 1fr;gap:28px;align-items:start}.legend{font-size:13px;line-height:1.45}.legend div{display:grid;grid-template-columns:30px 8px 1fr}.signbox{font-size:12px;line-height:2.6}.signbox h4{font-style:italic;text-decoration:underline;margin:0 0 6px;text-align:center}.signbox .row{display:grid;grid-template-columns:78px 1fr;gap:8px}.signbox.right{justify-self:end;min-width:260px}.signbox.left{justify-self:center;min-width:260px}</style></head><body><div class="title">T.C.<br>TARIM VE ORMAN BAKANLIĞI<br>AYLIK PUANTAJ CETVELİ</div><div class="meta"><span>Kadro Birimi :</span> Destek Hizmetleri Dairesi Başkanlığı</div><div class="meta"><span>Görev Yaptığı</span></div><div class="meta"><span>Birim :</span> İç Denetim Başkanlığı</div><table class="main"><thead><tr><th class="narrow" rowspan="3">Sıra<br>No</th><th class="tc" rowspan="3">T.C.Kimlik<br>Numarası</th><th class="name-col" rowspan="3">Adı Soyadı</th><th colspan="${periodDays.length}" class="period">Dönemi</th><th class="summary" rowspan="3">Yıllık İzin</th><th class="summary" rowspan="3">İdari İzin</th><th class="summary" rowspan="3">Rapor Günü</th><th class="summary" rowspan="3">Mazeret İzni</th><th class="total" rowspan="3">TOPLAM</th><th class="signature" rowspan="3">İMZA</th></tr><tr><th colspan="${periodDays.length}" class="period">${escapeHtml(periodLabel)}</th></tr><tr>${periodDays.map((item) => `<th class="day">${item.day}</th>`).join("")}</tr></thead><tbody>${bodyRows}</tbody></table><div class="note">Yukarıda isimleri yazılı bulunan işçiler <b>${escapeHtml(periodLabel)}</b> döneminde puantajda belirtilen günlerde çalıştırılmıştır.</div><div class="bottom"><div class="legend">${legend}</div><div class="signbox left"><h4>DÜZENLEYEN :</h4><div class="row"><b>....../....../${year}</b></div><div class="row"><b>ADI SOYADI:</b><span>Nilüfer ALA</span></div><div class="row"><b>ÜNVANI :</b><span>Büro Personeli</span></div><div class="row"><b>İMZA :</b><span></span></div></div><div class="signbox right"><h4>ONAYLAYAN BİRİM AMİRİNİN :</h4><div class="row"><b>....../....../${year}</b></div><div class="row"><b>ADI SOYADI:</b><span>Erdal ÖZYÖN</span></div><div class="row"><b>ÜNVANI :</b><span>Başkan</span></div><div class="row"><b>İMZA :</b><span></span></div></div></div><script>window.onload=()=>window.print();<\/script></body></html>`);
+  reportWindow.document.close();
 }
 
 function saveMembershipRecords() {
