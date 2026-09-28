@@ -3716,7 +3716,7 @@ function stockCashAccountAmount(record, account) {
   return stockCashAccount(record) === account ? stockCashAmount(record) : 0;
 }
 
-const stockOpeningAccountBalances = { "Banka": 77520.30, "Nakit Kasa": 4170 };
+const stockOpeningAccountBalances = { "Banka": 72881, "Nakit Kasa": 4170 };
 const stockOpeningBalanceKey = "2026-09-23-acilis-banka-kasa";
 const stockOpeningBalanceDate = "2026-09-23";
 
