@@ -374,6 +374,7 @@ const overtimeDetailDutyPlace = document.querySelector("#overtimeDetailDutyPlace
 const overtimeDetailPeriod = document.querySelector("#overtimeDetailPeriod");
 const overtimeDetailDuty = document.querySelector("#overtimeDetailDuty");
 const saveOvertimeDetail = document.querySelector("#saveOvertimeDetail");
+const clearOvertimeDetailEntries = document.querySelector("#clearOvertimeDetailEntries");
 const overtimeDetailPeriodTitle = document.querySelector("#overtimeDetailPeriodTitle");
 const overtimeDetailRows = document.querySelector("#overtimeDetailRows");
 const overtimeDetailTotal = document.querySelector("#overtimeDetailTotal");
@@ -4294,7 +4295,7 @@ function renderOvertimeDetail() {
   const ctx = overtimeDetailSelectedContext(false);
   if (!ctx.person) {
     if (overtimeDetailPeriodTitle) overtimeDetailPeriodTitle.textContent = `${overtimeDetailPeriodLabel(ctx.year, ctx.month)} · Fazla çalışma için işçi seç`;
-    if (overtimeDetailRows) overtimeDetailRows.innerHTML = `<tr><td colspan="7">Fazla çalışma kaydı için üstteki İşçi / İşçiler alanından tek kişi seç veya buradan işçi seç.</td></tr>`;
+    if (overtimeDetailRows) overtimeDetailRows.innerHTML = `<tr><td colspan="8">Fazla çalışma kaydı için üstteki İşçi / İşçiler alanından tek kişi seç veya buradan işçi seç.</td></tr>`;
     if (overtimeDetailTotal) overtimeDetailTotal.textContent = "0";
     return;
   }
@@ -4317,9 +4318,31 @@ function renderOvertimeDetail() {
       <td><input list="overtimeHourOptions" data-overtime-detail-field="end" value="${escapeHtml(entry.end || "")}" placeholder="20:00"${disabled} /></td>
       <td><input data-overtime-detail-field="total" inputmode="decimal" value="${escapeHtml(entry.total ? formatNumber(entry.total) : "")}" placeholder="2"${disabled} /></td>
       <td></td><td></td><td></td>
+      <td><button class="btn ghost danger small" data-overtime-detail-action="clear-day" type="button"${disabled}>Temizle</button></td>
     </tr>`;
   }).join("");
   if (overtimeDetailTotal) overtimeDetailTotal.textContent = formatNumber(overtimeDetailTotalHours(record));
+}
+
+function clearOvertimeDetailRow(row) {
+  if (!row) return;
+  row.querySelectorAll("[data-overtime-detail-field]").forEach((input) => { input.value = ""; });
+  updateOvertimeDetailVisibleTotal();
+}
+
+function clearAllOvertimeDetailEntries() {
+  if (!canEditModule("overtime")) return showToast("Fazla mesai bilgisi silmek için düzenleme yetkisi gerekli.");
+  const ctx = overtimeDetailSelectedContext(false);
+  if (!ctx.person || !ctx.record) return showToast("Temizlemek için işçi ve dönem seçmelisin.");
+  if (!confirm(`${ctx.person} için ${overtimeDetailPeriodLabel(ctx.year, ctx.month)} fazla mesai saatleri temizlensin mi?`)) return;
+  const detail = ctx.record.overtimeDetail || {};
+  detail.entries = {};
+  ctx.record.overtimeDetail = detail;
+  ctx.record.overtimeHours = 0;
+  saveOvertimeRecords();
+  renderOvertime();
+  renderOvertimeDetail();
+  showToast(`${ctx.person} fazla mesai saatleri temizlendi.`);
 }
 
 function saveOvertimeDetailRecord() {
@@ -8721,6 +8744,7 @@ downloadOvertimeExcel?.addEventListener("click", downloadOvertimeCsv);
 printOvertimeReport?.addEventListener("click", printOvertimeReportWindow);
 downloadOvertimeDetailExcel?.addEventListener("click", downloadOvertimeDetailCsv);
 printOvertimeDetailReport?.addEventListener("click", printOvertimeDetailReportWindow);
+clearOvertimeDetailEntries?.addEventListener("click", clearAllOvertimeDetailEntries);
 overtimeReportExcel?.addEventListener("click", () => runSelectedOvertimeReport("excel"));
 overtimeReportPdf?.addEventListener("click", () => runSelectedOvertimeReport("pdf"));
 overtimeMonthStatus?.addEventListener("click", (event) => {
@@ -8731,6 +8755,12 @@ overtimeMonthStatus?.addEventListener("click", (event) => {
 });
 overtimeModeCards.forEach((card) => card.addEventListener("click", () => setOvertimeMode(card.dataset.overtimeMode)));
 saveOvertimeDetail?.addEventListener("click", saveOvertimeDetailRecord);
+overtimeDetailRows?.addEventListener("click", (event) => {
+  const button = event.target.closest('[data-overtime-detail-action="clear-day"]');
+  if (!button) return;
+  clearOvertimeDetailRow(button.closest("[data-overtime-detail-day]"));
+});
+
 overtimeDetailRows?.addEventListener("input", (event) => {
   const input = event.target.closest("[data-overtime-detail-field]");
   if (!input) return;

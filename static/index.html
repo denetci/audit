@@ -880,6 +880,7 @@
                     <p class="eyebrow">Seçilen işçi ve dönem için Excel örneğindeki alanlarla çıktı hazırla</p>
                   </div>
                   <div class="panel-actions">
+                    <button class="btn secondary" id="clearOvertimeDetailEntries" type="button">Tüm Saatleri Temizle</button>
                     <button class="btn secondary" id="downloadOvertimeDetailExcel" type="button">Fazla Mesai Excel</button>
                     <button class="btn primary" id="printOvertimeDetailReport" type="button">Fazla Mesai PDF / Yazdır</button>
                   </div>
@@ -904,10 +905,11 @@
                         <th>Başlama İmzası</th>
                         <th>Bitiş İmzası</th>
                         <th>Kontrol Edenin İmzası</th>
+                        <th>İşlem</th>
                       </tr>
                     </thead>
                     <tbody id="overtimeDetailRows"></tbody>
-                    <tfoot><tr><th colspan="3">Toplam Saat</th><th id="overtimeDetailTotal">0</th><th colspan="3"></th></tr></tfoot>
+                    <tfoot><tr><th colspan="3">Toplam Saat</th><th id="overtimeDetailTotal">0</th><th colspan="4"></th></tr></tfoot>
                   </table>
                   <datalist id="overtimeHourOptions">
                     <option value="16:00"></option>
