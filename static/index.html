@@ -6,7 +6,7 @@
     <title>İç Denetim Başkanlığı Faaliyet Paneli</title>
     <link rel="icon" type="image/png" href="tarim-orman-logo.png" />
     <link rel="apple-touch-icon" href="tarim-orman-logo.png" />
-    <link rel="stylesheet" href="style.css?v=20260923-stock-bank-cash" />
+    <link rel="stylesheet" href="style.css?v=20260928-overtime-detail" />
     <style>
       .budget-detail-page.report-surface{overflow:hidden;background:#f7fafc;border-color:#d8e3f1}
       .budget-detail-hero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:18px;align-items:center;border-bottom:1px solid #d5e1ef;background:linear-gradient(135deg,#fff 0%,#eef6ff 100%);padding:20px 22px}
@@ -797,8 +797,10 @@
                 <div class="panel-actions">
                   <span class="panel-count"><strong id="overtimeRecordCount">0</strong> kayıt</span>
                   <button class="btn secondary" id="openOvertimeWorkerModal" type="button">+ İşçi Ekle</button>
-                  <button class="btn secondary" id="downloadOvertimeExcel" type="button">Excel İndir</button>
-                  <button class="btn primary" id="printOvertimeReport" type="button">PDF / Yazdır</button>
+                  <span class="panel-actions" id="overtimeNormalReportActions">
+                    <button class="btn secondary" id="downloadOvertimeExcel" type="button">Normal Puantaj Excel</button>
+                    <button class="btn primary" id="printOvertimeReport" type="button">Normal Puantaj PDF / Yazdır</button>
+                  </span>
                 </div>
               </div>
 
@@ -812,33 +814,122 @@
               <div class="module-filters overtime-filters" aria-label="Puantaj filtreleri">
                 <label>Yıl<select id="overtimeYearFilter"><option>2026</option><option>2027</option><option>2025</option></select></label>
                 <label>Ay<select id="overtimeMonthFilter"></select></label>
-                <label>İşçi<select id="overtimeWorkerFilter"><option value="Tümü">Tüm işçiler</option></select></label>
+                <label>İşçi / İşçiler<select id="overtimeWorkerFilter"><option value="Tümü">Tüm işçiler</option></select></label>
                 <label class="wide-filter">Arama<input id="overtimeSearchInput" placeholder="İşçi adı veya not ara..." /></label>
                 <button class="btn secondary" id="clearOvertimeFilters" type="button">Temizle</button>
               </div>
 
-              <section class="overtime-quick-panel">
-                <div>
-                  <h3>Hızlı Doldurma</h3>
-                  <p class="eyebrow">Ay seçildiğinde işçiler otomatik listelenir; hafta içlerini tek tuşla çalıştı yapabilirsin.</p>
+              <section class="overtime-report-panel" aria-label="Puantaj durum ve raporlama">
+                <div class="overtime-report-head">
+                  <div>
+                    <h3>Durum ve Raporlama</h3>
+                    <p class="eyebrow" id="overtimeReportScope">Seçilen dönem için kayıt durumu ve rapor kapsamı</p>
+                  </div>
+                  <div class="panel-actions">
+                    <button class="btn secondary" id="overtimeReportExcel" type="button">Seçili Rapor Excel</button>
+                    <button class="btn primary" id="overtimeReportPdf" type="button">Seçili Rapor PDF / Yazdır</button>
+                  </div>
                 </div>
-                <div class="panel-actions">
-                  <button class="btn secondary" id="createOvertimeMonth" type="button">Ay Listesini Oluştur</button>
-                  <button class="btn secondary" id="fillOvertimeWeekdays" type="button">Hafta İçlerini Çalıştı Yap</button>
-                  <button class="btn secondary" id="fillOvertimeWeekends" type="button">Hafta Sonlarını Tatil Yap</button>
+                <div class="overtime-month-status" id="overtimeMonthStatus"></div>
+                <div class="overtime-entry-status">
+                  <article>
+                    <strong>Kaydı Girilenler</strong>
+                    <span id="overtimeEnteredCount">0 kişi</span>
+                    <div id="overtimeEnteredList" class="overtime-person-chip-list"></div>
+                  </article>
+                  <article class="missing">
+                    <strong>Kaydı Girilmeyenler</strong>
+                    <span id="overtimeMissingCount">0 kişi</span>
+                    <div id="overtimeMissingList" class="overtime-person-chip-list"></div>
+                  </article>
                 </div>
               </section>
 
-              <div class="table-wrap overtime-table-wrap">
-                <table class="overtime-table">
-                  <thead id="overtimeTableHead"></thead>
-                  <tbody id="overtimeRows"></tbody>
-                </table>
-              </div>
-              <div class="empty-state" id="overtimeEmptyState" hidden>
-                <strong>Puantaj kaydı bulunamadı</strong>
-                <span>Seçili ay için ay listesini oluşturabilir veya filtreleri değiştirebilirsin.</span>
-              </div>
+              <section class="overtime-mode-panel" aria-label="Puantaj işlem seçimi">
+                <button class="overtime-mode-card active" data-overtime-mode="normal" type="button">
+                  <strong>Normal Puantaj</strong>
+                  <span>Seçilen ay ve işçi/işçiler için çalışma puantajı gir.</span>
+                </button>
+                <button class="overtime-mode-card" data-overtime-mode="detail" type="button">
+                  <strong>Fazla Çalışma</strong>
+                  <span>Seçilen işçi ve dönem için fazla mesai cetveli hazırla.</span>
+                </button>
+              </section>
+
+              <section class="overtime-normal-panel" id="overtimeNormalPanel" aria-label="Normal puantaj giriş ekranı">
+                <div class="sub-panel-head compact-head">
+                  <div>
+                    <h3>Normal Puantaj Girişi</h3>
+                    <p class="eyebrow">İşçi filtresinde Tüm işçiler seçiliyse tüm liste, tek kişi seçiliyse sadece o kişi için kayıt açılır.</p>
+                  </div>
+                  <div class="panel-actions">
+                    <button class="btn secondary" id="createOvertimeMonth" type="button">Seçili Listeyi Aç</button>
+                  </div>
+                </div>
+                <div class="overtime-card-list" id="overtimeRows"></div>
+                <div class="empty-state" id="overtimeEmptyState" hidden>
+                  <strong>Puantaj kaydı bulunamadı</strong>
+                  <span>Seçili ay/işçi için listeyi açabilir veya filtreleri değiştirebilirsin.</span>
+                </div>
+              </section>
+
+              <section class="overtime-detail-panel" id="overtimeDetailPanel" aria-label="Fazla mesai cetveli" hidden>
+                <div class="sub-panel-head compact-head">
+                  <div>
+                    <h3>Fazla Mesai Cetveli</h3>
+                    <p class="eyebrow">Seçilen işçi ve dönem için Excel örneğindeki alanlarla çıktı hazırla</p>
+                  </div>
+                  <div class="panel-actions">
+                    <button class="btn secondary" id="downloadOvertimeDetailExcel" type="button">Fazla Mesai Excel</button>
+                    <button class="btn primary" id="printOvertimeDetailReport" type="button">Fazla Mesai PDF / Yazdır</button>
+                  </div>
+                </div>
+                <div class="module-filters overtime-detail-form">
+                  <label>İşçi<select id="overtimeDetailWorker"><option value="">İşçi seç</option></select></label>
+                  <label>Kurum<input id="overtimeDetailInstitution" placeholder="Örn. Türkiye Milli Botanik Bahçesi Müdürlüğü Ankara" /></label>
+                  <label>Görev Yeri<input id="overtimeDetailDutyPlace" value="İç Denetim Başkanlığı" /></label>
+                  <label>Dönem<select id="overtimeDetailPeriod"></select></label>
+                  <label>Görevi<input id="overtimeDetailDuty" placeholder="Örn. Sürekli İşçi" /></label>
+                  <button class="btn secondary" id="saveOvertimeDetail" type="button">Bilgileri Kaydet</button>
+                </div>
+                <div class="overtime-period-title" id="overtimeDetailPeriodTitle">Dönem seçilmedi</div>
+                <div class="table-wrap overtime-detail-wrap">
+                  <table class="overtime-detail-table">
+                    <thead>
+                      <tr>
+                        <th>Tarih</th>
+                        <th>Başlama Saati</th>
+                        <th>Bitiş Saati</th>
+                        <th>Toplam Saati</th>
+                        <th>Başlama İmzası</th>
+                        <th>Bitiş İmzası</th>
+                        <th>Kontrol Edenin İmzası</th>
+                      </tr>
+                    </thead>
+                    <tbody id="overtimeDetailRows"></tbody>
+                    <tfoot><tr><th colspan="3">Toplam Saat</th><th id="overtimeDetailTotal">0</th><th colspan="3"></th></tr></tfoot>
+                  </table>
+                  <datalist id="overtimeHourOptions">
+                    <option value="16:00"></option>
+                    <option value="16:30"></option>
+                    <option value="17:00"></option>
+                    <option value="17:30"></option>
+                    <option value="18:00"></option>
+                    <option value="18:30"></option>
+                    <option value="19:00"></option>
+                    <option value="19:30"></option>
+                    <option value="20:00"></option>
+                    <option value="20:30"></option>
+                    <option value="21:00"></option>
+                    <option value="21:30"></option>
+                    <option value="22:00"></option>
+                    <option value="22:30"></option>
+                    <option value="23:00"></option>
+                    <option value="23:30"></option>
+                    <option value="00:00"></option>
+                  </datalist>
+                </div>
+              </section>
             </section>
 
             <section class="panel stock-panel" id="stok-islemleri-panel" data-view="stock" hidden>
@@ -2307,6 +2398,6 @@
         </div>
       </form>
     </dialog>
-    <script src="script.js?v=20260923-stock-bank-cash"></script>
+    <script src="script.js?v=20260928-overtime-detail"></script>
   </body>
 </html>
