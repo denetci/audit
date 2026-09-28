@@ -4192,6 +4192,29 @@ function overtimeDetailTotalHours(record) {
   return Object.values(record?.overtimeDetail?.entries || {}).reduce((sum, entry) => sum + numberValue(entry.total), 0);
 }
 
+function overtimeWorkerByName(name) {
+  return getActiveOvertimeWorkers().find((worker) => normalizeText(worker.name) === normalizeText(name));
+}
+
+function overtimeClockFromMinutes(minutes) {
+  const normalized = ((Math.round(minutes) % (24 * 60)) + (24 * 60)) % (24 * 60);
+  const hour = Math.floor(normalized / 60);
+  const minute = normalized % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function completeOvertimeEntryTimes(entry) {
+  const normalized = { ...(entry || {}) };
+  const total = numberValue(normalized.total);
+  if (total && (!normalized.start || !normalized.end)) {
+    const start = normalized.start || "18:00";
+    const startMinutes = overtimeClockToMinutes(start) ?? 18 * 60;
+    normalized.start = normalizeOvertimeClock(start);
+    normalized.end = normalized.end || overtimeClockFromMinutes(startMinutes + total * 60);
+  }
+  return normalized;
+}
+
 function normalizeOvertimeClock(value) {
   const raw = String(value || "").trim().replace(/\s+/g, "").replace(".", ":");
   if (!raw) return "";
@@ -4278,15 +4301,16 @@ function renderOvertimeDetail() {
   if (overtimeDetailPeriodTitle) overtimeDetailPeriodTitle.textContent = overtimeDetailPeriodLabel(ctx.year, ctx.month);
   const record = ctx.record;
   const detail = record?.overtimeDetail || {};
-  if (overtimeDetailInstitution) overtimeDetailInstitution.value = detail.institution || overtimeDetailInstitution.value || "";
+  const worker = overtimeWorkerByName(record?.name || ctx.person);
+  if (overtimeDetailInstitution) overtimeDetailInstitution.value = detail.institution || worker?.unit || record?.unit || "";
   if (overtimeDetailDutyPlace) overtimeDetailDutyPlace.value = detail.dutyPlace || overtimeDetailDutyPlace.value || "İç Denetim Başkanlığı";
-  if (overtimeDetailDuty) overtimeDetailDuty.value = detail.duty || overtimeDetailDuty.value || record?.title || "";
+  if (overtimeDetailDuty) overtimeDetailDuty.value = detail.duty || overtimeDetailDuty.value || record?.title || worker?.title || "";
   const days = overtimeDaysInMonth(ctx.year, ctx.month);
   const disabled = canEditModule("overtime") ? "" : " disabled";
   overtimeDetailRows.innerHTML = Array.from({ length: days }, (_, index) => {
     const day = String(index + 1);
     const date = `${ctx.year}-${String(ctx.month).padStart(2, "0")}-${String(index + 1).padStart(2, "0")}`;
-    const entry = record?.overtimeDetail?.entries?.[day] || {};
+    const entry = completeOvertimeEntryTimes(record?.overtimeDetail?.entries?.[day] || {});
     return `<tr data-overtime-detail-day="${day}">
       <td>${overtimeDetailDateLabel(date)}</td>
       <td><input list="overtimeHourOptions" data-overtime-detail-field="start" value="${escapeHtml(entry.start || "")}" placeholder="18:00"${disabled} /></td>
@@ -4303,17 +4327,21 @@ function saveOvertimeDetailRecord() {
   const ctx = overtimeDetailSelectedContext(true);
   if (!ctx.person || !ctx.record) return showToast("Fazla mesai için işçi seçmelisin.");
   const detail = ctx.record.overtimeDetail || {};
-  detail.institution = overtimeDetailInstitution?.value?.trim() || "";
+  const worker = overtimeWorkerByName(ctx.record.name || ctx.person);
+  detail.institution = overtimeDetailInstitution?.value?.trim() || worker?.unit || ctx.record.unit || "";
   detail.dutyPlace = overtimeDetailDutyPlace?.value?.trim() || "İç Denetim Başkanlığı";
   detail.periodLabel = overtimeDetailPeriodLabel(ctx.year, ctx.month);
   detail.duty = overtimeDetailDuty?.value?.trim() || ctx.record.title || "";
   detail.entries = detail.entries || {};
   overtimeDetailRows?.querySelectorAll("[data-overtime-detail-day]").forEach((row) => {
     const day = row.dataset.overtimeDetailDay;
-    const start = row.querySelector('[data-overtime-detail-field="start"]')?.value?.trim() || "";
-    const end = row.querySelector('[data-overtime-detail-field="end"]')?.value?.trim() || "";
     calculateOvertimeDetailRow(row, true);
+    const rawStart = row.querySelector('[data-overtime-detail-field="start"]')?.value?.trim() || "";
+    const rawEnd = row.querySelector('[data-overtime-detail-field="end"]')?.value?.trim() || "";
     const total = numberValue(row.querySelector('[data-overtime-detail-field="total"]')?.value);
+    const completed = completeOvertimeEntryTimes({ start: rawStart, end: rawEnd, total });
+    const start = completed.start || "";
+    const end = completed.end || "";
     if (start || end || total) detail.entries[day] = { start, end, total };
     else delete detail.entries[day];
   });
@@ -4330,10 +4358,11 @@ function overtimeDetailRowsForExport() {
   const record = ctx.record;
   if (!ctx.person || !record) return null;
   const detail = record.overtimeDetail || {};
+  const worker = overtimeWorkerByName(record.name);
   const rows = [
     ["T.C."],
     ["TARIM VE ORMAN BAKANLIĞI"],
-    ["KURUMU", detail.institution || ""],
+    ["KURUMU", detail.institution || worker?.unit || record.unit || ""],
     ["GÖREV YERİ", detail.dutyPlace || "İç Denetim Başkanlığı"],
     ["Ait Olduğu Dönem", detail.periodLabel || overtimeDetailPeriodLabel(ctx.year, ctx.month)],
     ["FAZLA ÇALIŞMA CETVELİ"],
@@ -4344,7 +4373,7 @@ function overtimeDetailRowsForExport() {
   const days = overtimeDaysInMonth(ctx.year, ctx.month);
   const offDays = overtimeDetailOffDayCounts(record, ctx.year, ctx.month);
   for (let i = 1; i <= days; i += 1) {
-    const entry = detail.entries?.[String(i)] || {};
+    const entry = completeOvertimeEntryTimes(detail.entries?.[String(i)] || {});
     const date = `${ctx.year}-${String(ctx.month).padStart(2, "0")}-${String(i).padStart(2, "0")}`;
     rows.push([overtimeDetailDateLabel(date), entry.start || "---", entry.end || "---", entry.total ? formatNumber(entry.total) : "---", "", "", ""]);
   }
@@ -4376,7 +4405,7 @@ function printOvertimeDetailReportWindow() {
   const tableRows = body.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("");
   const reportWindow = window.open("", "_blank");
   if (!reportWindow) return showToast("Yazdırma penceresi açılamadı.");
-  reportWindow.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title></title><style>@page{size:A4 portrait;margin:5mm}html,body{width:200mm;min-height:287mm}body{font-family:Arial,sans-serif;color:#111;margin:0;font-size:9px;line-height:1.15}h1,h2{text-align:center;margin:0}h1{font-size:10px;line-height:1.15}h2{font-size:12px;margin:4px 0}.info{width:100%;border-collapse:collapse;margin:4px 0 5px;font-size:9px}.info th,.info td{border:1px solid #111;padding:2px 4px;text-align:left}.info th{width:32%}.detail{width:100%;border-collapse:collapse;font-size:8.2px;table-layout:fixed}.detail th,.detail td{border:1px solid #111;padding:1px 2px;text-align:center;height:12px;line-height:1.05}.detail th{background:#f1f5f9}.detail th:nth-child(1),.detail td:nth-child(1){width:27%}.detail th:nth-child(2),.detail td:nth-child(2),.detail th:nth-child(3),.detail td:nth-child(3),.detail th:nth-child(4),.detail td:nth-child(4){width:11%}.total th,.total td{font-weight:bold}.offday{margin-top:5px;width:36%;border-collapse:collapse;font-size:9px}.offday th,.offday td{border:1px solid #111;padding:3px 4px;text-align:left}.offday td{text-align:center;font-weight:bold}.sign{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;text-align:center;font-size:9px}.avoid-break{break-inside:avoid;page-break-inside:avoid}</style></head><body><h1>${escapeHtml(tc[0])}<br>${escapeHtml(ministry[0])}</h1><div class="avoid-break"><table class="info"><tr><th>${escapeHtml(institution[0])}</th><td>${escapeHtml(institution[1])}</td></tr><tr><th>${escapeHtml(place[0])}</th><td>${escapeHtml(place[1])}</td></tr><tr><th>${escapeHtml(period[0])}</th><td>${escapeHtml(period[1])}</td></tr></table><h2>${escapeHtml(title[0])}</h2><table class="info"><tr><th>${escapeHtml(person[0])}</th><td>${escapeHtml(person[1])}</td></tr><tr><th>${escapeHtml(duty[0])}</th><td>${escapeHtml(duty[1])}</td></tr></table><table class="detail"><thead><tr>${header.map((cell) => `<th>${escapeHtml(cell)}</th>`).join("")}</tr></thead><tbody>${tableRows}<tr class="total"><th colspan="3">${escapeHtml(totalRow[0])}</th><td>${escapeHtml(totalRow[3])}</td><td colspan="3"></td></tr></tbody></table><table class="offday"><tr><th>${escapeHtml(sundayRow[0])}</th><td>${escapeHtml(sundayRow[1])}</td></tr><tr><th>${escapeHtml(holidayRow[0])}</th><td>${escapeHtml(holidayRow[1])}</td></tr></table><div class="sign"><div></div><div>ONAYLAYAN<br><br><br>................................</div></div></div><script>window.onload=()=>{document.title=' ';window.print();}<\/script></body></html>`);
+  reportWindow.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title></title><style>@page{size:A4 portrait;margin:5mm}html,body{width:200mm;min-height:287mm}body{font-family:Arial,sans-serif;color:#111;margin:0;font-size:9px;line-height:1.15}.detail-head{position:relative;min-height:54px;margin-bottom:3px}.detail-logo{position:absolute;left:6px;top:0;width:48px;height:48px;object-fit:contain}h1,h2{text-align:center;margin:0}h1{font-size:10px;line-height:1.15;padding-top:6px}h2{font-size:12px;margin:4px 0}.info{width:100%;border-collapse:collapse;margin:4px 0 5px;font-size:9px}.info th,.info td{border:1px solid #111;padding:2px 4px;text-align:left}.info th{width:32%}.detail{width:100%;border-collapse:collapse;font-size:8.2px;table-layout:fixed}.detail th,.detail td{border:1px solid #111;padding:1px 2px;text-align:center;height:12px;line-height:1.05}.detail th{background:#f1f5f9}.detail th:nth-child(1),.detail td:nth-child(1){width:27%;text-align:left;padding-left:5px}.detail th:nth-child(2),.detail td:nth-child(2),.detail th:nth-child(3),.detail td:nth-child(3),.detail th:nth-child(4),.detail td:nth-child(4){width:11%}.total th,.total td{font-weight:bold}.offday{margin-top:5px;width:36%;border-collapse:collapse;font-size:9px}.offday th,.offday td{border:1px solid #111;padding:3px 4px;text-align:left}.offday td{text-align:center;font-weight:bold}.sign{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;text-align:center;font-size:9px}.avoid-break{break-inside:avoid;page-break-inside:avoid}</style></head><body><div class="detail-head"><img class="detail-logo" src="${REPORT_LOGO_DATA_URL}" alt="Tarım ve Orman Bakanlığı"><h1>${escapeHtml(tc[0])}<br>${escapeHtml(ministry[0])}</h1></div><div class="avoid-break"><table class="info"><tr><th>${escapeHtml(institution[0])}</th><td>${escapeHtml(institution[1])}</td></tr><tr><th>${escapeHtml(place[0])}</th><td>${escapeHtml(place[1])}</td></tr><tr><th>${escapeHtml(period[0])}</th><td>${escapeHtml(period[1])}</td></tr></table><h2>${escapeHtml(title[0])}</h2><table class="info"><tr><th>${escapeHtml(person[0])}</th><td>${escapeHtml(person[1])}</td></tr><tr><th>${escapeHtml(duty[0])}</th><td>${escapeHtml(duty[1])}</td></tr></table><table class="detail"><thead><tr>${header.map((cell) => `<th>${escapeHtml(cell)}</th>`).join("")}</tr></thead><tbody>${tableRows}<tr class="total"><th colspan="3">${escapeHtml(totalRow[0])}</th><td>${escapeHtml(totalRow[3])}</td><td colspan="3"></td></tr></tbody></table><table class="offday"><tr><th>${escapeHtml(sundayRow[0])}</th><td>${escapeHtml(sundayRow[1])}</td></tr><tr><th>${escapeHtml(holidayRow[0])}</th><td>${escapeHtml(holidayRow[1])}</td></tr></table><div class="sign"><div></div><div>ONAYLAYAN<br><br><br>................................</div></div></div><script>window.onload=()=>{document.title=' ';window.print();}<\/script></body></html>`);
   reportWindow.document.close();
 }
 
