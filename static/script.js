@@ -4504,20 +4504,29 @@ function getVisibleOvertimeRecords() {
   }).sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "tr"));
 }
 
-function overtimeTotals(record) {
-  const values = Object.values(record.days || {});
-  const count = (code) => values.filter((value) => value === code).length;
-  const leave = count("Yİ") + count("R") + count("Mİ");
+function overtimeTotals(record, periodDays = null, year = record?.year, month = record?.month) {
+  const days = record?.days || {};
+  const values = Array.isArray(periodDays) && periodDays.length
+    ? periodDays.map((item) => days[overtimePeriodKey(item)] ?? (Number(item.year) === Number(year) && Number(item.month) === Number(month) ? days[String(item.day)] : "")).filter(Boolean)
+    : Object.values(days || {});
+  const count = (...codes) => values.filter((value) => codes.includes(value)).length;
+  const annual = count("Yİ", "İ");
+  const report = count("R");
+  const excuse = count("Mİ");
+  const otherLeave = count("İİ", "Üİ", "Dİ", "Öİ", "H", "Sİ", "FMİ");
+  const leave = annual + report + excuse + otherLeave;
+  const detailHours = overtimeDetailTotalHours(record);
   return {
-    worked: count("X") + count("FÇ"),
+    worked: count("X", "FÇ"),
     sunday: count("P"),
     saturday: count("CT"),
-    holiday: count("T"),
+    holiday: count("T", "RT", "B"),
     leave,
-    annual: count("Yİ"),
-    report: count("R"),
-    excuse: count("Mİ"),
-    overtimeHours: numberValue(record.overtimeHours),
+    annual,
+    report,
+    excuse,
+    otherLeave,
+    overtimeHours: detailHours || numberValue(record.overtimeHours),
   };
 }
 
@@ -4594,23 +4603,28 @@ function renderOvertime() {
   const month = overtimeMonthFilter?.value || String(new Date().getMonth() + 1);
   const periodDays = overtimeNormalPeriodDays(year, month);
   const records = getVisibleOvertimeRecords();
-  const allSummary = overtimeRecords.filter((record) => String(record.year) === String(year) && String(record.month) === String(month));
-  const totals = allSummary.reduce((sum, record) => {
-    const item = overtimeTotals(record);
+  const totals = records.reduce((sum, record) => {
+    const item = overtimeTotals(record, periodDays, year, month);
     sum.worked += item.worked;
     sum.leave += item.leave;
+    sum.annual += item.annual;
+    sum.report += item.report;
+    sum.excuse += item.excuse;
+    sum.otherLeave += item.otherLeave;
     sum.hours += item.overtimeHours;
     return sum;
-  }, { worked: 0, leave: 0, hours: 0 });
+  }, { worked: 0, leave: 0, annual: 0, report: 0, excuse: 0, otherLeave: 0, hours: 0 });
   if (overtimeRecordCount) overtimeRecordCount.textContent = records.length;
   if (overtimeWorkerCount) overtimeWorkerCount.textContent = new Set(records.map((record) => normalizeText(record.name))).size;
   if (overtimeWorkedTotal) overtimeWorkedTotal.textContent = formatNumber(totals.worked);
   if (overtimeHourTotal) overtimeHourTotal.textContent = formatNumber(totals.hours);
   if (overtimeLeaveTotal) overtimeLeaveTotal.textContent = formatNumber(totals.leave);
+  const leaveNote = overtimeLeaveTotal?.closest("article")?.querySelector(".note");
+  if (leaveNote) leaveNote.textContent = `Yıllık izin ${formatNumber(totals.annual)} · Rapor ${formatNumber(totals.report)} · Mazeret ${formatNumber(totals.excuse)} · Diğer ${formatNumber(totals.otherLeave)}`;
   renderOvertimeStatus(year, month);
   const disabled = canEditModule("overtime") ? "" : " disabled";
   overtimeRows.innerHTML = records.map((record) => {
-    const item = overtimeTotals(record);
+    const item = overtimeTotals(record, periodDays, year, month);
     const dayCards = periodDays.map((item) => {
       const key = overtimePeriodKey(item);
       const day = String(item.day);
@@ -4625,7 +4639,7 @@ function renderOvertime() {
     return `<article class="overtime-worker-card" data-overtime-id="${record.id}">
       <div class="overtime-worker-card-head">
         <div><strong>${escapeHtml(record.name)}</strong><small>${escapeHtml(record.title || "İşçi")}</small></div>
-        <div class="overtime-card-summary"><span>Fiili <b>${item.worked}</b></span><span>Tatil <b>${item.sunday + item.saturday + item.holiday}</b></span><span>İzin/Rapor <b>${item.leave}</b></span></div>
+        <div class="overtime-card-summary"><span>Fiili <b>${item.worked}</b></span><span>Tatil <b>${item.sunday + item.saturday + item.holiday}</b></span><span>İzin <b>${item.annual}</b></span><span>Rapor <b>${item.report}</b></span><span>Mazeret <b>${item.excuse}</b></span><span>F. Mesai <b>${formatNumber(item.overtimeHours)}</b></span></div>
       </div>
       <div class="overtime-card-tools">
         <button class="btn secondary small" data-overtime-action="fill-weekdays" data-id="${record.id}" type="button"${disabled}>Hafta içi çalıştı</button>
