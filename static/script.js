@@ -681,13 +681,15 @@ let selectedStockProductId = null;
 let editingMembershipId = null;
 
 const defaultOvertimeWorkers = [
-  { id: 1, name: "Emine GÖRGÜLÜ", identityNo: "", title: "İşçi", unit: "İç Denetim Başkanlığı", active: true },
-  { id: 2, name: "Elmas ÖZDEMİR", identityNo: "", title: "İşçi", unit: "İç Denetim Başkanlığı", active: true },
-  { id: 3, name: "Sibel ÇALIŞKAN", identityNo: "", title: "İşçi", unit: "İç Denetim Başkanlığı", active: true },
-  { id: 4, name: "Nilüfer ALA", identityNo: "", title: "İşçi", unit: "İç Denetim Başkanlığı", active: true },
-  { id: 5, name: "Meryem KOYUNCU", identityNo: "", title: "İşçi", unit: "İç Denetim Başkanlığı", active: true },
-  { id: 6, name: "Hasan YÜKSEL", identityNo: "", title: "İşçi", unit: "İç Denetim Başkanlığı", active: true },
-  { id: 7, name: "Yunus Emre KAYRA", identityNo: "", title: "İşçi", unit: "İç Denetim Başkanlığı", active: true },
+  { id: 1, name: "Elmas ÖZDEMİR", identityNo: "18710573608", title: "İşçi", unit: "Türkiye Milli Botanik Bahçesi Müdürlüğü", active: true },
+  { id: 2, name: "Emine GÖRGÜLÜ", identityNo: "23957361994", title: "İşçi", unit: "Toprak Gübre ve Su Kaynakları Merkez Araştırma Enstitüsü Müdürlüğü", active: true },
+  { id: 3, name: "Nilüfer ALA", identityNo: "39757714946", title: "İşçi", unit: "Merkez Döner Sermaye Müdürlüğü", active: true },
+  { id: 4, name: "Sibel ÇALIŞKAN", identityNo: "14380187800", title: "İşçi", unit: "Doğa Koruma ve Milli Parklar IX. Bölge Müdürlüğü", active: true },
+  { id: 5, name: "Hasan YÜKSEL", identityNo: "12256225274", title: "İşçi", unit: "Destek Hizmetleri Dairesi Başkanlığı", active: true },
+  { id: 6, name: "Meryem KOYUNCU", identityNo: "11080271730", title: "İşçi", unit: "Destek Hizmetleri Dairesi Başkanlığı", active: true },
+  { id: 7, name: "Elmaziye AKTAŞ", identityNo: "72118044894", title: "İşçi", unit: "Destek Hizmetleri Dairesi Başkanlığı", active: true },
+  { id: 8, name: "Yunus Emre KAYRA", identityNo: "28529542962", title: "İşçi", unit: "Veteriner Kontrol Merkez Araştırma Enstitüsü Müdürlüğü", active: true },
+  { id: 9, name: "İlhan ÜNAL", identityNo: "14263158224", title: "İşçi", unit: "Destek Hizmetleri Dairesi Başkanlığı", active: true },
 ];
 const overtimeCodes = [
   ["", "Boş"], ["X", "Çalıştı"], ["P", "Pazar/Hafta Tatili"], ["CT", "Cumartesi Tatili"], ["T", "Resmi Tatil"], ["R", "Rapor"], ["Yİ", "Yıllık İzin"], ["Mİ", "Mazeret İzni"], ["FÇ", "Fazla Çalışma"]
@@ -4396,11 +4398,30 @@ function overtimeRecordKey(person, year, month) {
 
 function getActiveOvertimeWorkers() {
   if (!overtimeWorkers.length) overtimeWorkers = defaultOvertimeWorkers.map((worker) => ({ ...worker }));
-  return overtimeWorkers.filter((worker) => worker.active !== false).sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "tr"));
+  const byName = new Map(defaultOvertimeWorkers.map((worker) => [normalizeText(worker.name), worker]));
+  overtimeWorkers = overtimeWorkers.map((worker) => {
+    const preset = byName.get(normalizeText(worker.name));
+    return preset ? { ...worker, identityNo: worker.identityNo || preset.identityNo, title: worker.title || preset.title, unit: worker.unit || preset.unit, active: worker.active !== false } : worker;
+  });
+  defaultOvertimeWorkers.forEach((preset) => {
+    if (!overtimeWorkers.some((worker) => normalizeText(worker.name) === normalizeText(preset.name))) overtimeWorkers.push({ ...preset });
+  });
+  return overtimeWorkers.filter((worker) => worker.active !== false).sort((a, b) => String(a.unit || "").localeCompare(String(b.unit || ""), "tr") || String(a.name || "").localeCompare(String(b.name || ""), "tr"));
 }
 
 function saveOvertimeRecords() {
   scheduleSharedStateSave();
+}
+
+function syncOvertimeRecordsWithWorkers() {
+  const workersByName = new Map(getActiveOvertimeWorkers().map((worker) => [normalizeText(worker.name), worker]));
+  overtimeRecords.forEach((record) => {
+    const worker = workersByName.get(normalizeText(record.name));
+    if (!worker) return;
+    record.identityNo = record.identityNo || worker.identityNo || "";
+    record.title = record.title || worker.title || "İşçi";
+    record.unit = record.unit || worker.unit || "";
+  });
 }
 
 function updateOvertimeSelectors() {
@@ -4449,6 +4470,7 @@ function createOvertimeRecordsForMonth() {
 }
 
 function getVisibleOvertimeRecords() {
+  syncOvertimeRecordsWithWorkers();
   const year = overtimeYearFilter?.value || yearSelect.value;
   const month = overtimeMonthFilter?.value || String(new Date().getMonth() + 1);
   const worker = overtimeWorkerFilter?.value || "Tümü";
@@ -4528,6 +4550,7 @@ function renderOvertimeWorkerRows() {
     <input data-overtime-worker-field="name" value="${escapeHtml(worker.name)}"${disabled} />
     <input data-overtime-worker-field="identityNo" value="${escapeHtml(worker.identityNo || "")}" placeholder="T.C. Kimlik"${disabled} />
     <input data-overtime-worker-field="title" value="${escapeHtml(worker.title || "İşçi")}"${disabled} />
+    <input data-overtime-worker-field="unit" value="${escapeHtml(worker.unit || "")}" placeholder="Kurumu"${disabled} />
     <div class="inline-actions"><button class="btn secondary small" data-overtime-worker-action="save" data-id="${worker.id}" type="button"${disabled}>Kaydet</button><button class="btn ghost danger small" data-overtime-worker-action="delete" data-id="${worker.id}" type="button"${disabled}>Sil</button></div>
   </article>`).join("");
 }
@@ -4632,9 +4655,9 @@ function fillOvertimeMonth(kind) {
 }
 
 function overtimeReportRows() {
-  return [["İşçi", "Yıl", "Ay", "Fiili Çalışma", "Hafta Tatili", "Resmi Tatil", "Yıllık İzin", "Rapor", "Mazeret", "Fazla Mesai Saati", "Not"], ...getVisibleOvertimeRecords().map((record) => {
+  return [["Kurumu", "İşçi", "T.C. Kimlik", "Yıl", "Ay", "Fiili Çalışma", "Hafta Tatili", "Resmi Tatil", "Yıllık İzin", "Rapor", "Mazeret", "Fazla Mesai Saati", "Not"], ...getVisibleOvertimeRecords().map((record) => {
     const totals = overtimeTotals(record);
-    return [record.name, record.year, overtimeMonthName(record.month), totals.worked, totals.sunday + totals.saturday, totals.holiday, totals.annual, totals.report, totals.excuse, formatNumber(totals.overtimeHours), record.note || ""];
+    return [record.unit || "", record.name, record.identityNo || "", record.year, overtimeMonthName(record.month), totals.worked, totals.sunday + totals.saturday, totals.holiday, totals.annual, totals.report, totals.excuse, formatNumber(totals.overtimeHours), record.note || ""];
   })];
 }
 
@@ -4667,23 +4690,32 @@ function printOvertimeReportWindow() {
     return source?.days?.[String(item.day)] || "";
   };
   const countCodes = (record, codes) => periodDays.reduce((sum, item) => sum + (codes.includes(codeAt(record, item)) ? 1 : 0), 0);
-  const dayHeads = periodDays.map((item) => `<th>${item.day}</th>`).join("");
-  const bodyRows = records.map((record, index) => {
-    const cells = periodDays.map((item) => `<td>${escapeHtml(codeAt(record, item))}</td>`).join("");
-    const annual = countCodes(record, ["Yİ"]);
-    const administrative = countCodes(record, ["İİ"]);
-    const report = countCodes(record, ["R"]);
-    const excuse = countCodes(record, ["Mİ"]);
-    const worked = countCodes(record, ["X", "FÇ"]);
-    const total = worked + countCodes(record, ["P", "CT", "T", "B", "Yİ", "İİ", "R", "Mİ", "Üİ", "Dİ", "Öİ", "H", "Sİ", "FMİ"]);
-    return `<tr><td>${index + 1}</td><td>${escapeHtml(record.identityNo || "")}</td><td class="name">${escapeHtml(record.name)}</td>${cells}<td>${annual}</td><td>${administrative}</td><td>${report}</td><td>${excuse}</td><td>${total}</td><td></td></tr>`;
-  }).join("");
+  const tableForGroup = (groupRecords, unitName) => {
+    const bodyRows = groupRecords.map((record, index) => {
+      const cells = periodDays.map((item) => `<td>${escapeHtml(codeAt(record, item))}</td>`).join("");
+      const annual = countCodes(record, ["Yİ", "İ"]);
+      const administrative = countCodes(record, ["İİ"]);
+      const report = countCodes(record, ["R"]);
+      const excuse = countCodes(record, ["Mİ"]);
+      const worked = countCodes(record, ["X", "FÇ"]);
+      const total = worked + countCodes(record, ["P", "CT", "T", "RT", "B", "Yİ", "İ", "İİ", "R", "Mİ", "Üİ", "Dİ", "Öİ", "H", "Sİ", "FMİ"]);
+      return `<tr><td>${index + 1}</td><td>${escapeHtml(record.identityNo || "")}</td><td class="name">${escapeHtml(record.name)}</td>${cells}<td>${annual}</td><td>${administrative}</td><td>${report}</td><td>${excuse}</td><td>${total}</td><td></td></tr>`;
+    }).join("");
+    return `<section class="puantaj-page"><div class="title">T.C.<br>TARIM VE ORMAN BAKANLIĞI<br>AYLIK PUANTAJ CETVELİ</div><div class="meta"><span>Kadro Birimi :</span> ${escapeHtml(unitName || "")}</div><div class="meta"><span>Görev Yaptığı</span></div><div class="meta"><span>Birim :</span> İç Denetim Başkanlığı</div><table class="main"><thead><tr><th class="narrow" rowspan="3">Sıra<br>No</th><th class="tc" rowspan="3">T.C.Kimlik<br>Numarası</th><th class="name-col" rowspan="3">Adı Soyadı</th><th colspan="${periodDays.length}" class="period">Dönemi</th><th class="summary" rowspan="3">Yıllık İzin</th><th class="summary" rowspan="3">İdari İzin</th><th class="summary" rowspan="3">Rapor Günü</th><th class="summary" rowspan="3">Mazeret İzni</th><th class="total" rowspan="3">TOPLAM</th><th class="signature" rowspan="3">İMZA</th></tr><tr><th colspan="${periodDays.length}" class="period">${escapeHtml(periodLabel)}</th></tr><tr>${periodDays.map((item) => `<th class="day">${item.day}</th>`).join("")}</tr></thead><tbody>${bodyRows}</tbody></table><div class="note">Yukarıda isimleri yazılı bulunan işçiler <b>${escapeHtml(periodLabel)}</b> döneminde puantajda belirtilen günlerde çalıştırılmıştır.</div><div class="bottom"><div class="legend">${legend}</div><div class="signbox left"><h4>DÜZENLEYEN :</h4><div class="row"><b>....../....../${year}</b></div><div class="row"><b>ADI SOYADI:</b><span>Nilüfer ALA</span></div><div class="row"><b>ÜNVANI :</b><span>Büro Personeli</span></div><div class="row"><b>İMZA :</b><span></span></div></div><div class="signbox right"><h4>ONAYLAYAN BİRİM AMİRİNİN :</h4><div class="row"><b>....../....../${year}</b></div><div class="row"><b>ADI SOYADI:</b><span>Erdal ÖZYÖN</span></div><div class="row"><b>ÜNVANI :</b><span>Başkan</span></div><div class="row"><b>İMZA :</b><span></span></div></div></div></section>`;
+  };
+  const groupedRecords = records.reduce((map, record) => {
+    const unit = record.unit || "Kurumu Belirtilmeyenler";
+    if (!map.has(unit)) map.set(unit, []);
+    map.get(unit).push(record);
+    return map;
+  }, new Map());
   const legend = [
     ["X", "Çalıştığı Gün"], ["İ", "Yıllık İzin"], ["R", "Rapor Günü"], ["P", "Pazar"], ["CT", "Cumartesi"], ["RT", "Resmi Tatil"], ["B", "Bayram Tatili"], ["İİ", "İdari İzin"], ["Mİ", "Mazeret İzni"], ["Üİ", "Ücretsiz İzin"], ["Dİ", "Doğum İzni"], ["Öİ", "Ölüm İzni"], ["H", "Hastane Günü"], ["Sİ", "Sendikal İzin"], ["FMİ", "Fazla Mesai İzin Günü"],
   ].map(([code, label]) => `<div><b>${escapeHtml(code)}</b><span>:</span>${escapeHtml(label)}</div>`).join("");
   const reportWindow = window.open("", "_blank");
   if (!reportWindow) return;
-  reportWindow.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>Aylık Puantaj Cetveli</title><style>@page{size:A4 landscape;margin:6mm}body{font-family:"Times New Roman",serif;color:#000;margin:0;font-size:11px}.title{text-align:center;font-weight:bold;font-size:16px;line-height:1.15;margin-bottom:18px}.meta{margin:0 0 4px 130px;font-weight:bold;font-size:14px}.meta span{display:inline-block;min-width:90px}.period{text-align:center;font-weight:bold}table{width:100%;border-collapse:collapse;table-layout:fixed}.main th,.main td{border:1px solid #000;text-align:center;vertical-align:middle;padding:2px;font-size:11px;line-height:1.05}.main th{font-weight:bold}.main .name{text-align:left;font-weight:bold}.main .narrow{width:28px}.main .tc{width:90px}.main .name-col{width:110px}.main .day{width:22px}.main .summary{width:38px;writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px}.main .total{width:34px}.main .signature{width:54px;writing-mode:vertical-rl;transform:rotate(180deg)}.note{text-align:center;margin:12px 0 14px;font-size:14px}.note b{margin:0 20px}.bottom{display:grid;grid-template-columns:250px 1fr 1fr;gap:28px;align-items:start}.legend{font-size:13px;line-height:1.45}.legend div{display:grid;grid-template-columns:30px 8px 1fr}.signbox{font-size:12px;line-height:2.6}.signbox h4{font-style:italic;text-decoration:underline;margin:0 0 6px;text-align:center}.signbox .row{display:grid;grid-template-columns:78px 1fr;gap:8px}.signbox.right{justify-self:end;min-width:260px}.signbox.left{justify-self:center;min-width:260px}</style></head><body><div class="title">T.C.<br>TARIM VE ORMAN BAKANLIĞI<br>AYLIK PUANTAJ CETVELİ</div><div class="meta"><span>Kadro Birimi :</span> Destek Hizmetleri Dairesi Başkanlığı</div><div class="meta"><span>Görev Yaptığı</span></div><div class="meta"><span>Birim :</span> İç Denetim Başkanlığı</div><table class="main"><thead><tr><th class="narrow" rowspan="3">Sıra<br>No</th><th class="tc" rowspan="3">T.C.Kimlik<br>Numarası</th><th class="name-col" rowspan="3">Adı Soyadı</th><th colspan="${periodDays.length}" class="period">Dönemi</th><th class="summary" rowspan="3">Yıllık İzin</th><th class="summary" rowspan="3">İdari İzin</th><th class="summary" rowspan="3">Rapor Günü</th><th class="summary" rowspan="3">Mazeret İzni</th><th class="total" rowspan="3">TOPLAM</th><th class="signature" rowspan="3">İMZA</th></tr><tr><th colspan="${periodDays.length}" class="period">${escapeHtml(periodLabel)}</th></tr><tr>${periodDays.map((item) => `<th class="day">${item.day}</th>`).join("")}</tr></thead><tbody>${bodyRows}</tbody></table><div class="note">Yukarıda isimleri yazılı bulunan işçiler <b>${escapeHtml(periodLabel)}</b> döneminde puantajda belirtilen günlerde çalıştırılmıştır.</div><div class="bottom"><div class="legend">${legend}</div><div class="signbox left"><h4>DÜZENLEYEN :</h4><div class="row"><b>....../....../${year}</b></div><div class="row"><b>ADI SOYADI:</b><span>Nilüfer ALA</span></div><div class="row"><b>ÜNVANI :</b><span>Büro Personeli</span></div><div class="row"><b>İMZA :</b><span></span></div></div><div class="signbox right"><h4>ONAYLAYAN BİRİM AMİRİNİN :</h4><div class="row"><b>....../....../${year}</b></div><div class="row"><b>ADI SOYADI:</b><span>Erdal ÖZYÖN</span></div><div class="row"><b>ÜNVANI :</b><span>Başkan</span></div><div class="row"><b>İMZA :</b><span></span></div></div></div><script>window.onload=()=>window.print();<\/script></body></html>`);
+  const groupedHtml = [...groupedRecords.entries()].map(([unit, items]) => tableForGroup(items, unit)).join("");
+  reportWindow.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>Aylık Puantaj Cetveli</title><style>@page{size:A4 landscape;margin:6mm}body{font-family:"Times New Roman",serif;color:#000;margin:0;font-size:11px}.puantaj-page{break-after:page;page-break-after:always}.puantaj-page:last-child{break-after:auto;page-break-after:auto}.title{text-align:center;font-weight:bold;font-size:16px;line-height:1.15;margin-bottom:18px}.meta{margin:0 0 4px 130px;font-weight:bold;font-size:14px}.meta span{display:inline-block;min-width:90px}.period{text-align:center;font-weight:bold}table{width:100%;border-collapse:collapse;table-layout:fixed}.main th,.main td{border:1px solid #000;text-align:center;vertical-align:middle;padding:2px;font-size:11px;line-height:1.05}.main th{font-weight:bold}.main .name{text-align:left;font-weight:bold}.main .narrow{width:28px}.main .tc{width:90px}.main .name-col{width:110px}.main .day{width:22px}.main .summary{width:38px;writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px}.main .total{width:34px}.main .signature{width:54px;writing-mode:vertical-rl;transform:rotate(180deg)}.note{text-align:center;margin:12px 0 14px;font-size:14px}.note b{margin:0 20px}.bottom{display:grid;grid-template-columns:250px 1fr 1fr;gap:28px;align-items:start}.legend{font-size:13px;line-height:1.45}.legend div{display:grid;grid-template-columns:30px 8px 1fr}.signbox{font-size:12px;line-height:2.6}.signbox h4{font-style:italic;text-decoration:underline;margin:0 0 6px;text-align:center}.signbox .row{display:grid;grid-template-columns:78px 1fr;gap:8px}.signbox.right{justify-self:end;min-width:260px}.signbox.left{justify-self:center;min-width:260px}</style></head><body>${groupedHtml}<script>window.onload=()=>window.print();<\/script></body></html>`);
   reportWindow.document.close();
 }
 
@@ -8659,7 +8691,7 @@ overtimeWorkerForm?.addEventListener("submit", (event) => {
   item.name = name;
   item.identityNo = String(formData.get("identityNo") || "").trim();
   item.title = String(formData.get("title") || "İşçi").trim() || "İşçi";
-  item.unit = String(formData.get("unit") || "İç Denetim Başkanlığı").trim() || "İç Denetim Başkanlığı";
+  item.unit = String(formData.get("unit") || "Destek Hizmetleri Dairesi Başkanlığı").trim() || "Destek Hizmetleri Dairesi Başkanlığı";
   item.active = true;
   if (!existing) overtimeWorkers.push(item);
   overtimeWorkerForm.reset();
@@ -8688,6 +8720,7 @@ overtimeWorkerRows?.addEventListener("click", (event) => {
   worker.name = row.querySelector('[data-overtime-worker-field="name"]')?.value?.trim() || worker.name;
   worker.identityNo = row.querySelector('[data-overtime-worker-field="identityNo"]')?.value?.trim() || "";
   worker.title = row.querySelector('[data-overtime-worker-field="title"]')?.value?.trim() || "İşçi";
+  worker.unit = row.querySelector('[data-overtime-worker-field="unit"]')?.value?.trim() || worker.unit || "Destek Hizmetleri Dairesi Başkanlığı";
   saveOvertimeRecords();
   updateOvertimeSelectors();
   renderOvertime();
