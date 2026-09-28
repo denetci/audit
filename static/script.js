@@ -1131,6 +1131,10 @@ function buildSharedState() {
     budgetExpenses,
     stockItems,
     stockCashRecords,
+    membershipRecords,
+    membershipTemplates,
+    overtimeRecords,
+    overtimeWorkers,
     reportDocuments,
     personnelRecords,
     deletedRecords,
@@ -1265,7 +1269,7 @@ function buildChangedSharedState() {
   };
 
   sharedCollections.forEach((collection) => {
-    const modules = {audits:"audits",approvals:"approvals",leaves:"leaves",leaveRights:"leaves",dutyRecords:"duties",budgetItems:"budget",budgetExpenses:"budget",stockItems:"stock",stockCashRecords:"stock",membershipRecords:"membership",membershipTemplates:"membership",reportDocuments:"reports",personnelRecords:"personnel"};
+    const modules = {audits:"audits",approvals:"approvals",leaves:"leaves",leaveRights:"leaves",dutyRecords:"duties",budgetItems:"budget",budgetExpenses:"budget",stockItems:"stock",stockCashRecords:"stock",membershipRecords:"membership",membershipTemplates:"membership",overtimeRecords:"overtime",overtimeWorkers:"overtime",reportDocuments:"reports",personnelRecords:"personnel"};
     if (!hasAccess(modules[collection], true) && !(collection === "audits" && hasAccess("monitoring", true)) && !(collection === "reportDocuments" && hasAccess("monitoring", true))) return;
     const changedRecords = [];
     const previousRecords = lastSharedRecordJson[collection] || {};
@@ -1322,6 +1326,7 @@ function buildLocalStorageState() {
   const storedLeaveRights = readStoredJson("ic-denetim-leave-rights");
   const storedReportDocuments = readStoredJson("ic-denetim-report-documents");
   const storedMembership = readStoredJson("ic-denetim-membership");
+  const storedOvertime = readStoredJson("ic-denetim-overtime");
   const storedPersonnel = readStoredJson("ic-denetim-personnel");
 
   return {
@@ -1346,8 +1351,8 @@ function buildLocalStorageState() {
     stockCashRecords: [],
     membershipRecords: storedMembership.version === MEMBERSHIP_RECORD_VERSION && Array.isArray(storedMembership.membershipRecords) ? storedMembership.membershipRecords : [],
     membershipTemplates: loadMembershipTemplates(),
-    overtimeRecords: [],
-    overtimeWorkers: defaultOvertimeWorkers.map((worker) => ({ ...worker })),
+    overtimeRecords: Array.isArray(storedOvertime.overtimeRecords) ? storedOvertime.overtimeRecords : [],
+    overtimeWorkers: Array.isArray(storedOvertime.overtimeWorkers) && storedOvertime.overtimeWorkers.length ? storedOvertime.overtimeWorkers : defaultOvertimeWorkers.map((worker) => ({ ...worker })),
     leaveRights: Array.isArray(storedLeaveRights.leaveRights)
       ? storedLeaveRights.leaveRights
       : [...defaultLeaveRights],
@@ -4431,6 +4436,11 @@ function getActiveOvertimeWorkers() {
 }
 
 function saveOvertimeRecords() {
+  localStorage.setItem("ic-denetim-overtime", JSON.stringify({
+    version: "2026-09-28-overtime-v1",
+    overtimeRecords,
+    overtimeWorkers,
+  }));
   scheduleSharedStateSave();
 }
 
