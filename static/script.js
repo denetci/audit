@@ -440,6 +440,9 @@ const adminSections = Array.from(document.querySelectorAll('[data-view="admin"]'
 const approvalRows = document.querySelector("#approvalRows");
 const approvalModal = document.querySelector("#approvalModal");
 const approvalForm = document.querySelector("#approvalForm");
+const approvalModalMode = document.querySelector("#approvalModalMode");
+const approvalModalTitle = document.querySelector("#approvalModalTitle");
+const saveApprovalBtn = document.querySelector("#saveApprovalBtn");
 const newApprovalBtn = document.querySelector("#newApprovalBtn");
 const closeApprovalModal = document.querySelector("#closeApprovalModal");
 const cancelApproval = document.querySelector("#cancelApproval");
@@ -681,6 +684,7 @@ let editingStockProductId = null;
 let stockMovementMode = "GIRIS";
 let selectedStockProductId = null;
 let editingMembershipId = null;
+let editingApprovalKey = null;
 
 const defaultOvertimeWorkers = [
   { id: 1, name: "Elmas ÖZDEMİR", identityNo: "18710573608", title: "İşçi", unit: "Türkiye Milli Botanik Bahçesi Müdürlüğü", active: true },
@@ -2880,13 +2884,21 @@ function downloadDocument(documentRecord) {
   link.click();
 }
 
+function normalizeCloudUrl(url) {
+  const value = String(url || "").trim();
+  if (!value) return "";
+  if (/^(https?:|mailto:|file:)/i.test(value)) return value;
+  return `https://${value}`;
+}
+
 function openCloudUrl(url) {
-  if (!url) {
+  const targetUrl = normalizeCloudUrl(url);
+  if (!targetUrl) {
     alert("Bu kayıt için bulut bağlantısı eklenmemiş.");
     return;
   }
 
-  window.open(url, "_blank", "noopener");
+  window.open(targetUrl, "_blank", "noopener,noreferrer");
 }
 
 function chooseAndDownloadDocument(documents) {
@@ -3546,6 +3558,8 @@ function getVisibleApprovals() {
 function createApprovalRow(approval) {
   const row = document.createElement("tr");
   const fileName = approval.fileName || (approval.cloudUrl ? "Bulut bağlantısı" : "Dosya seçilmedi");
+  const year = escapeHtml(approval.year);
+  const no = escapeHtml(approval.no);
 
   row.innerHTML = `
     <td><strong>${approval.no}</strong></td>
@@ -3555,9 +3569,11 @@ function createApprovalRow(approval) {
     <td>${escapeHtml(approval.related || "-")}</td>
     <td><span class="status ${getStatusClass(approval.status)}">${escapeHtml(approval.status)}</span></td>
     <td><span class="file-link" title="${escapeHtml(fileName)}">${escapeHtml(fileName)}</span></td>
-    <td>
-      <button class="btn secondary small" data-approval-action="open" data-year="${escapeHtml(approval.year)}" data-no="${approval.no}" type="button">Aç</button>
-    </td>
+    <td><div class="inline-actions">
+      <button class="btn secondary small" data-approval-action="open" data-year="${year}" data-no="${no}" type="button">Aç</button>
+      <button class="btn secondary small" data-approval-action="edit" data-year="${year}" data-no="${no}" type="button">Düzenle</button>
+      <button class="btn ghost danger small" data-approval-action="delete" data-year="${year}" data-no="${no}" type="button">Sil</button>
+    </div></td>
   `;
 
   return row;
@@ -6693,15 +6709,36 @@ function closeMonitoringDialog() {
   monitoringModal.close();
 }
 
-function openApprovalModal() {
+function approvalKey(approval) {
+  return `${approval.year}-${approval.no}`;
+}
+
+function openApprovalModal(approval = null) {
   approvalForm.reset();
-  approvalForm.elements.year.value = yearSelect.value;
-  approvalForm.elements.no.value = getNextApprovalNo(yearSelect.value);
-  approvalForm.elements.date.value = new Date().toISOString().slice(0, 10);
+  editingApprovalKey = approval ? approvalKey(approval) : null;
+  if (approvalModalMode) approvalModalMode.textContent = approval ? `${approval.year}/${approval.no} olur kaydı` : "Yeni olur kaydı";
+  if (approvalModalTitle) approvalModalTitle.textContent = approval ? "Oluru Düzenle" : "Olur Yükle";
+  if (saveApprovalBtn) saveApprovalBtn.textContent = approval ? "Güncelle" : "Kaydet";
+
+  if (approval) {
+    approvalForm.elements.year.value = approval.year;
+    approvalForm.elements.no.value = approval.no;
+    approvalForm.elements.date.value = approval.date || new Date().toISOString().slice(0, 10);
+    approvalForm.elements.status.value = approval.status || "Beklemede";
+    approvalForm.elements.subject.value = approval.subject || "";
+    approvalForm.elements.related.value = approval.related || "";
+    approvalForm.elements.cloudUrl.value = approval.cloudUrl || "";
+    approvalForm.elements.note.value = approval.note || "";
+  } else {
+    approvalForm.elements.year.value = yearSelect.value;
+    approvalForm.elements.no.value = getNextApprovalNo(yearSelect.value);
+    approvalForm.elements.date.value = new Date().toISOString().slice(0, 10);
+  }
   approvalModal.showModal();
 }
 
 function closeApprovalDialog() {
+  editingApprovalKey = null;
   approvalModal.close();
 }
 
@@ -8074,26 +8111,49 @@ approvalRows.addEventListener("click", (event) => {
     return;
   }
 
-  const approval = approvals.find(
+  const approvalIndex = approvals.findIndex(
     (item) =>
       String(item.year) === actionButton.dataset.year &&
       Number(item.no) === Number(actionButton.dataset.no),
   );
+  const approval = approvals[approvalIndex];
 
   if (!approval) {
     return;
   }
 
-  if (approval.cloudUrl) {
-    openCloudUrl(approval.cloudUrl);
+  const action = actionButton.dataset.approvalAction;
+  if (action === "open") {
+    if (approval.cloudUrl) {
+      openCloudUrl(approval.cloudUrl);
+      return;
+    }
+
+    alert(
+      `Olur No: ${approval.no}/${approval.year}
+Konu: ${approval.subject}
+Dosya: ${
+        approval.fileName || "Henüz dosya seçilmedi"
+      }
+
+Bu kayıt için açılabilir bulut bağlantısı yok. Düzenle ile bulut linki ekleyebilirsin.`,
+    );
     return;
   }
 
-  alert(
-    `Olur No: ${approval.no}/${approval.year}\nKonu: ${approval.subject}\nDosya: ${
-      approval.fileName || "Henüz dosya seçilmedi"
-    }`,
-  );
+  if (action === "edit") {
+    openApprovalModal(approval);
+    return;
+  }
+
+  if (action === "delete") {
+    if (!confirm(`${approval.no}/${approval.year} numaralı olur kaydı silinsin mi?`)) return;
+    markRecordDeleted("approvals", approval);
+    approvals.splice(approvalIndex, 1);
+    saveApprovals();
+    renderApprovals();
+    showToast("Olur kaydı silindi.");
+  }
 });
 
 function handleLeaveAction(event) {
@@ -8332,23 +8392,28 @@ approvalForm.addEventListener("submit", (event) => {
 
   const formData = new FormData(approvalForm);
   const selectedFile = approvalForm.elements.file.files[0];
+  const existingIndex = editingApprovalKey ? approvals.findIndex((item) => approvalKey(item) === editingApprovalKey) : -1;
+  const existingApproval = existingIndex >= 0 ? approvals[existingIndex] : null;
   const approval = {
+    ...(existingApproval || {}),
     year: String(formData.get("year")),
     no: Number(formData.get("no")),
     date: String(formData.get("date")),
     subject: String(formData.get("subject")).trim(),
     related: String(formData.get("related")).trim(),
     status: String(formData.get("status")),
-    fileName: selectedFile ? selectedFile.name : "",
-    cloudUrl: String(formData.get("cloudUrl")).trim(),
+    fileName: selectedFile ? selectedFile.name : existingApproval?.fileName || "",
+    cloudUrl: normalizeCloudUrl(formData.get("cloudUrl")),
     note: String(formData.get("note")).trim(),
   };
 
-  approvals.push(approval);
+  if (existingIndex >= 0) approvals[existingIndex] = approval;
+  else approvals.push(approval);
   approvals.sort((a, b) => String(a.year).localeCompare(String(b.year)) || a.no - b.no);
   saveApprovals();
   renderApprovals();
   closeApprovalDialog();
+  showToast(existingIndex >= 0 ? "Olur kaydı güncellendi." : "Olur kaydı eklendi.");
 });
 
 leaveForm.addEventListener("submit", (event) => {

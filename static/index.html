@@ -1882,8 +1882,8 @@
       <form class="modal-card" id="approvalForm" method="dialog">
         <div class="modal-head">
           <div>
-            <p class="eyebrow">Yeni olur kaydı</p>
-            <h2>Olur Yükle</h2>
+            <p class="eyebrow" id="approvalModalMode">Yeni olur kaydı</p>
+            <h2 id="approvalModalTitle">Olur Yükle</h2>
           </div>
           <button class="icon-btn" id="closeApprovalModal" type="button" aria-label="Kapat">×</button>
         </div>
@@ -1927,7 +1927,7 @@
           </label>
           <label>
             Bulut Linki
-            <input name="cloudUrl" type="url" placeholder="https://bulut.tarimorman.gov.tr/..." />
+            <input name="cloudUrl" type="text" placeholder="https://bulut.tarimorman.gov.tr/..." />
           </label>
           <label>
             Açıklama
@@ -1937,7 +1937,7 @@
 
         <div class="modal-actions">
           <button class="btn secondary" id="cancelApproval" type="button">Vazgeç</button>
-          <button class="btn primary" type="submit">Kaydet</button>
+          <button class="btn primary" id="saveApprovalBtn" type="submit">Kaydet</button>
         </div>
       </form>
     </dialog>
