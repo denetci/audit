@@ -5367,29 +5367,43 @@ function selectedBudgetItem() {
   return budgetItems.find((item) => String(item.id) === String(selectedBudgetItemId));
 }
 
+function budgetPayeeMatchesPerson(expense, personName) {
+  const person = normalizeText(personName || "");
+  if (!person) return true;
+  const payee = normalizeText(expense.payee || "");
+  return payee === person || payee.includes(person) || person.includes(payee);
+}
+
 function getFilteredBudgetDetailExpenses(itemId) {
   const startDate = budgetDetailStartDate.value;
   const endDate = budgetDetailEndDate.value;
-  const person = normalizeText(budgetDetailPersonFilter.value || "");
+  const person = budgetDetailPersonFilter.value || "";
   const query = normalizeText(budgetDetailSearchInput.value || "");
   return budgetItemExpenses(itemId).filter((expense) => {
     if (startDate && String(expense.date || "") < startDate) return false;
     if (endDate && String(expense.date || "") > endDate) return false;
-    if (person && normalizeText(expense.payee || "") !== person) return false;
+    if (person && !budgetPayeeMatchesPerson(expense, person)) return false;
     if (!query) return true;
     return normalizeText([expense.date, expense.purpose, expense.payee, expense.note, formatMoney(expense.amount)].join(" ")).includes(query);
   });
 }
 
-function renderBudgetDetailPersonOptions(expenses) {
-  const currentValue = budgetDetailPersonFilter.value;
-  const people = [...new Set(expenses.map((expense) => String(expense.payee || "").trim()).filter(Boolean))]
+function getBudgetDetailPersonnelOptions() {
+  return getLeavePersonnel()
+    .map((person) => String(person.name || "").trim())
+    .filter(Boolean)
+    .filter((name, index, names) => names.findIndex((item) => normalizeText(item) === normalizeText(name)) === index)
     .sort((a, b) => a.localeCompare(b, "tr"));
+}
+
+function renderBudgetDetailPersonOptions() {
+  const currentValue = budgetDetailPersonFilter.value;
+  const people = getBudgetDetailPersonnelOptions();
   budgetDetailPersonFilter.innerHTML = `
     <option value="">Tüm kişiler</option>
     ${people.map((person) => `<option value="${escapeHtml(person)}">${escapeHtml(person)}</option>`).join("")}
   `;
-  budgetDetailPersonFilter.value = people.includes(currentValue) ? currentValue : "";
+  budgetDetailPersonFilter.value = people.some((person) => normalizeText(person) === normalizeText(currentValue)) ? currentValue : "";
 }
 
 function budgetDetailFilterLabel() {
@@ -5407,7 +5421,7 @@ function renderBudgetDetailPage() {
     return;
   }
   const expenses = budgetItemExpenses(item.id);
-  renderBudgetDetailPersonOptions(expenses);
+  renderBudgetDetailPersonOptions();
   const visibleExpenses = getFilteredBudgetDetailExpenses(item.id);
   const allocated = numberValue(item.allocated);
   const released = budgetReleasedAmount(item);
