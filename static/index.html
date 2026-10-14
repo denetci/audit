@@ -8,6 +8,7 @@
     <link rel="apple-touch-icon" href="tarim-orman-logo.png" />
     <link rel="stylesheet" href="style.css?v=20260928-overtime-detail" />
     <link rel="stylesheet" href="audit-map.css?v=20261014-colors" />
+    <link rel="stylesheet" href="turkey-map.css?v=20261014" />
     <style>
       .budget-detail-page.report-surface{overflow:hidden;background:#f7fafc;border-color:#d8e3f1}
       .budget-detail-hero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:18px;align-items:center;border-bottom:1px solid #d5e1ef;background:linear-gradient(135deg,#fff 0%,#eef6ff 100%);padding:20px 22px}
@@ -1463,7 +1464,12 @@
                   <button class="btn secondary" id="clearMonitoringFilters" type="button">Temizle</button>
                 </div>
               </div>
-              <div class="table-wrap">
+              <div class="geo-view-toolbar" role="group" aria-label="İzleme görünümü">
+                <button class="btn primary small" id="monitoringListView" type="button" aria-pressed="true">Liste</button>
+                <button class="btn secondary small" id="monitoringGeoView" type="button" aria-pressed="false">Türkiye Haritası</button>
+              </div>
+              <div id="monitoringGeoMap" class="turkey-map" aria-label="İzlemelerin Türkiye haritası" hidden></div>
+              <div class="table-wrap" id="monitoringListTable">
                 <table class="monitoring-table">
                   <thead>
                     <tr>
@@ -1497,6 +1503,7 @@
                 <div class="audit-view-switch" role="group" aria-label="Denetim görünümü">
                   <button class="btn secondary small" id="auditListView" type="button" aria-pressed="false">Liste</button>
                   <button class="btn primary small" id="auditMapView" type="button" aria-pressed="true">Harita</button>
+                  <button class="btn secondary small" id="auditGeoView" type="button" aria-pressed="false">Türkiye Haritası</button>
                 </div>
                 <div class="active-filter" id="auditQuickFilter" hidden>
                   <span id="auditQuickFilterText">Filtre aktif</span>
@@ -1504,6 +1511,7 @@
                 </div>
               </div>
               <div id="auditMap" class="audit-map" aria-label="Denetim haritası"></div>
+              <div id="auditGeoMap" class="turkey-map" aria-label="Denetimlerin Türkiye haritası" hidden></div>
               <div class="table-wrap" id="auditListTable" hidden>
                 <table>
                   <thead>
@@ -2407,6 +2415,8 @@
       </form>
     </dialog>
     <script src="audit-map.js?v=20261014-colors"></script>
-    <script src="script.js?v=20261014-audit-map"></script>
+    <script src="turkey-map-data.js?v=20261014"></script>
+    <script src="turkey-map.js?v=20261014"></script>
+    <script src="script.js?v=20261014-turkey-map"></script>
   </body>
 </html>

@@ -3046,6 +3046,7 @@ function renderDeletedAudits() {
 
 function renderMonitoringAudits() {
   const monitoringAudits = getFilteredMonitoringAudits();
+  updateGeographicMap("monitoring", monitoringAudits);
   monitoringCount.textContent = monitoringAudits.length;
   monitoringRows.innerHTML = "";
   monitoringAudits.forEach((audit) => monitoringRows.append(createMonitoringRow(audit)));
@@ -3056,28 +3057,75 @@ function renderMonitoringAudits() {
 
 let auditMapInstance;
 let auditViewMode = "map";
+const geographicMaps = {};
+
+function geographicRecord(audit) {
+  const details = hasAccess("monitoring") && isMonitoringAudit(audit) ? getMonitoringDetails(audit) : null;
+  return {
+    key: auditKey(audit), year: String(audit.year), no: audit.no,
+    unit: audit.unit || "", type: audit.type || "", scope: audit.scope || "", status: audit.status || "",
+    dates: formatDateRange(audit), team: getAuditTeamNames(audit).join(", "), supervisor: getAuditSupervisorNames(audit).join(", "),
+    monitoring: details ? { total: details.findingCount, open: details.openFindingCount, dueDate: details.dueDate,
+      formattedDueDate: formatDate(details.dueDate), officer: details.officer } : null,
+  };
+}
+
+function updateGeographicMap(mode, records) {
+  const monitoring = mode === "monitoring";
+  const host = document.getElementById(monitoring ? "monitoringGeoMap" : "auditGeoMap");
+  if (!host || !window.TurkeyMap) return;
+  geographicMaps[mode] ||= new window.TurkeyMap(host, {
+    monitoring,
+    canEdit: () => canEditModule(monitoring ? "monitoring" : "audits"),
+    onEdit: item => {
+      if (!canEditModule(monitoring ? "monitoring" : "audits")) return;
+      const audit = findAudit(item.no, item.year);
+      if (audit) (monitoring ? openMonitoringModal : openAuditModal)(audit);
+    },
+  });
+  const scopeLabel = monitoring && monitoringScopeFilter.value !== "year"
+    ? monitoringScopeFilter.value === "allOpen" ? "Tüm yıllar · açık izlemeler" : "Tüm yıllar"
+    : `${yearSelect.value} yılı`;
+  geographicMaps[mode].update(scopeLabel, records.map(geographicRecord));
+}
+
+function setMonitoringGeographicView(showMap) {
+  document.getElementById("monitoringGeoMap").hidden = !showMap;
+  document.getElementById("monitoringListTable").hidden = showMap;
+  [["monitoringListView", !showMap], ["monitoringGeoView", showMap]].forEach(([id, active]) => {
+    const button = document.getElementById(id);
+    button.setAttribute("aria-pressed", String(active)); button.classList.toggle("primary", active); button.classList.toggle("secondary", !active);
+  });
+  if (showMap) renderMonitoringAudits();
+}
+document.querySelector("#monitoringListView")?.addEventListener("click", () => setMonitoringGeographicView(false));
+document.querySelector("#monitoringGeoView")?.addEventListener("click", () => setMonitoringGeographicView(true));
 
 function setAuditViewMode(mode) {
-  auditViewMode = mode === "list" ? "list" : "map";
+  auditViewMode = ["list", "map", "geo"].includes(mode) ? mode : "map";
   const map = document.querySelector("#auditMap");
   document.querySelector("#auditListTable").hidden = auditViewMode !== "list";
   map.hidden = auditViewMode !== "map";
-  for (const [id, view] of [["auditListView", "list"], ["auditMapView", "map"]]) {
+  document.getElementById("auditGeoMap").hidden = auditViewMode !== "geo";
+  for (const [id, view] of [["auditListView", "list"], ["auditMapView", "map"], ["auditGeoView", "geo"]]) {
     const button = document.getElementById(id);
     button.setAttribute("aria-pressed", String(auditViewMode === view));
     button.classList.toggle("primary", auditViewMode === view);
     button.classList.toggle("secondary", auditViewMode !== view);
   }
   if (auditViewMode === "map") auditMapInstance?.render();
+  if (auditViewMode === "geo") updateGeographicMap("audits", getVisibleAudits());
 }
 
 document.querySelector("#auditListView")?.addEventListener("click", () => setAuditViewMode("list"));
 document.querySelector("#auditMapView")?.addEventListener("click", () => setAuditViewMode("map"));
+document.querySelector("#auditGeoView")?.addEventListener("click", () => setAuditViewMode("geo"));
 
 function renderAudits(options = {}) {
   const refreshSidePanel = options.refreshSidePanel !== false;
   auditRows.innerHTML = "";
   const visibleAudits = getVisibleAudits();
+  updateGeographicMap("audits", visibleAudits);
   const mapHost = document.querySelector("#auditMap");
   if (mapHost && window.AuditMap) {
     auditMapInstance ||= new window.AuditMap(mapHost);

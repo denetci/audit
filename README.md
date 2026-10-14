@@ -43,6 +43,16 @@ Bu klasor PyCharm ile acilabilecek basit bir web arayuzu projesidir..
 
 ## Izleme faaliyetleri
 
+### Türkiye haritası
+
+- Denetimler ekranında **Türkiye Haritası**, İzleme Faaliyetleri ekranında **Liste / Türkiye Haritası** seçenekleri bulunur.
+- İlgili birim adı bir il adıyla başlıyorsa o ilin taşra kaydı, aksi halde merkez kaydı olarak gösterilir. Türkçe büyük/küçük harfler ve Afyon/Afyonkarahisar gibi adlar eşleştirilir. Kayıtlara yeni alan yazılmaz.
+- İl seçimi denetimleri listeler; denetim seçimi kapsam, tarihler, ekip ve erişim yetkisine göre izleme bilgilerini açar. Düzenleme mevcut yetkilerle ve mevcut formlarla yapılır.
+- Üstteki yıl, arama ve tür filtreleri; izlemelerde kapsam ve durum filtreleri haritaya da uygulanır. Silinmiş kayıtlar dahil edilmez.
+- İzleme haritasının rengi açık bulgu, son tarihi geçmiş açık bulgu veya denetim sayısına göre değiştirilebilir. Merkez kayıtları haritada bir ile eklenmez; ayrı düğmeden açılır.
+- İl sınırları uygulama içinde yerel olarak sunulur. Kaynak ve ODbL bildirimi: `static/turkey-map-data-LICENSE.md`. Bu dosyalar dış servislere denetim verisi göndermez.
+- Kontrol: `node tests/test_turkey_map.js`.
+
 - Denetimler islem menusunden `Izleme Surecine Al` secilince izleme ekraninda gorunur.
 - Izleme ekraninda denetim yili, ilgili birim, denetim adi, sorumlu denetci, bulgu sayilari, son tarih ve durum izlenir.
 - Izleme sonuclari tablosu yuklenebilir, indirilebilir, silinebilir veya adlandirilabilir.
