@@ -2012,12 +2012,14 @@ async function loadSharedState() {
         await saveSharedStateNow();
       }
 
+      renderAudits();
       return;
     }
 
     sharedStateLoaded = true;
     await saveSharedStateNow();
     captureCurrentSharedSnapshot();
+    renderAudits();
   } catch {
     sharedStateLoaded = false;
     showToast("SQLite bağlantısı kurulamadı; veriler bu tarayıcıda geçici kalabilir.");
@@ -3052,10 +3054,40 @@ function renderMonitoringAudits() {
   applyModulePermissions();
 }
 
+let auditMapInstance;
+let auditViewMode = "map";
+
+function setAuditViewMode(mode) {
+  auditViewMode = mode === "list" ? "list" : "map";
+  const map = document.querySelector("#auditMap");
+  document.querySelector("#auditListTable").hidden = auditViewMode !== "list";
+  map.hidden = auditViewMode !== "map";
+  for (const [id, view] of [["auditListView", "list"], ["auditMapView", "map"]]) {
+    const button = document.getElementById(id);
+    button.setAttribute("aria-pressed", String(auditViewMode === view));
+    button.classList.toggle("primary", auditViewMode === view);
+    button.classList.toggle("secondary", auditViewMode !== view);
+  }
+  if (auditViewMode === "map") auditMapInstance?.render();
+}
+
+document.querySelector("#auditListView")?.addEventListener("click", () => setAuditViewMode("list"));
+document.querySelector("#auditMapView")?.addEventListener("click", () => setAuditViewMode("map"));
+
 function renderAudits(options = {}) {
   const refreshSidePanel = options.refreshSidePanel !== false;
   auditRows.innerHTML = "";
   const visibleAudits = getVisibleAudits();
+  const mapHost = document.querySelector("#auditMap");
+  if (mapHost && window.AuditMap) {
+    auditMapInstance ||= new window.AuditMap(mapHost);
+    auditMapInstance.update(String(yearSelect.value), visibleAudits.map(audit => ({
+      key: auditKey(audit), no: audit.no, unit: audit.unit || "Birim belirtilmemiş",
+      type: audit.type || "Tür belirtilmemiş", scope: audit.scope || "",
+      status: audit.status || "Belirtilmemiş", dates: formatDateRange(audit),
+      team: getAuditTeamNames(audit).join(", "), supervisor: getAuditSupervisorNames(audit).join(", "),
+    })));
+  }
   const filterLabel = activeQuickFilter?.label || "";
 
   renderAuditSortButtons();
