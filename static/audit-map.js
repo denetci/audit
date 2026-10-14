@@ -46,6 +46,18 @@ window.AuditMap = class AuditMap {
     return el;
   }
 
+  color(type) {
+    const palette = {
+      'bilgi teknolojileri': '#6855cf', 'bt': '#6855cf',
+      'danışmanlık': '#b53ba4', 'inceleme': '#bc602f',
+      'performans': '#147f74', 'sistem': '#8550c2',
+      'sistem/uygunluk': '#4963ce', 'uygunluk': '#4963ce',
+      'yönetim faaliyetleri': '#c04470', 'mali': '#ad7009',
+    };
+    const key = String(type).trim().toLocaleLowerCase('tr-TR').replace(/\s*\/\s*/g, '/');
+    return palette[key] || '#397c9d';
+  }
+
   render() {
     cancelAnimationFrame(this.frame);
     if (!this.host.clientWidth || this.host.hidden) return;
@@ -79,7 +91,7 @@ window.AuditMap = class AuditMap {
     const pages = Math.max(1, Math.ceil(children.length / 8));
     this.page = Math.min(this.page, pages - 1);
     const shown = children.slice(this.page * 8, this.page * 8 + 8);
-    const gridTypes = groups.length > (narrow ? 3 : 6);
+    const gridTypes = groups.length > (narrow ? 3 : 12);
     const typeColumns = narrow ? 2 : 3;
     let height = 550;
     if (narrow && this.branch) height = 340 + Math.ceil(shown.length / 2) * 130;
@@ -150,14 +162,17 @@ window.AuditMap = class AuditMap {
 
   node(id, label, subtitle, pos, kind, action, parent, expanded) {
     const el = this.element('button', 'audit-map-node ' + kind); el.type = 'button'; el.dataset.mapKey = id;
-    el.append(this.element('strong', '', label), this.element('small', '', subtitle));
+    const color = kind === 'root' ? '#2385a8' : kind === 'type' ? this.color(label) : parent.color;
+    el.style.setProperty('--node-color', color);
+    el.append(this.element('strong', '', String(label).replace(/\s*\/\s*/g, ' / ')), this.element('small', '', subtitle));
     if (expanded !== undefined) el.setAttribute('aria-expanded', String(expanded));
     this.stage.append(el);
     const old = this.cache.get(id);
-    const n = {id, kind, el, tx:pos[0], ty:pos[1], x:old?.x ?? parent?.x ?? pos[0], y:old?.y ?? parent?.y ?? pos[1], vx:0, vy:0, radius:el.offsetWidth / 2};
+    const n = {id, kind, color, el, tx:pos[0], ty:pos[1], x:old?.x ?? parent?.x ?? pos[0], y:old?.y ?? parent?.y ?? pos[1], vx:0, vy:0, radius:el.offsetWidth / 2};
     this.nodes.push(n);
     if (parent) {
       const link = document.createElementNS('http://www.w3.org/2000/svg', 'line'); this.svg.append(link);
+      link.style.stroke = color;
       this.edges.push({a:parent, b:n, el:link, length:Math.hypot(parent.tx-n.tx, parent.ty-n.ty)});
     }
     let moved = false, startX, startY, offsetX, offsetY;
