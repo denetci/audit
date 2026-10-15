@@ -2938,8 +2938,29 @@ function normalizeCloudUrl(url) {
   return `https://${value}`;
 }
 
+function getCloudUrls(value) {
+  return [...new Set(String(value || "").split(/\r?\n/).map((url) => normalizeCloudUrl(url)).filter(Boolean))];
+}
+
+function validateCloudUrls(value) {
+  const urls = getCloudUrls(value);
+  if (urls.some((url) => {
+    try { return !["http:", "https:"].includes(new URL(url).protocol); }
+    catch { return true; }
+  })) throw new Error("Her satıra geçerli bir http veya https bulut bağlantısı yazın.");
+  return urls.join("\n");
+}
+
 function openCloudUrl(url) {
-  const targetUrl = normalizeCloudUrl(url);
+  const urls = getCloudUrls(url);
+  let targetUrl = urls[0];
+  if (urls.length > 1) {
+    const choice = prompt(`Açılacak bağlantının numarasını yazın:\n${urls.map((item, index) => `${index + 1}. ${item}`).join("\n")}`, "1");
+    if (choice === null) return;
+    const index = Number(choice) - 1;
+    if (!Number.isInteger(index) || !urls[index]) { alert("Geçerli bir bağlantı numarası seçin."); return; }
+    targetUrl = urls[index];
+  }
   if (!targetUrl) {
     alert("Bu kayıt için bulut bağlantısı eklenmemiş.");
     return;
@@ -3309,16 +3330,16 @@ function createReportDocumentPanel(audit) {
     </div>
     <div class="archive-link-card">
       <div class="archive-link-main">
-        <strong>Bulut Klasör Linki</strong>
-        <p>${archiveLink ? escapeHtml(archiveLink.cloudUrl) : "Bu denetime ait bulut klasör linki henüz eklenmedi."}</p>
+        <strong>Bulut Klasör Bağlantıları</strong>
+        <p>Her satıra bir bağlantı ekleyin. Mevcut bağlantıları düzenleyebilir veya satırını silerek kaldırabilirsiniz.</p>
       </div>
       <div class="cloud-link-row">
-        <input data-report-cloud-link-type="${reportArchiveLinkType}" type="url" value="${escapeHtml(archiveLink?.cloudUrl || "")}" placeholder="https://bulut.tarimorman.gov.tr/... klasör linki" />
+        <textarea data-report-cloud-link-type="${reportArchiveLinkType}" rows="4" aria-label="Bulut bağlantıları, her satıra bir bağlantı" placeholder="Her satıra bir bulut bağlantısı">${escapeHtml(archiveLink?.cloudUrl || "")}</textarea>
         <button class="btn small primary" data-report-document-action="save-link" data-report-document-type="${reportArchiveLinkType}" type="button">Kaydet</button>
       </div>
       <div class="document-actions">
-        <button class="btn small secondary" data-report-document-action="open-link" data-report-document-type="${reportArchiveLinkType}" type="button" ${archiveLink?.cloudUrl ? "" : "disabled"}>Bulutta Aç</button>
-        <button class="btn small secondary danger-soft" data-report-document-action="delete" data-report-document-type="${reportArchiveLinkType}" type="button" ${archiveLink ? "" : "disabled"}>Linki Kaldır</button>
+        ${getCloudUrls(archiveLink?.cloudUrl).map((url, index) => `<button class="btn small secondary" data-report-document-action="open-link" data-report-document-type="${reportArchiveLinkType}" data-cloud-link-index="${index}" title="${escapeHtml(url)}" type="button">Bağlantı ${index + 1} ↗</button>`).join("")}
+        <button class="btn small secondary danger-soft" data-report-document-action="delete" data-report-document-type="${reportArchiveLinkType}" type="button" ${archiveLink ? "" : "disabled"}>Tüm Bağlantıları Kaldır</button>
       </div>
     </div>
   `;
@@ -7923,7 +7944,9 @@ reportAuditRows.addEventListener("click", (event) => {
     const cloudInput = reportAuditRows.querySelector(
       `[data-report-cloud-link-type="${CSS.escape(documentType)}"]`,
     );
-    const cloudUrl = cloudInput?.value.trim();
+    let cloudUrl;
+    try { cloudUrl = validateCloudUrls(cloudInput?.value); }
+    catch (error) { alert(error.message); return; }
 
     if (!cloudUrl) {
       alert("Bulut linki alanı boş olamaz.");
@@ -7970,12 +7993,14 @@ reportAuditRows.addEventListener("click", (event) => {
   }
 
   if (actionButton.dataset.reportDocumentAction === "open-link") {
-    openCloudUrl(reportDocuments[documentIndex].cloudUrl);
+    const links = getCloudUrls(reportDocuments[documentIndex].cloudUrl);
+    const index = actionButton.dataset.cloudLinkIndex;
+    openCloudUrl(index === undefined ? links.join("\n") : links[Number(index)]);
     return;
   }
 
   if (actionButton.dataset.reportDocumentAction === "delete") {
-    const shouldDelete = confirm("Bu denetime ait bulut klasör linki kaldırılsın mı?");
+    const shouldDelete = confirm("Bu denetime ait tüm bulut bağlantıları kaldırılsın mı?");
 
     if (!shouldDelete) {
       return;
@@ -8584,6 +8609,9 @@ approvalForm.addEventListener("submit", (event) => {
   event.preventDefault();
 
   const formData = new FormData(approvalForm);
+  let cloudUrls;
+  try { cloudUrls = validateCloudUrls(formData.get("cloudUrl")); }
+  catch (error) { event.preventDefault(); alert(error.message); return; }
   const selectedFile = approvalForm.elements.file.files[0];
   const existingIndex = editingApprovalKey ? approvals.findIndex((item) => approvalKey(item) === editingApprovalKey) : -1;
   const existingApproval = existingIndex >= 0 ? approvals[existingIndex] : null;
@@ -8596,7 +8624,7 @@ approvalForm.addEventListener("submit", (event) => {
     related: String(formData.get("related")).trim(),
     status: String(formData.get("status")),
     fileName: selectedFile ? selectedFile.name : existingApproval?.fileName || "",
-    cloudUrl: normalizeCloudUrl(formData.get("cloudUrl")),
+    cloudUrl: cloudUrls,
     note: String(formData.get("note")).trim(),
   };
 

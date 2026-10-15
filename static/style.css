@@ -5028,3 +5028,5 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 #sideCalendarSummary progress::-webkit-progress-bar { background: #e5eefb; }
 #sideCalendarSummary progress::-webkit-progress-value { background: #2675db; border-radius: 8px; }
 #sideCalendarSummary progress::-moz-progress-bar { background: #2675db; border-radius: 8px; }
+
+.cloud-link-row textarea { flex: 1; min-width: 0; width: 100%; resize: vertical; padding: 10px; border: 1px solid #cbdaf0; border-radius: 8px; font: inherit; }
