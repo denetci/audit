@@ -3361,6 +3361,50 @@ function getDaysUntilAudit(audit) {
   return Math.ceil((startDate - today) / 86400000);
 }
 
+function getAuditCalendarProgress(audit, today = new Date()) {
+  const dayNumber = (value) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "")) return NaN;
+    const date = new Date(`${value}T00:00:00Z`);
+    return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value
+      ? NaN : date.getTime() / 86400000;
+  };
+  const start = dayNumber(audit.start);
+  const end = dayNumber(audit.end);
+  const now = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) / 86400000;
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return { state: "unknown" };
+  if (now > end) return { state: "ended", percent: 100, remaining: 0 };
+  if (now < start) return { state: "upcoming", percent: 0, remaining: start - now };
+  // End date is inclusive; count elapsed full calendar days, including one-day audits.
+  return { state: "ongoing", percent: Math.min(99, Math.round((now - start) / (end - start + 1) * 100)), remaining: end - now + 1 };
+}
+
+function renderAuditCalendarSummary(yearAudits) {
+  const items = yearAudits.filter((audit) => audit.status !== "İptal Edildi")
+    .map((audit) => ({ audit, ...getAuditCalendarProgress(audit) }));
+  const ongoing = items.filter((item) => item.state === "ongoing")
+    .sort((a, b) => a.remaining - b.remaining || Number(a.audit.no) - Number(b.audit.no));
+  const count = (state) => items.filter((item) => item.state === state).length;
+  const average = ongoing.length ? Math.round(ongoing.reduce((sum, item) => sum + item.percent, 0) / ongoing.length) : null;
+  document.querySelector("#sideCalendarSummary").innerHTML = `
+    <div class="side-section-head"><strong>Takvime Göre İlerleme</strong></div>
+    <div class="calendar-counts">
+      <span><b>${count("ended")}</b> denetimin süresi bitti</span>
+      <span><b>${ongoing.length}</b> denetim devam ediyor</span>
+      <span><b>${count("upcoming")}</b> denetim henüz başlamadı</span>
+      ${count("unknown") ? `<span><b>${count("unknown")}</b> denetimde tarih eksik / geçersiz</span>` : ""}
+    </div>
+    ${average !== null ? `<div class="calendar-average"><strong>Devam edenlerde ortalama %${average}</strong>
+      <progress max="100" value="${average}" aria-label="Devam eden denetimlerin ortalama takvim ilerlemesi"></progress></div>` : ""}
+    <p class="calendar-note">Başlangıç ve bitiş tarihlerine göre geçen süreyi gösterir. Bitiş günü süreye dahildir. Fiilî tamamlanma durumunu değiştirmez; iptal edilenler hariçtir.</p>
+    <div class="side-list scrollable calendar-audits">${ongoing.map((item) => `
+      <div class="calendar-audit">
+        <strong>${escapeHtml(item.audit.unit || "Birim belirtilmedi")}</strong>
+        <small>${escapeHtml(item.audit.scope || "")}</small>
+        <div><b>%${item.percent}</b><span>${item.remaining === 1 ? "Bugün son gün" : `${item.remaining} gün kaldı (bugün dahil)`}</span></div>
+        <progress max="100" value="${item.percent}" aria-label="${escapeHtml(item.audit.scope || item.audit.unit || "Denetim")} takvim ilerlemesi"></progress>
+      </div>`).join("")}</div>`;
+}
+
 function renderDashboardSidePanel() {
   const yearAudits = getSelectedYearAudits();
   const activeAudits = yearAudits.filter(
@@ -3404,6 +3448,7 @@ function renderDashboardSidePanel() {
   const auditorLoad = [...auditorCounts.entries()]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "tr-TR"));
 
+  renderAuditCalendarSummary(yearAudits);
   sideTotalAudits.textContent = yearAudits.length;
   sideActiveAudits.textContent = activeAudits.length;
   sideMonitoringAudits.textContent = monitoringAudits.length;
