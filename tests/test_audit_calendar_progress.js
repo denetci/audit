@@ -22,8 +22,8 @@ context.renderAuditCalendarSummary([
  { start:"2999-01-01", end:"2999-01-02" },
  {}
 ]);
-assert.ok(panel.innerHTML.includes("<b>1</b> denetimin süresi bitti"));
-assert.ok(panel.innerHTML.includes("<b>1</b> denetim henüz başlamadı"));
+assert.ok(panel.innerHTML.includes("<b>1</b> Süresi bitti"));
+assert.ok(panel.innerHTML.includes("<b>1</b> Başlamadı"));
 assert.ok(panel.innerHTML.includes("<b>1</b> denetimde tarih eksik"));
 assert.ok(!panel.innerHTML.includes("NaN"));
 assert.ok(!panel.innerHTML.includes("Devam edenlerde ortalama"));

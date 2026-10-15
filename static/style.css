@@ -5045,3 +5045,14 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 .cloud-link-description .cloud-link-address { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .cloud-link-open { flex-shrink: 0; font-size: 12px; font-weight: 700; color: #1558b0; }
 .cloud-links-footer { display: flex; justify-content: flex-end; padding-top: 16px; }
+
+.calendar-counts.compact { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; font-size: 10px; }
+.calendar-counts.compact span { line-height: 1.5; }
+.calendar-counts.compact b { display: block; color: var(--ink); font-size: 17px; }
+.calendar-counts.compact span:nth-child(4) { grid-column: 1 / -1; }
+.calendar-counts.compact span:nth-child(4) b { display: inline; font-size: inherit; }
+.calendar-details { margin-top: 12px; }
+.calendar-details summary { cursor: pointer; color: #52637a; font-size: 12px; }
+.calendar-details summary:focus-visible { outline: 2px solid #2675db; outline-offset: 4px; }
+#sideCalendarSummary .calendar-average { font-size: 12px; margin-top: 10px; }
+#sideCalendarSummary progress { height: 5px; }

@@ -3440,14 +3440,15 @@ function renderAuditCalendarSummary(yearAudits) {
   const average = ongoing.length ? Math.round(ongoing.reduce((sum, item) => sum + item.percent, 0) / ongoing.length) : null;
   document.querySelector("#sideCalendarSummary").innerHTML = `
     <div class="side-section-head"><strong>Takvime Göre İlerleme</strong></div>
-    <div class="calendar-counts">
-      <span><b>${count("ended")}</b> denetimin süresi bitti</span>
-      <span><b>${ongoing.length}</b> denetim devam ediyor</span>
-      <span><b>${count("upcoming")}</b> denetim henüz başlamadı</span>
+    <div class="calendar-counts compact">
+      <span><b>${count("ended")}</b> Süresi bitti</span>
+      <span><b>${ongoing.length}</b> Devam ediyor</span>
+      <span><b>${count("upcoming")}</b> Başlamadı</span>
       ${count("unknown") ? `<span><b>${count("unknown")}</b> denetimde tarih eksik / geçersiz</span>` : ""}
     </div>
     ${average !== null ? `<div class="calendar-average"><strong>Devam edenlerde ortalama %${average}</strong>
       <progress max="100" value="${average}" aria-label="Devam eden denetimlerin ortalama takvim ilerlemesi"></progress></div>` : ""}
+    <details class="calendar-details"><summary>Denetim ayrıntılarını göster</summary>
     <p class="calendar-note">Başlangıç ve bitiş tarihlerine göre geçen süreyi gösterir. Bitiş günü süreye dahildir. Fiilî tamamlanma durumunu değiştirmez; iptal edilenler hariçtir.</p>
     <div class="side-list scrollable calendar-audits">${ongoing.map((item) => `
       <div class="calendar-audit">
@@ -3455,7 +3456,7 @@ function renderAuditCalendarSummary(yearAudits) {
         <small>${escapeHtml(item.audit.scope || "")}</small>
         <div><b>%${item.percent}</b><span>${item.remaining === 1 ? "Bugün son gün" : `${item.remaining} gün kaldı (bugün dahil)`}</span></div>
         <progress max="100" value="${item.percent}" aria-label="${escapeHtml(item.audit.scope || item.audit.unit || "Denetim")} takvim ilerlemesi"></progress>
-      </div>`).join("")}</div>`;
+      </div>`).join("")}</div></details>`;
 }
 
 function renderDashboardSidePanel() {
