@@ -1474,14 +1474,14 @@
                 <table class="monitoring-table">
                   <thead>
                     <tr>
-                      <th>Denetim Yılı</th>
-                      <th>İlgili Birim</th>
-                      <th>Denetim Adı</th>
-                      <th>İzlemeden Sorumlu Denetçi</th>
-                      <th>Bulgu Sayısı</th>
-                      <th>İzlemesi Devam Eden Bulgu Sayısı</th>
-                      <th>İzleme Son Tarih</th>
-                      <th>İzleme Durumu</th>
+                      <th><button type="button" class="table-sort" data-monitoring-sort="year">Denetim Yılı</button></th>
+                      <th><button type="button" class="table-sort" data-monitoring-sort="unit">İlgili Birim</button></th>
+                      <th><button type="button" class="table-sort" data-monitoring-sort="auditName">Denetim Adı</button></th>
+                      <th><button type="button" class="table-sort" data-monitoring-sort="officer">İzlemeden Sorumlu Denetçi</button></th>
+                      <th><button type="button" class="table-sort" data-monitoring-sort="findingCount">Bulgu Sayısı</button></th>
+                      <th><button type="button" class="table-sort" data-monitoring-sort="openFindingCount">İzlemesi Devam Eden Bulgu Sayısı</button></th>
+                      <th><button type="button" class="table-sort" data-monitoring-sort="dueDate">İzleme Son Tarih</button></th>
+                      <th><button type="button" class="table-sort" data-monitoring-sort="status">İzleme Durumu</button></th>
                       <th>İzleme Sonuçları Tablosu</th>
                       <th>İşlem</th>
                     </tr>
@@ -2418,6 +2418,6 @@
     <script src="audit-map.js?v=20261014-colors"></script>
     <script src="turkey-map-data.js?v=20261014"></script>
     <script src="turkey-map.js?v=20261015-monitoring-status"></script>
-    <script src="script.js?v=20261015-monitoring-status"></script>
+    <script src="script.js?v=20261015-monitoring-sort"></script>
   </body>
 </html>

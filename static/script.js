@@ -2759,6 +2759,40 @@ function getMonitoringSearchText(audit) {
   ].join(" ");
 }
 
+let monitoringSort = { key: "status", direction: "asc" };
+
+function monitoringSortValue(audit, key) {
+  const details = getMonitoringDetails(audit);
+  if (key === "status") return isMonitoringCompleted(details) ? 2 : isMonitoringPending(details) ? 1 : 0;
+  if (key === "year") return Number(audit.year);
+  if (key === "unit") return audit.unit || "";
+  return details[key] ?? "";
+}
+
+function compareMonitoringAudits(a, b) {
+  const left = monitoringSortValue(a, monitoringSort.key);
+  const right = monitoringSortValue(b, monitoringSort.key);
+  // Keep missing values at the end in either direction.
+  if (left === "" && right !== "") return 1;
+  if (right === "" && left !== "") return -1;
+  const comparison = typeof left === "number" && typeof right === "number"
+    ? left - right
+    : String(left).localeCompare(String(right), "tr", { numeric: true });
+  return comparison * (monitoringSort.direction === "desc" ? -1 : 1)
+    || String(a.year).localeCompare(String(b.year)) || a.no - b.no;
+}
+
+function renderMonitoringSortButtons() {
+  document.querySelectorAll("[data-monitoring-sort]").forEach((button) => {
+    const active = button.dataset.monitoringSort === monitoringSort.key;
+    button.classList.toggle("active", active);
+    button.dataset.direction = active ? monitoringSort.direction : "";
+    button.closest("th").setAttribute("aria-sort", active
+      ? monitoringSort.direction === "asc" ? "ascending" : "descending" : "none");
+    button.setAttribute("aria-label", `${button.textContent.trim()} sütununa göre ${active && monitoringSort.direction === "asc" ? "azalan" : "artan"} sırala`);
+  });
+}
+
 function getFilteredMonitoringAudits() {
   const scope = monitoringScopeFilter.value;
   const status = monitoringStatusFilter.value;
@@ -2782,7 +2816,7 @@ function getFilteredMonitoringAudits() {
 
       return matchesScope && matchesStatus && matchesSearch;
     })
-    .sort((a, b) => String(a.year).localeCompare(String(b.year)) || a.no - b.no);
+    .sort(compareMonitoringAudits);
 }
 
 function sumMonitoringField(monitoringAudits, fieldName) {
@@ -3056,6 +3090,7 @@ function renderDeletedAudits() {
 }
 
 function renderMonitoringAudits() {
+  renderMonitoringSortButtons();
   const monitoringAudits = getFilteredMonitoringAudits();
   updateGeographicMap("monitoring", monitoringAudits);
   monitoringCount.textContent = monitoringAudits.length;
@@ -7119,6 +7154,14 @@ clearAuditQuickFilter?.addEventListener("click", () => {
     button.classList.toggle("active", button.dataset.typeFilter === "Tümü");
   });
   renderAudits();
+});
+
+document.querySelectorAll("[data-monitoring-sort]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const key = button.dataset.monitoringSort;
+    monitoringSort = { key, direction: monitoringSort.key === key && monitoringSort.direction === "asc" ? "desc" : "asc" };
+    renderMonitoringAudits();
+  });
 });
 
 monitoringScopeFilter.addEventListener("change", renderMonitoringAudits);
