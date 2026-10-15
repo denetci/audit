@@ -125,25 +125,39 @@ window.AuditMap = class AuditMap {
           this.nodes.filter(n => n.kind === 'audit').forEach(n => n.el.setAttribute('aria-pressed', String(n.id === 'audit:' + item.key)));
           this.renderDetails();
         }, type);
-        n.el.style.width = (narrow ? Math.max(120, width - 32) : Math.max(180, width * .46)) + 'px';
         n.el.insertBefore(this.element('span', 'audit-map-unit', item.unit), n.el.querySelector('small'));
-        n.radius = Math.max(n.el.offsetWidth, n.el.offsetHeight) / 2;
+        const text = this.element('span', 'audit-map-circle-text');
+        while (n.el.firstChild) text.append(n.el.firstChild);
+        n.el.append(text);
+        let diameter = Math.min(200, width - 24);
+        const limit = Math.max(diameter, width - 24);
+        do {
+          n.el.style.width = n.el.style.height = diameter + 'px';
+          if (text.scrollHeight <= diameter * .68 && text.scrollWidth <= diameter * .68) break;
+          diameter += 12;
+        } while (diameter <= limit);
+        n.radius = n.el.offsetWidth / 2;
         n.el.setAttribute('aria-pressed', String(this.selected === item.key));
         n.el.setAttribute('aria-label', `${item.unit}, ${item.scope}, No ${item.no}, ${item.status}: ayrıntıları göster`);
         n.el.title = `${item.unit}\n${item.scope}\n${item.status}`;
       });
     }
     if (this.expanded && this.branch) {
-      let top = narrow ? 310 : 24;
-      this.nodes.filter(n => n.kind === 'audit').forEach(n => {
-        n.tx = narrow ? width / 2 : width * .73;
-        n.ty = top + n.el.offsetHeight / 2;
-        top += n.el.offsetHeight + 24;
+      const leaves = this.nodes.filter(n => n.kind === 'audit');
+      const size = Math.max(200, ...leaves.map(n => n.el.offsetWidth));
+      const columns = Math.max(1, Math.min(3, Math.floor(width / (size + 28))));
+      const top = 270;
+      leaves.forEach((n, index) => {
+        n.tx = width * ((index % columns + .5) / columns);
+        n.ty = top + size / 2 + Math.floor(index / columns) * (size + 32);
         n.x = n.tx; n.y = n.ty;
       });
-      height = Math.max(550, top + 24);
+      height = Math.max(550, top + Math.ceil(leaves.length / columns) * (size + 32));
       this.stage.style.height = height + 'px';
-      if (!narrow) this.nodes.filter(n => n.kind !== 'audit').forEach(n => { n.ty = height / 2; });
+      this.nodes.filter(n => n.kind !== 'audit').forEach(n => {
+        n.tx = width / 2; n.ty = n.kind === 'root' ? 78 : 215;
+        n.x = n.tx; n.y = n.ty;
+      });
       this.edges.forEach(edge => { edge.length = Math.hypot(edge.a.tx-edge.b.tx, edge.a.ty-edge.b.ty); });
     }
     if (this.branch && pages > 1) {
@@ -234,7 +248,7 @@ window.AuditMap = class AuditMap {
       }
       let energy=0;
       for(const n of this.nodes) {
-        if(n.kind === 'audit' && n !== this.dragging){n.x=n.tx;n.y=n.ty;n.vx=0;n.vy=0;}
+        if(this.branch && n !== this.dragging){n.x=n.tx;n.y=n.ty;n.vx=0;n.vy=0;}
         if(n!==this.dragging){n.vx*=.76;n.vy*=.76;n.x+=n.vx;n.y+=n.vy;}
         const halfW=n.el.offsetWidth/2, halfH=n.el.offsetHeight/2;
         n.x=Math.max(halfW+5,Math.min(w-halfW-5,n.x)); n.y=Math.max(halfH+5,Math.min(h-halfH-5,n.y));
