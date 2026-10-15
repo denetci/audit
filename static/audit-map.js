@@ -120,15 +120,31 @@ window.AuditMap = class AuditMap {
         const rows = Math.ceil(shown.length / 2);
         const pos = narrow ? [width * (i % 2 ? .75 : .25), 365 + Math.floor(i / 2) * 130]
           : [width * (shown.length === 1 ? .78 : i % 2 ? .88 : .66), height * ((Math.floor(i / 2) + .5) / rows)];
-        const n = this.node('audit:' + item.key, item.unit, `No ${item.no} · ${item.status}`, pos, 'audit', () => {
+        const n = this.node('audit:' + item.key, item.scope || 'Denetim adı belirtilmemiş', `No ${item.no} · ${item.status}`, pos, 'audit', () => {
           this.selected = item.key;
           this.nodes.filter(n => n.kind === 'audit').forEach(n => n.el.setAttribute('aria-pressed', String(n.id === 'audit:' + item.key)));
           this.renderDetails();
         }, type);
+        n.el.style.width = (narrow ? Math.max(120, width - 32) : Math.max(180, width * .46)) + 'px';
+        n.el.insertBefore(this.element('span', 'audit-map-unit', item.unit), n.el.querySelector('small'));
+        n.radius = Math.max(n.el.offsetWidth, n.el.offsetHeight) / 2;
         n.el.setAttribute('aria-pressed', String(this.selected === item.key));
         n.el.setAttribute('aria-label', `${item.unit}, ${item.scope}, No ${item.no}, ${item.status}: ayrıntıları göster`);
         n.el.title = `${item.unit}\n${item.scope}\n${item.status}`;
       });
+    }
+    if (this.expanded && this.branch) {
+      let top = narrow ? 310 : 24;
+      this.nodes.filter(n => n.kind === 'audit').forEach(n => {
+        n.tx = narrow ? width / 2 : width * .73;
+        n.ty = top + n.el.offsetHeight / 2;
+        top += n.el.offsetHeight + 24;
+        n.x = n.tx; n.y = n.ty;
+      });
+      height = Math.max(550, top + 24);
+      this.stage.style.height = height + 'px';
+      if (!narrow) this.nodes.filter(n => n.kind !== 'audit').forEach(n => { n.ty = height / 2; });
+      this.edges.forEach(edge => { edge.length = Math.hypot(edge.a.tx-edge.b.tx, edge.a.ty-edge.b.ty); });
     }
     if (this.branch && pages > 1) {
       const pager = this.element('div', 'audit-map-pagination');
@@ -218,8 +234,10 @@ window.AuditMap = class AuditMap {
       }
       let energy=0;
       for(const n of this.nodes) {
+        if(n.kind === 'audit' && n !== this.dragging){n.x=n.tx;n.y=n.ty;n.vx=0;n.vy=0;}
         if(n!==this.dragging){n.vx*=.76;n.vy*=.76;n.x+=n.vx;n.y+=n.vy;}
-        n.x=Math.max(n.radius+5,Math.min(w-n.radius-5,n.x)); n.y=Math.max(n.radius+5,Math.min(h-n.radius-5,n.y));
+        const halfW=n.el.offsetWidth/2, halfH=n.el.offsetHeight/2;
+        n.x=Math.max(halfW+5,Math.min(w-halfW-5,n.x)); n.y=Math.max(halfH+5,Math.min(h-halfH-5,n.y));
         n.el.style.left=n.x+'px';n.el.style.top=n.y+'px';this.cache.set(n.id,{x:n.x,y:n.y});energy+=Math.abs(n.vx)+Math.abs(n.vy);
       }
       for(const {a,b,el} of this.edges){el.setAttribute('x1',a.x);el.setAttribute('y1',a.y);el.setAttribute('x2',b.x);el.setAttribute('y2',b.y);}
