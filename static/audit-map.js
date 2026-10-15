@@ -221,7 +221,18 @@ window.AuditMap = class AuditMap {
       n.x = event.clientX-box.left+offsetX; n.y = event.clientY-box.top+offsetY; n.vx = n.vy = 0;
       this.animate();
     };
-    const release = () => { if (this.dragging === n) { this.dragging = null; this.animate(); } };
+    const release = () => {
+      if (this.dragging !== n) return;
+      if (moved) {
+        // Retain the dropped position as the new spring anchor.
+        n.tx = n.x; n.ty = n.y;
+        this.edges.filter(edge => edge.a === n || edge.b === n).forEach(edge => {
+          edge.length = Math.hypot(edge.a.x - edge.b.x, edge.a.y - edge.b.y);
+        });
+      }
+      this.dragging = null;
+      this.animate();
+    };
     el.onpointerup = release; el.onpointercancel = release; el.onlostpointercapture = release;
     el.onclick = event => { if (moved && event.detail !== 0) { moved = false; return; } action(); };
     return n;
@@ -248,7 +259,6 @@ window.AuditMap = class AuditMap {
       }
       let energy=0;
       for(const n of this.nodes) {
-        if(this.branch && n !== this.dragging){n.x=n.tx;n.y=n.ty;n.vx=0;n.vy=0;}
         if(n!==this.dragging){n.vx*=.76;n.vy*=.76;n.x+=n.vx;n.y+=n.vy;}
         const halfW=n.el.offsetWidth/2, halfH=n.el.offsetHeight/2;
         n.x=Math.max(halfW+5,Math.min(w-halfW-5,n.x)); n.y=Math.max(halfH+5,Math.min(h-halfH-5,n.y));
