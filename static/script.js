@@ -2716,12 +2716,21 @@ function getMonitoringDetails(audit) {
   };
 }
 
+function isMonitoringCompleted(details) {
+  return details.findingCount > 0 && details.openFindingCount === 0;
+}
+
+function isMonitoringPending(details) {
+  return !(details.findingCount > 0) && !(details.openFindingCount > 0);
+}
+
 function getMonitoringStatus(details) {
-  return details.openFindingCount === 0 ? "İzleme Tamamlandı" : "İzleme Devam Ediyor";
+  if (isMonitoringPending(details)) return "İzleme bilgisi bekleniyor";
+  return isMonitoringCompleted(details) ? "İzleme Tamamlandı" : "İzleme Devam Ediyor";
 }
 
 function getMonitoringStatusClass(details) {
-  return details.openFindingCount === 0 ? "done" : "progress";
+  return isMonitoringPending(details) ? "waiting" : isMonitoringCompleted(details) ? "done" : "progress";
 }
 
 function canAuditBeMonitored(audit) {
@@ -2758,7 +2767,7 @@ function getFilteredMonitoringAudits() {
   return getAllMonitoringAudits()
     .filter((audit) => {
       const details = getMonitoringDetails(audit);
-      const isOpen = details.openFindingCount > 0;
+      const isOpen = !isMonitoringCompleted(details);
       const matchesScope =
         scope === "all" ||
         (scope === "allOpen" && isOpen) ||
@@ -2766,7 +2775,8 @@ function getFilteredMonitoringAudits() {
       const matchesStatus =
         status === "Tümü" ||
         (status === "open" && isOpen) ||
-        (status === "completed" && !isOpen);
+        (status === "completed" && !isOpen) ||
+        (status === "pending" && isMonitoringPending(details));
       const matchesSearch =
         !query || normalizeText(getMonitoringSearchText(audit)).includes(query);
 
@@ -2829,7 +2839,7 @@ function renderMonitoringReport(filteredAudits) {
   const allMonitoringAudits = getAllMonitoringAudits();
   const selectedYearAudits = allMonitoringAudits.filter(auditMatchesYear);
   const completedYearAudits = selectedYearAudits.filter(
-    (audit) => getMonitoringDetails(audit).openFindingCount === 0,
+    (audit) => isMonitoringCompleted(getMonitoringDetails(audit)),
   );
   const selectedYearFindings = sumMonitoringField(selectedYearAudits, "findingCount");
   const selectedYearOpenFindings = sumMonitoringField(
@@ -2853,7 +2863,8 @@ function renderMonitoringReport(filteredAudits) {
   monitoringTotalFindings.textContent = selectedYearFindings;
   monitoringCompletedFindings.textContent = selectedYearCompletedFindings;
   monitoringOpenFindings.textContent = allOpenFindings;
-  findingChartSummary.textContent = `${selectedYearCompletedFindings} tamamlandı, ${selectedYearOpenFindings} devam ediyor`;
+  const pendingCount = selectedYearAudits.filter(audit => isMonitoringPending(getMonitoringDetails(audit))).length;
+  findingChartSummary.textContent = `${selectedYearCompletedFindings} tamamlandı, ${selectedYearOpenFindings} devam ediyor${pendingCount ? ` · ${pendingCount} denetimde izleme bilgisi bekleniyor` : ""}`;
   findingDonutChart.style.setProperty("--done", `${completionRate}%`);
   findingDonutValue.textContent = `${completionRate}%`;
   renderMonitoringYearBars(allMonitoringAudits);
@@ -3002,7 +3013,7 @@ function createMonitoringRow(audit) {
     <td class="scope-cell">${escapeHtml(details.auditName)}</td>
     <td class="supervisor-cell">${renderPersonNames(splitPersonNames(details.officer))}</td>
     <td><span class="finding-count">${details.findingCount}</span></td>
-    <td><span class="finding-count ${details.openFindingCount === 0 ? "done-count" : "progress-count"}">${details.openFindingCount}</span></td>
+    <td><span class="finding-count ${isMonitoringCompleted(details) ? "done-count" : "progress-count"}">${details.openFindingCount}</span></td>
     <td><span class="date-range">${formatDate(details.dueDate)}</span></td>
     <td><span class="status ${getMonitoringStatusClass(details)}">${getMonitoringStatus(details)}</span></td>
     <td>
@@ -3065,7 +3076,7 @@ function geographicRecord(audit) {
     key: auditKey(audit), year: String(audit.year), no: audit.no,
     unit: audit.unit || "", type: audit.type || "", scope: audit.scope || "", status: audit.status || "",
     dates: formatDateRange(audit), team: getAuditTeamNames(audit).join(", "), supervisor: getAuditSupervisorNames(audit).join(", "),
-    monitoring: details ? { total: details.findingCount, open: details.openFindingCount, dueDate: details.dueDate,
+    monitoring: details ? { total: details.findingCount, open: details.openFindingCount, status: getMonitoringStatus(details), dueDate: details.dueDate,
       formattedDueDate: formatDate(details.dueDate), officer: details.officer } : null,
   };
 }
@@ -5747,7 +5758,7 @@ function getActivePersonnelMonitorings(person) {
       const details = getMonitoringDetails(audit);
       return (
         isMonitoringAudit(audit) &&
-        details.openFindingCount > 0 &&
+        !isMonitoringCompleted(details) &&
         monitoringIncludesPerson(audit, person)
       );
     })

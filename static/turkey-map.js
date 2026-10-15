@@ -148,7 +148,7 @@
       this.details.append(this.button('← Denetimlere dön',()=>{this.selectedKey=null;this.renderDetails();}));
       this.details.append(this.element('h3','',item.unit));
       const fields=[['Denetim',`${item.year}/${item.no}`],['Tür',item.type],['Durum',item.status],['Kapsam',item.scope],['Tarihler',item.dates],['Ekip',item.team],['Gözetim sorumlusu',item.supervisor]];
-      if(item.monitoring)fields.push(['Toplam bulgu',item.monitoring.total],['Açık bulgu',item.monitoring.open],['İzleme son tarihi',item.monitoring.formattedDueDate],['İzleme sorumlusu',item.monitoring.officer]);
+      if(item.monitoring)fields.push(['İzleme durumu',item.monitoring.status],['Toplam bulgu',item.monitoring.total],['Açık bulgu',item.monitoring.open],['İzleme son tarihi',item.monitoring.formattedDueDate],['İzleme sorumlusu',item.monitoring.officer]);
       const dl=this.element('dl'); fields.forEach(([label,value])=>dl.append(this.element('dt','',label),this.element('dd','',value===0?'0':String(value||'Belirtilmemiş'))));this.details.append(dl);
       if(this.options.canEdit?.(item))this.details.append(this.button(this.options.monitoring?'İzleme bilgilerini düzenle':'Denetimi düzenle',()=>this.options.onEdit?.(item)));
     }
