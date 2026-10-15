@@ -2951,22 +2951,54 @@ function validateCloudUrls(value) {
   return urls.join("\n");
 }
 
+function getCloudLinkLabel(value) {
+  try {
+    const url = new URL(value);
+    const path = url.searchParams.get("dir") || decodeURIComponent(url.pathname);
+    const parts = path.split("/").filter(Boolean);
+    return { title: parts[parts.length - 1] || url.hostname, detail: `${url.hostname}${path === "/" ? "" : ` · ${path}`}` };
+  } catch { return { title: "Bulut bağlantısı", detail: value }; }
+}
+
 function openCloudUrl(url) {
   const urls = getCloudUrls(url);
-  let targetUrl = urls[0];
-  if (urls.length > 1) {
-    const choice = prompt(`Açılacak bağlantının numarasını yazın:\n${urls.map((item, index) => `${index + 1}. ${item}`).join("\n")}`, "1");
-    if (choice === null) return;
-    const index = Number(choice) - 1;
-    if (!Number.isInteger(index) || !urls[index]) { alert("Geçerli bir bağlantı numarası seçin."); return; }
-    targetUrl = urls[index];
-  }
-  if (!targetUrl) {
+  if (!urls.length) {
     alert("Bu kayıt için bulut bağlantısı eklenmemiş.");
     return;
   }
-
-  window.open(targetUrl, "_blank", "noopener,noreferrer");
+  if (urls.length === 1) {
+    window.open(urls[0], "_blank", "noopener,noreferrer");
+    return;
+  }
+  let dialog = document.querySelector("#cloudLinksDialog");
+  if (!dialog) {
+    dialog = document.createElement("dialog");
+    dialog.id = "cloudLinksDialog";
+    dialog.className = "modal cloud-links-dialog";
+    dialog.setAttribute("aria-labelledby", "cloudLinksTitle");
+    dialog.innerHTML = `<div class="modal-card cloud-links-card">
+      <div class="modal-head"><div><h2 id="cloudLinksTitle">Bulut Bağlantıları</h2><p>Açmak istediğiniz bağlantıya tıklayın. Yeni sekmede açılır.</p></div>
+      <button type="button" class="icon-btn" aria-label="Bağlantı penceresini kapat" data-cloud-close>✕</button></div>
+      <div class="cloud-links-list"></div>
+      <div class="cloud-links-footer"><button type="button" class="btn secondary" data-cloud-close>Kapat</button></div>
+    </div>`;
+    dialog.querySelectorAll("[data-cloud-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+    document.body.append(dialog);
+  }
+  const list = dialog.querySelector(".cloud-links-list");
+  list.replaceChildren();
+  urls.forEach((value, index) => {
+    const label = getCloudLinkLabel(value);
+    const link = document.createElement("a");
+    link.className = "cloud-link-choice";
+    link.href = value;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.title = value;
+    link.innerHTML = `<span class="cloud-link-number">${index + 1}</span><span class="cloud-link-description"><strong>${escapeHtml(label.title)}</strong><small>${escapeHtml(label.detail)}</small><small class="cloud-link-address">${escapeHtml(value)}</small></span><span class="cloud-link-open">Aç ↗</span>`;
+    list.append(link);
+  });
+  if (!dialog.open) dialog.showModal();
 }
 
 function chooseAndDownloadDocument(documents) {

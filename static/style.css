@@ -5030,3 +5030,18 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 #sideCalendarSummary progress::-moz-progress-bar { background: #2675db; border-radius: 8px; }
 
 .cloud-link-row textarea { flex: 1; min-width: 0; width: 100%; resize: vertical; padding: 10px; border: 1px solid #cbdaf0; border-radius: 8px; font: inherit; }
+
+.cloud-links-dialog { width: min(620px, calc(100vw - 32px)); }
+.cloud-links-card { width: 100%; box-sizing: border-box; }
+.cloud-links-card .modal-head p { margin: 6px 0 0; color: #64748b; font-size: 13px; }
+.cloud-links-list { display: grid; gap: 10px; max-height: 55vh; overflow: auto; padding: 4px; }
+.cloud-link-choice { display: flex; align-items: center; gap: 12px; padding: 16px; border: 1px solid #dbe5f3; border-radius: 12px; background: #f8fbff; text-decoration: none; color: #102b50; }
+.cloud-link-choice:hover { border-color: #2675db; background: #edf5ff; }
+.cloud-link-choice:focus-visible { outline: 3px solid #2675db; outline-offset: 1px; }
+.cloud-link-number { display: grid; place-items: center; flex: 0 0 32px; height: 32px; border-radius: 9px; background: #e3efff; color: #1558b0; font-weight: 700; }
+.cloud-link-description { min-width: 0; flex: 1; }
+.cloud-link-description strong, .cloud-link-description small { display: block; overflow-wrap: anywhere; }
+.cloud-link-description small { color: #64748b; margin-top: 5px; font-size: 11px; }
+.cloud-link-description .cloud-link-address { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cloud-link-open { flex-shrink: 0; font-size: 12px; font-weight: 700; color: #1558b0; }
+.cloud-links-footer { display: flex; justify-content: flex-end; padding-top: 16px; }
