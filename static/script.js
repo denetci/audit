@@ -1917,6 +1917,16 @@ function acknowledgeSavedState(payload) {
   }
 }
 
+async function persistLeaveDeletion(leave) {
+  if (!sharedStateLoaded) throw new Error("Sunucu bağlantısı hazır değil. İzin silinmedi; bağlantınızı kontrol edip tekrar deneyin.");
+  const payload = { deletedRecords: [{ collection: "leaves", key: String(leave.id) }] };
+  // Finish earlier queued edits before deleting; report success only after the server responds.
+  await writeSharedState(payload);
+  acknowledgeSavedState(payload);
+  leaves = leaves.filter(item => String(item.id) !== String(leave.id));
+  localStorage.setItem("ic-denetim-leaves", JSON.stringify({ version: LEAVE_DATA_VERSION, leaves }));
+}
+
 async function persistDutyChange(duty, deleting = false) {
   if (!sharedStateLoaded) throw new Error("Sunucu bağlantısı hazır değil. Formu kapatmadan bağlantınızı kontrol edin.");
   const payload = deleting ? {deletedRecords:[{collection:"dutyRecords",key:String(duty.id)}]} : {dutyRecords:[duty]};
@@ -8407,7 +8417,7 @@ Bu kayıt için açılabilir bulut bağlantısı yok. Düzenle ile bulut linki e
   }
 });
 
-function handleLeaveAction(event) {
+async function handleLeaveAction(event) {
   const actionButton = event.target.closest("[data-leave-action]");
 
   if (!actionButton) {
@@ -8439,10 +8449,18 @@ function handleLeaveAction(event) {
       return;
     }
 
-    markRecordDeleted("leaves", leave);
-    leaves = leaves.filter((item) => item.id !== leave.id);
-    saveLeaves();
-    renderLeaves();
+    actionButton.disabled = true;
+    actionButton.textContent = "Siliniyor…";
+    try {
+      await persistLeaveDeletion(leave);
+      renderLeaves();
+      showToast("İzin kaydı sunucudan silindi.");
+    } catch (error) {
+      showToast(error.message || "İzin kaydı silinemedi. Lütfen tekrar deneyin.");
+    } finally {
+      actionButton.disabled = false;
+      actionButton.textContent = "Sil";
+    }
   }
 }
 
