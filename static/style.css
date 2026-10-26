@@ -5056,3 +5056,5 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 .calendar-details summary:focus-visible { outline: 2px solid #2675db; outline-offset: 4px; }
 #sideCalendarSummary .calendar-average { font-size: 12px; margin-top: 10px; }
 #sideCalendarSummary progress { height: 5px; }
+
+.toast[data-tone="error"] { background: #fff1f0; color: #a32020; border-color: #edb4b4; }

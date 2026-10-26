@@ -17,6 +17,8 @@ vm.runInContext(source.slice(source.indexOf('async function persistLeaveDeletion
  await assert.rejects(context.persistLeaveDeletion({id:2}),/offline/);
  assert.equal(context.leaves.length,1,'Failed deletion keeps row');
  context.sharedStateLoaded=false;
- await assert.rejects(context.persistLeaveDeletion({id:2}),/Sunucu bağlantısı/);
+ context.writeSharedState=async()=>{};
+ await context.persistLeaveDeletion({id:2});
+ assert.equal(context.leaves.length,0,'Targeted deletion works even after dashboard load failure');
  console.log('PASS: confirmed deletion, local persistence, failure retention and unavailable server');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -1918,7 +1918,7 @@ function acknowledgeSavedState(payload) {
 }
 
 async function persistLeaveDeletion(leave) {
-  if (!sharedStateLoaded) throw new Error("Sunucu bağlantısı hazır değil. İzin silinmedi; bağlantınızı kontrol edip tekrar deneyin.");
+  // This targeted deletion is authorized by the server, independent of dashboard rendering.
   const payload = { deletedRecords: [{ collection: "leaves", key: String(leave.id) }] };
   // Finish earlier queued edits before deleting; report success only after the server responds.
   await writeSharedState(payload);
@@ -1956,7 +1956,7 @@ async function postSharedState(payload) {
 
   if (!response.ok) {
     const errorPayload = await response.json().catch(() => ({}));
-    throw new Error(errorPayload.error || "SQLite kaydı tamamlanamadı");
+    throw new Error(errorPayload.error || (response.status === 401 ? "Oturumunuz sona ermiş. Yeniden giriş yapın." : response.status === 403 ? "Bu işlem için yetkiniz bulunmuyor." : "Sunucu kaydı tamamlayamadı. Lütfen tekrar deneyin."));
   }
 }
 
@@ -2022,17 +2022,26 @@ async function loadSharedState() {
         await saveSharedStateNow();
       }
 
-      renderAudits();
+      renderLoadedSharedState();
       return;
     }
 
     sharedStateLoaded = true;
     await saveSharedStateNow();
     captureCurrentSharedSnapshot();
-    renderAudits();
-  } catch {
+    renderLoadedSharedState();
+  } catch (error) {
     sharedStateLoaded = false;
-    showToast("SQLite bağlantısı kurulamadı; veriler bu tarayıcıda geçici kalabilir.");
+    console.error("Ortak veri yüklenemedi", error);
+    showToast("Sunucu verileri yüklenemedi. Sayfayı yenileyin; sorun sürerse yeniden giriş yapın.", "error");
+  }
+}
+
+function renderLoadedSharedState() {
+  try { renderAudits(); }
+  catch (error) {
+    console.error("Veriler yüklendi ancak ekran çizilemedi", error);
+    showToast("Veriler sunucudan yüklendi ancak ekranın bir bölümü gösterilemedi. Sayfayı yenileyin.", "error");
   }
 }
 
@@ -2281,13 +2290,14 @@ function renderPersonNames(names) {
   return names.length ? names.map(escapeHtml).join("<br>") : "-";
 }
 
-function showToast(message) {
+function showToast(message, tone = "success") {
+  toast.dataset.tone = tone;
   clearTimeout(toastTimer);
   toast.textContent = message;
   toast.hidden = false;
   toastTimer = setTimeout(() => {
     toast.hidden = true;
-  }, 2400);
+  }, tone === "error" ? 7000 : 2400);
 }
 
 function makeSearchText(audit) {
@@ -8484,7 +8494,7 @@ async function handleLeaveAction(event) {
       renderLeaves();
       showToast("İzin kaydı sunucudan silindi.");
     } catch (error) {
-      showToast(error.message || "İzin kaydı silinemedi. Lütfen tekrar deneyin.");
+      showToast(error.message || "İzin kaydı silinemedi. Lütfen tekrar deneyin.", "error");
     } finally {
       actionButton.disabled = false;
       actionButton.textContent = "Sil";
