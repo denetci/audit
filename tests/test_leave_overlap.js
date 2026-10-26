@@ -1,0 +1,17 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const source=fs.readFileSync('static/script.js','utf8'),ctx={};vm.createContext(ctx);
+vm.runInContext(source.slice(source.indexOf('function findLeaveConflict('),source.indexOf('function validateLeaveOverlap(')),ctx);
+const old={id:1,person:'Şahin KARAKAŞ',start:'2026-10-20',end:'2026-10-28',status:'Onaylandı'};
+const check=(start,end,extra={})=>ctx.findLeaveConflict({id:2,person:'Şahin KARAKAŞ',start,end,...extra},[old]);
+assert.ok(check('2026-10-21','2026-10-23'));
+assert.ok(check('2026-10-19','2026-10-21'));
+assert.ok(check('2026-10-27','2026-10-30'));
+assert.ok(check('2026-10-19','2026-10-30'));
+assert.ok(check(old.start,old.end));
+assert.equal(check('2026-10-28','2026-10-30'),null);
+assert.equal(check('2026-10-18','2026-10-20'),null);
+assert.equal(check(old.start,old.end,{id:1}),null);
+assert.equal(check(old.start,old.end,{person:'Başka kişi'}),null);
+assert.equal(check(old.start,old.end,{status:'İptal Edildi'}),null);
+old.status='İptal Edildi';assert.equal(check(old.start,old.end),null);
+console.log('PASS: contained, partial, enclosing, identical, adjacent, edited and cancelled leaves');

@@ -7015,12 +7015,39 @@ function openLeaveModal(leave = null) {
     leaveForm.elements.end.value = new Date().toISOString().slice(0, 10);
   }
 
+  validateLeaveOverlap();
   leaveModal.showModal();
 }
 
 function closeLeaveDialog() {
   editingLeaveId = null;
   leaveModal.close();
+}
+
+function findLeaveConflict(candidate, records) {
+  const person = value => String(value || "").trim().replace(/\s+/g, " ").toLocaleLowerCase("tr-TR");
+  if (!candidate.person || !candidate.start || !candidate.end || candidate.end <= candidate.start || candidate.status === "İptal Edildi") return null;
+  return records.find(record =>
+    String(record.id) !== String(candidate.id) && record.status !== "İptal Edildi" &&
+    person(record.person) === person(candidate.person) && record.start && record.end &&
+    candidate.start < record.end && candidate.end > record.start
+  ) || null;
+}
+
+function validateLeaveOverlap() {
+  const fields = leaveForm.elements;
+  const conflict = findLeaveConflict({id: editingLeaveId, person: fields.person.value,
+    start: fields.start.value, end: fields.end.value, status: fields.status.value}, leaves);
+  const warning = document.querySelector("#leaveOverlapWarning");
+  const message = conflict
+    ? `${conflict.person} için ${formatDate(conflict.start)} başlangıçlı, ${formatDate(conflict.end)} işe dönüş tarihli ${conflict.type} kaydı var. Seçilen tarihler bu izinle çakışıyor. Tarihleri değiştirmeden kaydedemezsiniz.` : "";
+  warning.textContent = message;
+  warning.hidden = !conflict;
+  fields.start.setCustomValidity(message);
+  const save = document.querySelector("#saveLeaveBtn");
+  if (conflict) { save.disabled = true; save.dataset.overlapBlocked = "true"; }
+  else if (save.dataset.overlapBlocked) { save.disabled = false; delete save.dataset.overlapBlocked; }
+  return !conflict;
 }
 
 function updateLeaveReturnDateFromDuration() {
@@ -7917,6 +7944,7 @@ approvalForm.elements.year.addEventListener("change", (event) => {
   });
   leaveForm.elements.start.addEventListener(eventName, updateLeaveReturnDateFromDuration);
   leaveForm.elements.days.addEventListener(eventName, updateLeaveReturnDateFromDuration);
+  leaveForm.addEventListener(eventName, validateLeaveOverlap);
 });
 
 leaveRightForm.elements.person.addEventListener("change", () => {
@@ -8690,6 +8718,7 @@ approvalForm.addEventListener("submit", (event) => {
 
 leaveForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  if (!validateLeaveOverlap()) return;
 
   const formData = new FormData(leaveForm);
   const start = String(formData.get("start"));
