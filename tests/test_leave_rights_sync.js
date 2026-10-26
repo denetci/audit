@@ -1,0 +1,16 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const source=fs.readFileSync('static/script.js','utf8');
+const people=[{name:'Mevcut Personel',title:'Denetçi',unit:'Başkanlık',group:'Denetçi'},{name:'Yeni Personel',title:'Denetçi',unit:'Başkanlık',group:'Denetçi'}];
+const context={getLeavePersonnel:()=>people,normalizeText:v=>String(v).trim().toLocaleLowerCase('tr-TR'),getPersonnelUnit:p=>p.unit};
+vm.createContext(context);
+const start=source.indexOf('function syncLeaveRightsWithPersonnel(');
+vm.runInContext(source.slice(start,source.indexOf('\nfunction ',start+10)),context);
+const rights=[{id:7,year:'2026',person:'Mevcut Personel',entitled:20,carried:3,note:'Korunacak'}];
+const result=context.syncLeaveRightsWithPersonnel(rights);
+assert.equal(result.length,2);
+assert.equal(result.find(r=>r.id===7).note,'Korunacak');
+const added=result.find(r=>r.person==='Yeni Personel');
+assert.equal(added.id,8);assert.equal(added.entitled,0);assert.equal(added.note,'');
+assert.equal(context.syncLeaveRightsWithPersonnel(result).length,2);
+assert.equal(context.syncLeaveRightsWithPersonnel([]).length,2);
+console.log('PASS: new personnel rights, existing balances preserved, empty initial state and repeated sync');

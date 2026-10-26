@@ -2501,7 +2501,7 @@ function syncLeaveRightsWithPersonnel(existingRights = leaveRights) {
         group: person.group,
         entitled: 0,
         carried: 0,
-        note: buildMembershipNote("", carriedDebt),
+        note: "",
       });
     });
   });
