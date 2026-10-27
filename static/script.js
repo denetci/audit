@@ -4689,6 +4689,38 @@ function downloadOvertimeDetailCsv() {
   URL.revokeObjectURL(link.href);
 }
 
+function buildOvertimeTimesheetRows(records, year, month) {
+  const days = overtimeDaysInMonth(year, month);
+  return records.filter(record => String(record.year) === String(year) && Number(record.month) === Number(month))
+    .map(record => {
+      const hours = Array.from({length: days}, (_, index) => Math.max(0, numberValue(record.overtimeDetail?.entries?.[String(index + 1)]?.total)));
+      const total = hours.reduce((sum, value) => sum + value, 0);
+      const offDays = overtimeDetailOffDayCounts(record, year, month);
+      return {name: record.name, hours, total, ...offDays};
+    }).filter(row => row.total > 0).sort((a,b) => a.name.localeCompare(b.name, "tr"));
+}
+
+function printOvertimeTimesheet() {
+  const {year, month} = parseOvertimeDetailPeriod(overtimeDetailPeriod.value);
+  const rows = buildOvertimeTimesheetRows(overtimeRecords, year, month);
+  if (!rows.length) return showToast("Seçili ayda kaydedilmiş günlük fazla mesai saati bulunmuyor.", "error");
+  const days = overtimeDaysInMonth(year, month);
+  const report = window.open("", "_blank");
+  if (!report) return showToast("Yazdırma penceresi açılamadı.", "error");
+  const pages = [];
+  for (let offset = 0; offset < rows.length; offset += 12) {
+    pages.push(`<section class="sheet"><h1>T.C.<br>TARIM VE ORMAN BAKANLIĞI</h1>
+      <h2>1–${days} ${escapeHtml(overtimeMonthName(month))} ${escapeHtml(year)} TARİHLERİ ARASINDAKİ<br>DAİMİ İŞÇİ FAZLA MESAİ PUANTAJ ÇİZELGESİ</h2>
+      <table><thead><tr><th class="no">Sıra<br>No</th><th class="name">Adı ve Soyadı</th>${Array.from({length: days},(_,i)=>`<th>${i+1}</th>`).join("")}<th class="sum">Pazar</th><th class="sum">Bayram</th><th class="sum">Toplam<br>Saat</th></tr></thead>
+      <tbody>${rows.slice(offset,offset+12).map((row,index)=>`<tr><td>${offset+index+1}</td><td class="name">${escapeHtml(row.name)}</td>${row.hours.map(value=>`<td>${value ? escapeHtml(formatNumber(value)) : ""}</td>`).join("")}<td>${row.sundays || ""}</td><td>${row.holidays || ""}</td><td><b>${escapeHtml(formatNumber(row.total))}</b></td></tr>`).join("")}</tbody></table>
+      <footer><div>Düzenleyen<br>… / … / ${escapeHtml(year)}<br>Nilüfer ALA<br><span>İmza</span></div><div>Onaylayan<br>… / … / ${escapeHtml(year)}<br>Erdal ÖZYÖN<br><span>İmza</span></div></footer></section>`);
+  }
+  report.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>Fazla Mesai Puantaj Çizelgesi</title><style>
+    @page {size:A4 landscape;margin:10mm} *{box-sizing:border-box} body{margin:0;color:#000;font-family:Arial,sans-serif} .sheet{min-height:185mm;border:1px solid #000;padding:5mm;break-after:page;position:relative} .sheet:last-child{break-after:auto} h1,h2{text-align:center;font-size:11px;line-height:1.5;margin:0 0 3mm} h2{font-size:10px} table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8px} th,td{border:1px solid #000;text-align:center;padding:4px 1px;overflow-wrap:anywhere} .no{width:7mm}.name{width:34mm;text-align:left}.sum{width:10mm;font-size:7px} footer{display:flex;justify-content:space-between;margin:14mm 18mm 0;font-size:11px;line-height:1.5} footer span{display:block;margin-top:6mm} @media screen{body{padding:20px;background:#eee}.sheet{max-width:1120px;margin:0 auto 20px;background:white}}
+    </style></head><body>${pages.join("")}<script>window.onload=()=>window.print();<\/script></body></html>`);
+  report.document.close();
+}
+
 function printOvertimeDetailReportWindow() {
   const data = overtimeDetailRowsForExport();
   if (!data) return showToast("Fazla mesai çıktısı için işçi seçip bilgileri kaydetmelisin.");
@@ -9128,6 +9160,7 @@ downloadOvertimeExcel?.addEventListener("click", downloadOvertimeCsv);
 printOvertimeReport?.addEventListener("click", printOvertimeReportWindow);
 downloadOvertimeDetailExcel?.addEventListener("click", downloadOvertimeDetailCsv);
 printOvertimeDetailReport?.addEventListener("click", printOvertimeDetailReportWindow);
+document.querySelector("#printOvertimeTimesheet")?.addEventListener("click", printOvertimeTimesheet);
 clearOvertimeDetailEntries?.addEventListener("click", clearAllOvertimeDetailEntries);
 overtimeReportExcel?.addEventListener("click", () => runSelectedOvertimeReport("excel"));
 overtimeReportPdf?.addEventListener("click", () => runSelectedOvertimeReport("pdf"));
