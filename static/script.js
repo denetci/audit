@@ -4482,8 +4482,9 @@ function normalizeOvertimeClock(value) {
   if (!raw) return "";
   const match = raw.match(/^(\d{1,2})(?::?(\d{2}))?$/);
   if (!match) return raw;
-  const hour = Math.min(Number(match[1]), 23);
-  const minute = Math.min(Number(match[2] || 0), 59);
+  const hour = Number(match[1]);
+  const minute = Number(match[2] || 0);
+  if (hour > 23 || minute > 59) return raw;
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
@@ -4518,12 +4519,11 @@ function calculateOvertimeDetailRow(row, normalize = false) {
   const endInput = row.querySelector('[data-overtime-detail-field="end"]');
   const totalInput = row.querySelector('[data-overtime-detail-field="total"]');
   if (!startInput || !endInput || !totalInput) return;
-  if (normalize) {
-    startInput.value = normalizeOvertimeClock(startInput.value);
-    endInput.value = normalizeOvertimeClock(endInput.value);
-  }
-  const total = overtimeHoursBetween(startInput.value, endInput.value);
-  if (total) totalInput.value = formatNumber(total);
+  if (normalize) startInput.value = normalizeOvertimeClock(startInput.value);
+  const minutes = overtimeClockToMinutes(startInput.value);
+  const total = numberValue(totalInput.value);
+  endInput.value = minutes !== null && total > 0
+    ? overtimeClockFromMinutes(minutes + Math.round(total * 60)) : "";
   updateOvertimeDetailVisibleTotal();
 }
 
@@ -4575,8 +4575,8 @@ function renderOvertimeDetail() {
     const entry = completeOvertimeEntryTimes(record?.overtimeDetail?.entries?.[day] || {});
     return `<tr data-overtime-detail-day="${day}">
       <td>${overtimeDetailDateLabel(date)}</td>
-      <td><input list="overtimeHourOptions" data-overtime-detail-field="start" value="${escapeHtml(entry.start || "")}" placeholder="18:00"${disabled} /></td>
-      <td><input list="overtimeHourOptions" data-overtime-detail-field="end" value="${escapeHtml(entry.end || "")}" placeholder="20:00"${disabled} /></td>
+      <td><input type="text" inputmode="text" aria-label="Başlama saati" data-overtime-detail-field="start" value="${escapeHtml(entry.start || "")}" placeholder="18:00"${disabled} /></td>
+      <td><input readonly aria-label="Otomatik hesaplanan bitiş saati" data-overtime-detail-field="end" value="${escapeHtml(entry.end || "")}" placeholder="20:00"${disabled} /></td>
       <td><input data-overtime-detail-field="total" inputmode="decimal" value="${escapeHtml(entry.total ? formatNumber(entry.total) : "")}" placeholder="2"${disabled} /></td>
       <td></td><td></td><td></td>
       <td><button class="btn ghost danger small" data-overtime-detail-action="clear-day" type="button"${disabled}>Temizle</button></td>
@@ -9140,13 +9140,13 @@ overtimeDetailRows?.addEventListener("click", (event) => {
 overtimeDetailRows?.addEventListener("input", (event) => {
   const input = event.target.closest("[data-overtime-detail-field]");
   if (!input) return;
-  if (["start", "end"].includes(input.dataset.overtimeDetailField)) calculateOvertimeDetailRow(input.closest("[data-overtime-detail-day]"));
+  if (["start", "total"].includes(input.dataset.overtimeDetailField)) calculateOvertimeDetailRow(input.closest("[data-overtime-detail-day]"));
   if (input.dataset.overtimeDetailField === "total") updateOvertimeDetailVisibleTotal();
 });
 overtimeDetailRows?.addEventListener("change", (event) => {
   const input = event.target.closest("[data-overtime-detail-field]");
   if (!input) return;
-  if (["start", "end"].includes(input.dataset.overtimeDetailField)) calculateOvertimeDetailRow(input.closest("[data-overtime-detail-day]"), true);
+  if (["start", "total"].includes(input.dataset.overtimeDetailField)) calculateOvertimeDetailRow(input.closest("[data-overtime-detail-day]"), true);
 });
 [overtimeDetailWorker, overtimeDetailPeriod].forEach((control) => {
   control?.addEventListener("change", renderOvertimeDetail);

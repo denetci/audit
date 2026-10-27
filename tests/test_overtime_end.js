@@ -1,0 +1,13 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const source=fs.readFileSync('static/script.js','utf8');
+const ctx={numberValue:v=>Number(String(v).replace(',','.'))||0,formatNumber:String,overtimeDetailTotal:null};
+vm.createContext(ctx);
+vm.runInContext(source.slice(source.indexOf('function overtimeClockFromMinutes('),source.indexOf('function syncOvertimeDetailFromMainFilters(')),ctx);
+const fields={start:{value:'14:45'},end:{value:'20:00'},total:{value:'3'}};
+const row={querySelector:s=>fields[s.match(/="(.*?)"/)[1]]};
+ctx.calculateOvertimeDetailRow(row,true);assert.equal(fields.end.value,'17:45');assert.equal(fields.total.value,'3');
+fields.total.value='1,5';ctx.calculateOvertimeDetailRow(row);assert.equal(fields.end.value,'16:15');
+fields.start.value='23:45';fields.total.value='3';ctx.calculateOvertimeDetailRow(row);assert.equal(fields.end.value,'02:45');
+fields.total.value='';ctx.calculateOvertimeDetailRow(row);assert.equal(fields.end.value,'');
+fields.start.value='99:00';fields.total.value='3';ctx.calculateOvertimeDetailRow(row);assert.equal(fields.end.value,'');
+console.log('PASS: manual start, duration, fractional hours, midnight, empty and invalid input');
