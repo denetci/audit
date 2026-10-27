@@ -4689,9 +4689,10 @@ function downloadOvertimeDetailCsv() {
   URL.revokeObjectURL(link.href);
 }
 
-function buildOvertimeTimesheetRows(records, year, month) {
+function buildOvertimeTimesheetRows(records, year, month, person = "") {
   const days = overtimeDaysInMonth(year, month);
   return records.filter(record => String(record.year) === String(year) && Number(record.month) === Number(month))
+    .filter(record => person && String(record.name).trim().toLocaleLowerCase("tr-TR") === String(person).trim().toLocaleLowerCase("tr-TR"))
     .map(record => {
       const hours = Array.from({length: days}, (_, index) => Math.max(0, numberValue(record.overtimeDetail?.entries?.[String(index + 1)]?.total)));
       const total = hours.reduce((sum, value) => sum + value, 0);
@@ -4702,8 +4703,10 @@ function buildOvertimeTimesheetRows(records, year, month) {
 
 function printOvertimeTimesheet() {
   const {year, month} = parseOvertimeDetailPeriod(overtimeDetailPeriod.value);
-  const rows = buildOvertimeTimesheetRows(overtimeRecords, year, month);
-  if (!rows.length) return showToast("Seçili ayda kaydedilmiş günlük fazla mesai saati bulunmuyor.", "error");
+  const person = overtimeDetailWorker?.value || "";
+  if (!person) return showToast("Çizelgeyi yazdırmak için işçi seçmelisin.", "error");
+  const rows = buildOvertimeTimesheetRows(overtimeRecords, year, month, person);
+  if (!rows.length) return showToast("Seçili işçi için bu ayda kaydedilmiş günlük fazla mesai saati bulunmuyor.", "error");
   const days = overtimeDaysInMonth(year, month);
   const report = window.open("", "_blank");
   if (!report) return showToast("Yazdırma penceresi açılamadı.", "error");
