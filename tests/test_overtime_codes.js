@@ -1,0 +1,12 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const s=fs.readFileSync('static/script.js','utf8');
+const ctx={overtimeDetailTotalHours:()=>0,numberValue:Number};vm.createContext(ctx);
+vm.runInContext(s.slice(s.indexOf('const overtimeCodes = ['),s.indexOf('const membershipMonths =')),ctx);
+const codes=vm.runInContext('overtimeCodes.map(item=>item[0])',ctx);
+assert.deepEqual(Array.from(codes),['','X','İ','R','P','CT','RT','B','İİ','Mİ','Üİ','Dİ','Öİ','H','Sİ','FMİ']);
+vm.runInContext(s.slice(s.indexOf('function overtimeTotals('),s.indexOf('function overtimeRecordsForPeriod(')),ctx);
+const totals=ctx.overtimeTotals({days:{1:'İ',2:'Yİ',3:'RT',4:'T',5:'B',6:'Üİ',7:'FMİ'},overtimeHours:0});
+assert.equal(totals.annual,2);assert.equal(totals.holiday,3);assert.equal(totals.otherLeave,2);
+assert.equal(ctx.displayedOvertimeCode('Yİ'),'İ');assert.equal(ctx.displayedOvertimeCode('T'),'RT');
+assert.ok(s.includes('const legend = overtimeCodes.filter'));
+console.log('PASS: 15 codes, shared print legend, legacy labels and leave/holiday totals');

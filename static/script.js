@@ -698,8 +698,18 @@ const defaultOvertimeWorkers = [
   { id: 9, name: "İlhan ÜNAL", identityNo: "14263158224", title: "İşçi", unit: "Destek Hizmetleri Dairesi Başkanlığı", active: true },
 ];
 const overtimeCodes = [
-  ["", "Boş"], ["X", "Çalıştı"], ["P", "Pazar/Hafta Tatili"], ["CT", "Cumartesi Tatili"], ["T", "Resmi Tatil"], ["R", "Rapor"], ["Yİ", "Yıllık İzin"], ["Mİ", "Mazeret İzni"], ["FÇ", "Fazla Çalışma"]
+  ["", "Boş"], ["X", "Çalıştığı Gün"], ["İ", "Yıllık İzin"],
+  ["R", "Rapor Günü"], ["P", "Pazar"], ["CT", "Cumartesi"],
+  ["RT", "Resmi Tatil"], ["B", "Bayram Tatili"], ["İİ", "İdari İzin"],
+  ["Mİ", "Mazeret İzni"], ["Üİ", "Ücretsiz İzin"], ["Dİ", "Doğum İzni"],
+  ["Öİ", "Ölüm İzni"], ["H", "Hastane Günü"], ["Sİ", "Sendikal İzin"],
+  ["FMİ", "Fazla Mesai İzin Günü"]
 ];
+
+function displayedOvertimeCode(code) {
+  return ({"Yİ": "İ", "T": "RT"})[code] || code || "";
+}
+
 
 const membershipMonths = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 const MEMBERSHIP_TEMPLATE_VERSION = "2026-09-18-membership-template-v2";
@@ -4410,7 +4420,7 @@ function overtimeDetailOffDayCounts(record, year, month) {
     const date = new Date(Number(year), Number(month) - 1, Number(day));
     const normalCode = record?.days?.[String(day)] || "";
     if (date.getDay() === 0) sum.sundays += 1;
-    if (normalCode === "T") sum.holidays += 1;
+    if (["T", "RT", "B"].includes(normalCode)) sum.holidays += 1;
     return sum;
   }, { sundays: 0, holidays: 0 });
 }
@@ -4957,7 +4967,7 @@ function renderOvertime() {
       const weekendClass = weekDay === 0 || weekDay === 6 ? " weekend" : "";
       return `<label class="overtime-day-card${weekendClass}">
         <span><strong>${day}</strong><small>${overtimeShortDayName(item.year, item.month, item.day)}</small><em>${String(item.month).padStart(2, "0")}</em></span>
-        <button type="button" class="day-code-select code-${escapeHtml(value || "empty")}" title="${overtimePeriodDisplay(item)} - Gün durumunu seç" aria-label="${overtimePeriodDisplay(item)} gün durumunu seç" data-overtime-day="${key}" data-id="${record.id}" value="${escapeHtml(value)}"${disabled}>${escapeHtml(value || "-")} ▾</button>
+        <button type="button" class="day-code-select code-${escapeHtml(value || "empty")}" title="${overtimePeriodDisplay(item)} - Gün durumunu seç" aria-label="${overtimePeriodDisplay(item)} gün durumunu seç" data-overtime-day="${key}" data-id="${record.id}" value="${escapeHtml(value)}"${disabled}>${escapeHtml(displayedOvertimeCode(value) || "-")} ▾</button>
       </label>`;
     }).join("");
     return `<article class="overtime-worker-card" data-overtime-id="${record.id}">
@@ -5043,7 +5053,7 @@ function printOvertimeReportWindow() {
   const countCodes = (record, codes) => periodDays.reduce((sum, item) => sum + (codes.includes(codeAt(record, item)) ? 1 : 0), 0);
   const tableForGroup = (groupRecords, unitName) => {
     const bodyRows = groupRecords.map((record, index) => {
-      const cells = periodDays.map((item) => `<td>${escapeHtml(codeAt(record, item))}</td>`).join("");
+      const cells = periodDays.map((item) => `<td>${escapeHtml(displayedOvertimeCode(codeAt(record, item)))}</td>`).join("");
       const çalışmaGünü = countCodes(record, ["X", "FÇ"]);
       const tatilGünü = countCodes(record, ["P", "CT", "T", "RT", "B"]);
       const ücretsizİzin = countCodes(record, ["Üİ"]);
@@ -5062,9 +5072,7 @@ function printOvertimeReportWindow() {
     map.get(unit).push(record);
     return map;
   }, new Map());
-  const legend = [
-    ["X", "Çalıştığı Gün"], ["İ", "Yıllık İzin"], ["R", "Rapor Günü"], ["P", "Pazar"], ["CT", "Cumartesi"], ["RT", "Resmi Tatil"], ["B", "Bayram Tatili"], ["İİ", "İdari İzin"],
-  ].map(([code, label]) => `<div><b>${escapeHtml(code)}</b><span>:</span>${escapeHtml(label)}</div>`).join("");
+  const legend = overtimeCodes.filter(([code]) => code).map(([code, label]) => `<div><b>${escapeHtml(code)}</b><span>:</span>${escapeHtml(label)}</div>`).join("");
   const reportWindow = window.open("", "_blank");
   if (!reportWindow) return;
   const groupedHtml = [...groupedRecords.entries()].map(([unit, items]) => tableForGroup(items, unit)).join("");
@@ -9218,7 +9226,7 @@ overtimeRows?.addEventListener("click", (event) => {
     button.type = "button";
     button.className = "btn secondary";
     button.textContent = `${code || "-"} · ${label}`;
-    button.setAttribute("aria-pressed", String(field.value === code));
+    button.setAttribute("aria-pressed", String(displayedOvertimeCode(field.value) === code));
     button.addEventListener("click", () => {
       field.value = code;
       dialog.close();

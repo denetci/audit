@@ -5064,3 +5064,7 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 .overtime-code-options { display: grid; gap: 8px; max-height: 55vh; overflow-y: auto; margin-bottom: 16px; padding: 3px; }
 .overtime-code-options button { text-align: left; white-space: normal; min-height: 42px; }
 .overtime-code-options button[aria-pressed="true"] { background: #e4efff; border-color: #1558b0; }
+
+.overtime-code-options { height: min(360px, 50vh); max-height: 50vh; overflow-y: scroll; overscroll-behavior: contain; touch-action: pan-y; scrollbar-gutter: stable; }
+.day-code-select.code-RT, .day-code-select.code-B { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
+.day-code-select.code-İ { background: #fff1f2; color: #9f1239; }
