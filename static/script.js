@@ -4957,7 +4957,7 @@ function renderOvertime() {
       const weekendClass = weekDay === 0 || weekDay === 6 ? " weekend" : "";
       return `<label class="overtime-day-card${weekendClass}">
         <span><strong>${day}</strong><small>${overtimeShortDayName(item.year, item.month, item.day)}</small><em>${String(item.month).padStart(2, "0")}</em></span>
-        <select class="day-code-select code-${escapeHtml(value || "empty")}" title="${overtimePeriodDisplay(item)} - ${overtimeShortDayName(item.year, item.month, item.day)}" data-overtime-day="${key}" data-id="${record.id}"${disabled}>${overtimeCodes.map(([code, label]) => `<option value="${escapeHtml(code)}" ${value === code ? "selected" : ""}>${escapeHtml(code || "-")}</option>`).join("")}</select>
+        <button type="button" class="day-code-select code-${escapeHtml(value || "empty")}" title="${overtimePeriodDisplay(item)} - Gün durumunu seç" aria-label="${overtimePeriodDisplay(item)} gün durumunu seç" data-overtime-day="${key}" data-id="${record.id}" value="${escapeHtml(value)}"${disabled}>${escapeHtml(value || "-")} ▾</button>
       </label>`;
     }).join("");
     return `<article class="overtime-worker-card" data-overtime-id="${record.id}">
@@ -5063,7 +5063,7 @@ function printOvertimeReportWindow() {
     return map;
   }, new Map());
   const legend = [
-    ["X", "Çalıştığı Gün"], ["İ", "Yıllık İzin"], ["R", "Rapor Günü"], ["P", "Pazar"], ["CT", "Cumartesi"], ["RT", "Resmi Tatil"], ["B", "Bayram Tatili"], ["İİ", "İdari İzin"], ["Mİ", "Mazeret İzni"], ["Üİ", "Ücretsiz İzin"], ["Dİ", "Doğum İzni"], ["Öİ", "Ölüm İzni"], ["H", "Hastane Günü"], ["Sİ", "Sendikal İzin"], ["FMİ", "Fazla Mesai İzin Günü"],
+    ["X", "Çalıştığı Gün"], ["İ", "Yıllık İzin"], ["R", "Rapor Günü"], ["P", "Pazar"], ["CT", "Cumartesi"], ["RT", "Resmi Tatil"], ["B", "Bayram Tatili"], ["İİ", "İdari İzin"],
   ].map(([code, label]) => `<div><b>${escapeHtml(code)}</b><span>:</span>${escapeHtml(label)}</div>`).join("");
   const reportWindow = window.open("", "_blank");
   if (!reportWindow) return;
@@ -9200,6 +9200,43 @@ overtimeWorkerRows?.addEventListener("click", (event) => {
   updateOvertimeSelectors();
   renderOvertime();
   renderOvertimeDetail();
+});
+
+overtimeRows?.addEventListener("click", (event) => {
+  const field = event.target.closest("[data-overtime-day]");
+  if (!field || !canEditModule("overtime")) return;
+  const dialog = document.createElement("dialog");
+  dialog.className = "modal overtime-code-dialog";
+  dialog.setAttribute("aria-label", "Gün durumunu seç");
+  const heading = document.createElement("h2");
+  heading.textContent = "Gün durumunu seç";
+  dialog.append(heading);
+  const list = document.createElement("div");
+  list.className = "overtime-code-options";
+  overtimeCodes.forEach(([code, label]) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn secondary";
+    button.textContent = `${code || "-"} · ${label}`;
+    button.setAttribute("aria-pressed", String(field.value === code));
+    button.addEventListener("click", () => {
+      field.value = code;
+      dialog.close();
+      field.dispatchEvent(new Event("change", {bubbles: true}));
+    });
+    list.append(button);
+  });
+  dialog.append(list);
+  const close = document.createElement("button");
+  close.type = "button"; close.className = "btn secondary"; close.textContent = "Vazgeç";
+  close.addEventListener("click", () => dialog.close());
+  dialog.append(close);
+  dialog.addEventListener("close", () => {
+    dialog.remove();
+    overtimeRows.querySelector(`[data-overtime-day="${field.dataset.overtimeDay}"][data-id="${field.dataset.id}"]`)?.focus();
+  }, {once: true});
+  document.body.append(dialog);
+  dialog.showModal();
 });
 
 overtimeRows?.addEventListener("change", (event) => {
